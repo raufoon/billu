@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Panda Print</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#D70F64">
+  <!-- Mozilla PDF.js for client-side PDF rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --fp-pink: #D70F64;
+      --fp-dark: #AD0C50;
+      --green: #10B981;
+      --bg: #F3F4F6;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; padding: 12px; background: var(--bg); color: #111827; max-width: 480px; margin-inline: auto; }
+    
+    /* Foodpanda Return Header Button */
+    .fp-back-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%; padding: 14px 16px; margin-bottom: 14px;
+      background: var(--fp-pink); color: white; text-decoration: none;
+      border-radius: 14px; font-size: 18px; font-weight: 700;
+      box-shadow: 0 4px 12px rgba(215, 15, 100, 0.3);
+      border: none; cursor: pointer;
+    }
+    .fp-back-btn:active { background: var(--fp-dark); transform: scale(0.99); }
+    .fp-logo {
+      width: 34px; height: 34px; background: white; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+
+    /* Main Action Cards */
+    .card {
+      background: white; border-radius: 16px; padding: 16px;
+      margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .status-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 15px; font-weight: 600; margin-bottom: 10px;
+    }
+    .badge {
+      padding: 4px 10px; border-radius: 99px; font-size: 13px;
+      background: #FEE2E2; color: #991B1B;
+    }
+    .badge.connected { background: #D1FAE5; color: #065F46; }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 18px; border-radius: 14px; border: none;
+      font-size: 19px; font-weight: 700; cursor: pointer; margin-bottom: 10px;
+    }
+    .btn-connect { background: #2563EB; color: white; }
+    .btn-upload { background: #F59E0B; color: #111827; }
+    .btn-print { background: var(--green); color: white; font-size: 22px; padding: 20px; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Controls & Preview */
+    .controls { display: flex; flex-direction: column; gap: 8px; font-size: 14px; margin-top: 8px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .preview-box {
+      width: 100%; overflow-x: auto; background: #E5E7EB;
+      border-radius: 10px; padding: 10px; text-align: center; min-height: 120px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    canvas { background: white; max-width: 100%; height: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+    #fileInput { display: none; }
+    #log { font-size: 13px; color: #4B5563; text-align: center; margin-top: 6px; min-height: 18px; }
+  </style>
+</head>
+<body>
+
+  <!-- BACK TO FOODPANDA PARTNER BUTTON -->
+  <button class="fp-back-btn" onclick="openFoodpandaPartner()">
+    <span class="fp-logo">🐼</span>
+    <span>Back to foodpanda partner</span>
+  </button>
+
+  <!-- STEP 1: CONNECT PRINTER -->
+  <div class="card">
+    <div class="status-bar">
+      <span>Printer Status:</span>
+      <span id="bleBadge" class="badge">Disconnected</span>
+    </div>
+    <button id="connectBtn" class="btn btn-connect" onclick="connectPrinter()">
+      🔵 1. Connect Printer (C9 / PD01)
+    </button>
+  </div>
+
+  <!-- STEP 2: PICK PDF OR IMAGE & PRINT -->
+  <div class="card">
+    <input type="file" id="fileInput" accept="application/pdf,image/*" onchange="handleFileSelect(event)">
+    <button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">
+      📄 2. Select Order PDF / Image
+    </button>
+
+    <button id="printBtn" class="btn btn-print" onclick="printCanvas()" disabled>
+      🖨️ 3. PRINT RECEIPT NOW
+    </button>
+    <div id="log">Ready. Pick a PDF or image to preview.</div>
+
+    <div class="controls">
+      <div class="row">
+        <label for="threshold">Darkness / Contrast:</label>
+        <input type="range" id="threshold" min="60" max="220" value="160" oninput="reprocessPreview()">
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="trimMargins" checked onchange="reprocessPreview()"> Auto-trim blank top/bottom</label>
+        <label><input type="checkbox" id="msbOrder"> Flip Bit Order</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECEIPT PREVIEW -->
+  <div class="card">
+    <div style="font-weight:600; margin-bottom:8px; font-size:14px;">384px Thermal Preview:</div>
+    <div class="preview-box">
+      <canvas id="printCanvas" width="384" height="100"></canvas>
+    </div>
+  </div>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const PRINTER_WIDTH = 384;
+  let writeChar = null;
+  let rawSourceCanvas = null; // Stores full-color stitched image before B&W thresholding
+
+  // Launch Foodpanda Partner App (com.deliveryhero.pandaportal)
+  function openFoodpandaPartner() {
+    // Android Chrome Intent URI for official Foodpanda Partner app
+    const intentUrl = "intent://#Intent;package=com.deliveryhero.pandaportal;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=com.deliveryhero.pandaportal") + ";end";
+    window.location.href = intentUrl;
+  }
+
+  function setLog(msg) {
+    document.getElementById('log').innerText = msg;
+  }
+
+  // ========================
+  // 1. WEB BLUETOOTH ENGINE
+  // ========================
+  async function connectPrinter() {
+    try {
+      setLog("Scanning for C9 / PD01 printer...");
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          '0000ae30-0000-1000-8000-00805f9b34fb',
+          '0000af30-0000-1000-8000-00805f9b34fb',
+          '0000ff00-0000-1000-8000-00805f9b34fb'
+        ]
+      });
+
+      device.addEventListener('gattserverdisconnected', () => {
+        writeChar = null;
+        const badge = document.getElementById('bleBadge');
+        badge.innerText = "Disconnected";
+        badge.classList.remove('connected');
+        updatePrintButtonState();
+        setLog("Printer disconnected.");
+      });
+
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      for (const service of services) {
+        const chars = await service.getCharacteristics();
+        for (const c of chars) {
+          if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
+            writeChar = c;
+            if (c.uuid.includes('ae01')) break;
+          }
+        }
+        if (writeChar && writeChar.uuid.includes('ae01')) break;
+      }
+
+      if (!writeChar) throw new Error("Could not find printer write characteristic (ae01).");
+
+      const badge = document.getElementById('bleBadge');
+      badge.innerText = "Connected (" + (device.name || "Printer") + ")";
+      badge.classList.add('connected');
+      updatePrintButtonState();
+      setLog("Connected! Ready to print.");
+    } catch (err) {
+      setLog("Connection failed: " + err.message);
+    }
+  }
+
+  function updatePrintButtonState() {
+    document.getElementById('printBtn').disabled = !(writeChar && rawSourceCanvas);
+  }
+
+  // ======================================
+  // 2. PDF & IMAGE RENDERING (384px WIDTH)
+  // ======================================
+  async function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) await loadFileObject(file);
+  }
+
+  async function loadFileObject(file) {
+    setLog("Loading " + file.name + "...");
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+      await renderPdfToSourceCanvas(file);
+    } else {
+      await renderImageToSourceCanvas(file);
+    }
+    reprocessPreview();
+    updatePrintButtonState();
+  }
+
+  async function renderPdfToSourceCanvas(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pageCanvases = [];
+    let totalHeight = 0;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      setLog(`Rendering PDF page ${i} of ${pdf.numPages}...`);
+      const page = await pdf.getPage(i);
+      const unscaledViewport = page.getViewport({ scale: 1 });
+      const scale = PRINTER_WIDTH / unscaledViewport.width;
+      const viewport = page.getViewport({ scale: scale });
+
+      const c = document.createElement('canvas');
+      c.width = PRINTER_WIDTH;
+      c.height = Math.floor(viewport.height);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      pageCanvases.push(c);
+      totalHeight += c.height;
+    }
+
+    rawSourceCanvas = document.createElement('canvas');
+    rawSourceCanvas.width = PRINTER_WIDTH;
+    rawSourceCanvas.height = totalHeight;
+    const finalCtx = rawSourceCanvas.getContext('2d');
+    let yOffset = 0;
+    for (const pc of pageCanvases) {
+      finalCtx.drawImage(pc, 0, yOffset);
+      yOffset += pc.height;
+    }
+  }
+
+  async function renderImageToSourceCanvas(file) {
+    const bitmap = await createImageBitmap(file);
+    const targetHeight = Math.floor(bitmap.height * (PRINTER_WIDTH / bitmap.width));
+    rawSourceCanvas = document.createElement('canvas');
+    rawSourceCanvas.width = PRINTER_WIDTH;
+    rawSourceCanvas.height = targetHeight;
+    const ctx = rawSourceCanvas.getContext('2d');
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, PRINTER_WIDTH, targetHeight);
+    ctx.drawImage(bitmap, 0, 0, PRINTER_WIDTH, targetHeight);
+  }
+
+  function reprocessPreview() {
+    if (!rawSourceCanvas) return;
+    const threshold = parseInt(document.getElementById('threshold').value, 10);
+    const trim = document.getElementById('trimMargins').checked;
+
+    const srcCtx = rawSourceCanvas.getContext('2d');
+    const srcData = srcCtx.getImageData(0, 0, PRINTER_WIDTH, rawSourceCanvas.height);
+    const pixels = srcData.data;
+    const totalRows = rawSourceCanvas.height;
+
+    // 1. Convert to 1-bit monochrome rows
+    let minRow = 0;
+    let maxRow = totalRows - 1;
+
+    if (trim) {
+      // Find first non-white row
+      topLoop: for (let y = 0; y < totalRows; y++) {
+        for (let x = 0; x < PRINTER_WIDTH; x++) {
+          const idx = (y * PRINTER_WIDTH + x) * 4;
+          const lum = (pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114);
+          if (lum < threshold) { minRow = Math.max(0, y - 8); break topLoop; }
+        }
+      }
+      // Find last non-white row
+      bottomLoop: for (let y = totalRows - 1; y >= minRow; y--) {
+        for (let x = 0; x < PRINTER_WIDTH; x++) {
+          const idx = (y * PRINTER_WIDTH + x) * 4;
+          const lum = (pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114);
+          if (lum < threshold) { maxRow = Math.min(totalRows - 1, y + 8); break bottomLoop; }
+        }
+      }
+    }
+
+    const croppedHeight = Math.max(10, maxRow - minRow + 1);
+    const dstCanvas = document.getElementById('printCanvas');
+    dstCanvas.width = PRINTER_WIDTH;
+    dstCanvas.height = croppedHeight;
+    const dstCtx = dstCanvas.getContext('2d');
+    const dstImgData = dstCtx.createImageData(PRINTER_WIDTH, croppedHeight);
+    const dstPixels = dstImgData.data;
+
+    for (let y = 0; y < croppedHeight; y++) {
+      const srcY = minRow + y;
+      for (let x = 0; x < PRINTER_WIDTH; x++) {
+        const srcIdx = (srcY * PRINTER_WIDTH + x) * 4;
+        const dstIdx = (y * PRINTER_WIDTH + x) * 4;
+        const lum = (pixels[srcIdx] * 0.299 + pixels[srcIdx+1] * 0.587 + pixels[srcIdx+2] * 0.114);
+        const val = lum < threshold ? 0 : 255;
+        dstPixels[dstIdx] = val;
+        dstPixels[dstIdx+1] = val;
+        dstPixels[dstIdx+2] = val;
+        dstPixels[dstIdx+3] = 255;
+      }
+    }
+    dstCtx.putImageData(dstImgData, 0, 0);
+    setLog(`Ready to print (${PRINTER_WIDTH}x${croppedHeight} px).`);
+  }
+
+  // ==========================================
+  // 3. CAT PRINTER 0x5178 BLE PROTOCOL DRIVER
+  // ==========================================
+  function crc8(payload) {
+    let crc = 0;
+    for (let b of payload) {
+      crc ^= b;
+      for (let i = 0; i < 8; i++) {
+        crc = (crc & 0x80) ? ((crc << 1) ^ 0x07) & 0xFF : (crc << 1) & 0xFF;
+      }
+    }
+    return crc;
+  }
+
+  function makePacket(cmd, payload) {
+    const len = payload.length;
+    const pkt = new Uint8Array(6 + len + 2);
+    pkt[0] = 0x51;
+    pkt[1] = 0x78;
+    pkt[2] = cmd;
+    pkt[3] = 0x00;
+    pkt[4] = len & 0xFF;
+    pkt[5] = (len >> 8) & 0xFF;
+    pkt.set(payload, 6);
+    pkt[6 + len] = crc8(payload);
+    pkt[6 + len + 1] = 0xFF;
+    return pkt;
+  }
+
+  async function writeBle(pkt) {
+    if (writeChar.properties.writeWithoutResponse) {
+      await writeChar.writeValueWithoutResponse(pkt);
+    } else {
+      await writeChar.writeValue(pkt);
+    }
+  }
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  async function printCanvas() {
+    if (!writeChar) return alert("Please connect the printer first!");
+    const printBtn = document.getElementById('printBtn');
+    printBtn.disabled = true;
+
+    try {
+      const canvas = document.getElementById('printCanvas');
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, PRINTER_WIDTH, canvas.height).data;
+      const msbFirst = document.getElementById('msbOrder').checked;
+
+      setLog("Initializing C9 / PD01 printer...");
+      // 1. Set Quality (0xA4 -> 0x33)
+      await writeBle(makePacket(0xA4, [0x33]));
+      await sleep(30);
+      // 2. Set Energy / Darkness (0xAF -> 0xFFFF max contrast for receipts)
+      await writeBle(makePacket(0xAF, [0xFF, 0xFF]));
+      await sleep(30);
+      // 3. Set Drawing Mode to Bitmap (0xBE -> 0x00)
+      await writeBle(makePacket(0xBE, [0x00]));
+      await sleep(30);
+      // 4. Lattice Start (0xA6)
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
+      await sleep(30);
+
+      // 5. Stream 48-byte bitmap rows (0xA2)
+      const totalRows = canvas.height;
+      for (let y = 0; y < totalRows; y++) {
+        const rowBytes = new Uint8Array(48);
+        for (let byteIdx = 0; byteIdx < 48; byteIdx++) {
+          let b = 0;
+          for (let bit = 0; bit < 8; bit++) {
+            const x = byteIdx * 8 + bit;
+            const pixelIdx = (y * PRINTER_WIDTH + x) * 4;
+            const isBlack = imgData[pixelIdx] === 0;
+            if (isBlack) {
+              b |= msbFirst ? (1 << (7 - bit)) : (1 << bit);
+            }
+          }
+          rowBytes[byteIdx] = b;
+        }
+        await writeBle(makePacket(0xA2, rowBytes));
+        // Short pacing delay every 4 lines so the C9 BLE buffer never overflows
+        if (y % 4 === 0) await sleep(12);
+        if (y % 40 === 0) setLog(`Printing: ${Math.round((y / totalRows) * 100)}%`);
+      }
+
+      // 6. Feed Paper 80 steps so receipt tears cleanly (0xA1)
+      await writeBle(makePacket(0xA1, [0x50, 0x00]));
+      await sleep(50);
+      // 7. Lattice End (0xA6)
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
+
+      setLog("✅ Receipt printed! Tap top button to return to Foodpanda.");
+    } catch (err) {
+      setLog("Print error: " + err.message);
+    } finally {
+      printBtn.disabled = false;
+    }
+  }
+
+  // Register Service Worker & Check for Shared PDF/Image from Android Share Sheet
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      await navigator.serviceWorker.register('sw.js');
+      if (location.search.includes('shared=1')) {
+        const cache = await caches.open('shared-files');
+        const resp = await cache.match('/shared-file');
+        if (resp) {
+          const blob = await resp.blob();
+          const filename = resp.headers.get('X-File-Name') || 'receipt.pdf';
+          const file = new File([blob], filename, { type: blob.type });
+          await cache.delete('/shared-file');
+          await loadFileObject(file);
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
