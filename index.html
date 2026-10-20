@@ -70,7 +70,7 @@
     }
     .fab:active { transform: scale(0.95); }
 
-    /* Floating Return to App Button (Top-Left, only if enabled) */
+    /* Floating Return to App Button (Top-Left) */
     #returnAppBtn {
       top: 66px; left: 14px; padding: 10px 14px;
       background: var(--fp-pink); color: #FFFFFF; font-size: 14px;
@@ -92,13 +92,6 @@
       bottom: 98px; right: 14px; padding: 10px 14px;
       background: var(--surface); color: #FFFFFF; font-size: 13px;
       border: 1px solid #4B5563;
-    }
-
-    /* Floating Folder Permission Prompt (Shown if Android needs 1 tap to unlock folder) */
-    #folderPermBtn {
-      top: 50%; left: 50%; transform: translate(-50%, -50%);
-      padding: 16px 22px; background: var(--blue); color: #FFFFFF;
-      font-size: 16px; border-radius: 14px; display: none; z-index: 32;
     }
 
     /* 4. FLOATING CARETAKER OPTIONS MENU */
@@ -138,7 +131,6 @@
       background: #374151; color: #F3F4F6; text-align: left;
       justify-content: space-between; font-weight: 600; word-break: break-all;
     }
-    .opt-btn-confirm { background: var(--green); color: #FFFFFF; flex: 1; }
     .opt-btn-warn { background: #EF4444; color: #FFFFFF; }
     .opt-input, .opt-select {
       background: #111827; color: #FFFFFF; border: 1px solid #4B5563;
@@ -163,7 +155,6 @@
     #mainActionBtn.state-print { background: var(--green); }
     #mainActionBtn:disabled { opacity: 0.75; cursor: not-allowed; }
 
-    /* Animated Dots for "Looking for Printer..." */
     .dots::after {
       content: '';
       display: inline-block;
@@ -190,51 +181,35 @@
   <!-- STATUS BANNER -->
   <div id="statusBanner">Ready</div>
 
-  <!-- FLOATING RETURN TO APP BUTTON (Only shown if configured in Options) -->
+  <!-- FLOATING RETURN TO APP BUTTON -->
   <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
     <span class="app-icon" id="returnAppIcon">🐼</span>
     <span id="returnAppLabel">Foodpanda</span>
   </button>
 
   <!-- FLOATING BURGER BUTTON -->
-  <button id="burgerBtn" class="fab" onclick="toggleMenu(true)" aria-label="Options">☰</button>
+  <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
 
   <!-- FLOATING FIT HEIGHT BUTTON -->
   <button id="fitHeightBtn" class="fab" onclick="fitHeight()">⤢ Fit Height</button>
 
-  <!-- ONE-TAP FOLDER ACCESS UNLOCK (If browser requests permission after reboot) -->
-  <button id="folderPermBtn" class="fab" onclick="unlockSavedFolder()">📂 Tap to Load Latest Download</button>
-
   <!-- FLOATING CARETAKER OPTIONS MENU -->
   <div id="optionsOverlay">
     <div class="opt-header">
-      <button class="icon-pill" onclick="closeMenu(true)">← Back</button>
-      <span style="font-weight:700; font-size:15px;">Options</span>
-      <button class="icon-pill" onclick="closeMenu(true)">☰</button>
+      <button class="icon-pill" onclick="closeMenu()">← Back</button>
+      <span style="font-weight:700; font-size:15px;">Caretaker Options</span>
+      <button class="icon-pill" onclick="closeMenu()">☰</button>
     </div>
 
-    <!-- 1. Open Doc / Photo (Up Button) -->
+    <!-- 1. Open Doc / Photo (Up Button - Defaults to Downloads/Recent) -->
     <div class="opt-row">
       <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleManualFile(event)">
       <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
-        ⬆️ Open Doc / Photo
+        📂 Open Doc / Photo (Downloads)
       </button>
     </div>
 
-    <!-- 2. Download Path (Staged with Confirmation, Back undoes change) -->
-    <div class="opt-row">
-      <div style="font-weight:600; color:#9CA3AF;">Auto-Load Folder Path:</div>
-      <button class="opt-btn opt-btn-path" onclick="stageDownloadFolder()">
-        <span id="folderPathDisplay">Not set (Tap to choose)</span>
-        <span>📁</span>
-      </button>
-      <div id="folderConfirmRow" class="opt-row-inline" style="display:none; margin-top:4px;">
-        <span style="font-size:12px; color:#FBBF24;">Confirm new folder? (Back cancels)</span>
-        <button class="opt-btn opt-btn-confirm" style="width:auto; padding:6px 14px;" onclick="confirmDownloadFolder()">✓ Confirm</button>
-      </div>
-    </div>
-
-    <!-- 3. Margin (Single value in mm for Start & End) -->
+    <!-- 2. Margin (Single value in mm for Start & End) -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginMmInput" style="font-weight:600;">Start & End Margin (mm):</label>
@@ -242,7 +217,7 @@
       </div>
     </div>
 
-    <!-- 4. Stamp (Persisted in IndexedDB, prints Before/After within margins) -->
+    <!-- 3. Stamp (Persisted in IndexedDB, prints Before/After within margins) -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
@@ -260,7 +235,7 @@
       </button>
     </div>
 
-    <!-- 5. Change Connected Printer -->
+    <!-- 4. Change Connected Printer -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <span id="savedPrinterLabel" style="color:#9CA3AF; font-size:12px;">Saved: None</span>
@@ -270,7 +245,7 @@
       </button>
     </div>
 
-    <!-- 6. Return App Button Option -->
+    <!-- 5. Return App Button Option -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="returnAppSelect" style="font-weight:600;">Return Button:</label>
@@ -306,28 +281,21 @@
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   const PRINTER_WIDTH = 384;
-  const PX_PER_MM = 8; // 203 DPI thermal head: 384px / 48mm = 8px/mm
+  const PX_PER_MM = 8;
   const BLE_SERVICES = [
     '0000ae30-0000-1000-8000-00805f9b34fb',
     '0000af30-0000-1000-8000-00805f9b34fb',
     '0000ff00-0000-1000-8000-00805f9b34fb'
   ];
 
-  // App State
   let writeChar = null;
   let activeBleDevice = null;
   let isPrinting = false;
   let reconnectTimer = null;
 
-  // Canvases (Full color 384px wide sources before thresholding)
   let docSourceCanvas = null;
   let stampSourceCanvas = null;
 
-  // Directory Handles (Committed vs Staged in Options)
-  let committedDirHandle = null;
-  let stagedDirHandle = null;
-
-  // Pan & Pinch-Zoom State
   let viewScale = 1;
   let viewPanX = 0;
   let viewPanY = 0;
@@ -339,15 +307,10 @@
     document.getElementById('statusBanner').innerText = msg;
   }
 
-  // ==========================================
-  // 1. INDEXEDDB PERSISTENCE (Folder & Stamp)
-  // ==========================================
   function openDB() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open('CatPrinterDB', 1);
-      req.onupgradeneeded = (e) => {
-        e.target.result.createObjectStore('kv');
-      };
+      req.onupgradeneeded = (e) => e.target.result.createObjectStore('kv');
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
@@ -373,9 +336,6 @@
     });
   }
 
-  // ==========================================
-  // 2. VIEWPORT PAN, PINCH-ZOOM & FIT-HEIGHT
-  // ==========================================
   const viewportEl = document.getElementById('viewport');
   const transformEl = document.getElementById('canvasTransform');
   const printCanvasEl = document.getElementById('printCanvas');
@@ -396,13 +356,8 @@
     applyTransform();
   }
 
-  function getDistance(p1, p2) {
-    return Math.hypot(p2.x - p1.x, p2.y - p1.y);
-  }
-
-  function getCenter(p1, p2) {
-    return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-  }
+  function getDistance(p1, p2) { return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
+  function getCenter(p1, p2) { return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; }
 
   viewportEl.addEventListener('pointerdown', (e) => {
     viewportEl.setPointerCapture(e.pointerId);
@@ -421,12 +376,10 @@
     activeTouches.set(e.pointerId, curr);
 
     if (activeTouches.size === 1) {
-      // 1-Finger Pan
       viewPanX += curr.x - prev.x;
       viewPanY += curr.y - prev.y;
       applyTransform();
     } else if (activeTouches.size === 2) {
-      // 2-Finger Pinch-Zoom + Pan
       const pts = Array.from(activeTouches.values());
       const dist = getDistance(pts[0], pts[1]);
       const center = getCenter(pts[0], pts[1]);
@@ -450,26 +403,18 @@
 
   function onPointerUpOrCancel(e) {
     activeTouches.delete(e.pointerId);
-    if (activeTouches.size < 2) {
-      lastPinchDist = null;
-      lastPinchCenter = null;
-    }
+    if (activeTouches.size < 2) { lastPinchDist = null; lastPinchCenter = null; }
   }
   viewportEl.addEventListener('pointerup', onPointerUpOrCancel);
   viewportEl.addEventListener('pointercancel', onPointerUpOrCancel);
   window.addEventListener('resize', fitHeight);
 
-  // ==========================================
-  // 3. BLUETOOTH PERSISTENCE & AUTO-RECONNECT
-  // ==========================================
-  function getSavedPrinterId() {
-    return localStorage.getItem('cat_printer_id');
-  }
+  function getSavedPrinterId() { return localStorage.getItem('cat_printer_id'); }
 
   function updateMainButtonUI() {
     const btn = document.getElementById('mainActionBtn');
     const savedId = getSavedPrinterId();
-    const savedName = localStorage.getItem('cat_printer_name') || 'None';
+    const savedName = localStorage.getItem('cat_printer_name') || 'Billu';
     document.getElementById('savedPrinterLabel').innerText = `Saved: ${savedId ? savedName : 'None'}`;
 
     if (isPrinting) return;
@@ -496,8 +441,7 @@
     } else if (writeChar) {
       await printCanvas();
     } else {
-      // Nudge immediate reconnect check if currently in "Looking for Printer..."
-      await attemptAutoReconnect(true);
+      await attemptAutoReconnect();
     }
   }
 
@@ -513,7 +457,7 @@
       updateMainButtonUI();
       await connectToBleDevice(device);
     } catch (err) {
-      setStatus('Pairing cancelled or failed.');
+      setStatus('Pairing cancelled.');
       updateMainButtonUI();
     }
   }
@@ -527,7 +471,7 @@
     localStorage.removeItem('cat_printer_id');
     localStorage.removeItem('cat_printer_name');
     updateMainButtonUI();
-    closeMenu(true);
+    toggleMenu();
     await pairNewPrinter();
   }
 
@@ -578,7 +522,6 @@
       const target = devices.find(d => d.id === savedId) || devices[0];
       if (!target) return;
 
-      // Listen for BLE advertisement packets when the printer gets switched on
       if (target.watchAdvertisements && !target._watchingAds) {
         target._watchingAds = true;
         target.addEventListener('advertisementreceived', () => {
@@ -588,145 +531,32 @@
       }
 
       await connectToBleDevice(target);
-    } catch (e) {
-      // Silently continue polling until printer is powered on
-    }
+    } catch (e) {}
   }
 
   function startAutoReconnectLoop() {
     if (reconnectTimer) clearInterval(reconnectTimer);
     attemptAutoReconnect();
     reconnectTimer = setInterval(() => {
-      if (!writeChar && getSavedPrinterId()) {
-        attemptAutoReconnect();
-      }
+      if (!writeChar && getSavedPrinterId()) attemptAutoReconnect();
     }, 2500);
   }
 
-  // ==========================================
-  // 4. OPTIONS MENU & CARETAKER SETTINGS
-  // ==========================================
   function toggleMenu() {
     const overlay = document.getElementById('optionsOverlay');
-    if (overlay.classList.contains('open')) {
-      closeMenu(true);
-    } else {
-      stagedDirHandle = null;
-      document.getElementById('folderConfirmRow').style.display = 'none';
-      refreshFolderDisplay();
-      overlay.classList.add('open');
-    }
+    overlay.classList.toggle('open');
   }
 
-  function closeMenu(undoStagedChanges) {
-    if (undoStagedChanges) {
-      stagedDirHandle = null;
-      document.getElementById('folderConfirmRow').style.display = 'none';
-      refreshFolderDisplay();
-    }
+  function closeMenu() {
     document.getElementById('optionsOverlay').classList.remove('open');
   }
 
-  function refreshFolderDisplay() {
-    const el = document.getElementById('folderPathDisplay');
-    if (stagedDirHandle) {
-      el.innerText = `[Unconfirmed] ${stagedDirHandle.name}`;
-    } else if (committedDirHandle) {
-      el.innerText = `/${committedDirHandle.name}`;
-    } else {
-      el.innerText = 'Not set (Tap to choose)';
-    }
-  }
-
-  async function stageDownloadFolder() {
-    if (!window.showDirectoryPicker) {
-      alert('Folder picker is not supported in this browser.');
-      return;
-    }
-    try {
-      const handle = await window.showDirectoryPicker({ mode: 'read' });
-      stagedDirHandle = handle;
-      refreshFolderDisplay();
-      document.getElementById('folderConfirmRow').style.display = 'flex';
-    } catch (e) {
-      // Cancelled picker
-    }
-  }
-
-  async function confirmDownloadFolder() {
-    if (!stagedDirHandle) return;
-    committedDirHandle = stagedDirHandle;
-    stagedDirHandle = null;
-    await idbSet('downloadDirHandle', committedDirHandle);
-    document.getElementById('folderConfirmRow').style.display = 'none';
-    refreshFolderDisplay();
-    await loadMostRecentFromFolder(committedDirHandle);
-  }
-
-  async function unlockSavedFolder() {
-    document.getElementById('folderPermBtn').style.display = 'none';
-    if (!committedDirHandle) return;
-    try {
-      const perm = await committedDirHandle.requestPermission({ mode: 'read' });
-      if (perm === 'granted') {
-        await loadMostRecentFromFolder(committedDirHandle);
-      }
-    } catch (e) {}
-  }
-
-  async function loadMostRecentFromFolder(dirHandle) {
-    if (!dirHandle) return;
-    try {
-      const perm = await dirHandle.queryPermission({ mode: 'read' });
-      if (perm !== 'granted') {
-        document.getElementById('folderPermBtn').style.display = 'flex';
-        setStatus('Tap button to allow reading Downloads folder');
-        return;
-      }
-      document.getElementById('folderPermBtn').style.display = 'none';
-      setStatus(`Scanning /${dirHandle.name} for newest file...`);
-
-      let newestFile = null;
-      let newestTime = -1;
-
-      for await (const entry of dirHandle.values()) {
-        if (entry.kind === 'file' && isValidPrintFileName(entry.name)) {
-          const file = await entry.getFile();
-          if (file.lastModified > newestTime) {
-            newestTime = file.lastModified;
-            newestFile = file;
-          }
-        }
-      }
-
-      if (newestFile) {
-        await loadMainDocumentFile(newestFile);
-      } else {
-        setStatus(`No PDF or image found in /${dirHandle.name}`);
-      }
-    } catch (err) {
-      setStatus('Folder scan error: ' + err.message);
-    }
-  }
-
-  function isValidPrintFileName(name, type = '') {
-    const lower = (name || '').toLowerCase();
-    return (
-      type === 'application/pdf' ||
-      type.startsWith('image/') ||
-      lower.endsWith('.pdf') ||
-      /\.(png|jpe?g|webp|bmp|gif)$/i.test(lower)
-    );
-  }
-
-  // Margin Setting
   function saveMarginSetting() {
     const val = Math.max(0, parseInt(document.getElementById('marginMmInput').value || '0', 10));
     localStorage.setItem('cat_margin_mm', val);
     rebuildCompositePreview(false);
   }
 
-  // Stamp Settings
   function saveStampSettings() {
     const enabled = document.getElementById('stampEnabled').checked;
     const pos = document.getElementById('stampPosition').value;
@@ -738,24 +568,16 @@
   async function handleStampFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!isValidPrintFileName(file.name, file.type)) {
-      alert('Please choose a valid PDF or Image file for the stamp.');
-      e.target.value = '';
-      return;
-    }
     const buf = await file.arrayBuffer();
-    const stampRecord = { name: file.name, type: file.type, buffer: buf };
-    await idbSet('stampFile', stampRecord);
+    await idbSet('stampFile', { name: file.name, type: file.type, buffer: buf });
     document.getElementById('stampFileName').innerText = file.name;
     document.getElementById('stampEnabled').checked = true;
     localStorage.setItem('cat_stamp_enabled', '1');
 
-    const rebuiltFile = new File([buf], file.name, { type: file.type });
-    stampSourceCanvas = await renderFileToTrimmedCanvas(rebuiltFile);
+    stampSourceCanvas = await renderFileToTrimmedCanvas(new File([buf], file.name, { type: file.type }));
     rebuildCompositePreview(true);
   }
 
-  // Return App Settings
   function saveReturnAppSetting() {
     const mode = document.getElementById('returnAppSelect').value;
     const customName = document.getElementById('customAppName').value.trim() || 'Return';
@@ -792,25 +614,16 @@
   function launchReturnApp() {
     const mode = localStorage.getItem('cat_return_mode') || 'none';
     let pkg = 'com.deliveryhero.pandaportal';
-    if (mode === 'custom') {
-      pkg = localStorage.getItem('cat_return_pkg') || '';
-    }
+    if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || '';
     if (!pkg) return;
     const fallback = encodeURIComponent(`https://play.google.com/store/apps/details?id=${pkg}`);
     window.location.href = `intent://#Intent;package=${pkg};action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${fallback};end`;
   }
 
-  // ==========================================
-  // 5. PDF / IMAGE + STAMP + MARGIN ENGINE
-  // ==========================================
   async function handleManualFile(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!isValidPrintFileName(file.name, file.type)) {
-      alert('Please choose a valid PDF or Image file.');
-      return;
-    }
-    closeMenu(true);
+    closeMenu();
     await loadMainDocumentFile(file);
   }
 
@@ -919,7 +732,6 @@
     const stampH = stampEnabled ? stampSourceCanvas.height : 0;
     const totalHeight = Math.max(40, marginPx + docH + stampH + stampGap + marginPx);
 
-    // 1. Assemble full-color composite inside start & end margins
     const compCanvas = document.createElement('canvas');
     compCanvas.width = PRINTER_WIDTH;
     compCanvas.height = totalHeight;
@@ -941,7 +753,7 @@
       compCtx.fillStyle = '#000000';
       compCtx.font = 'bold 20px sans-serif';
       compCtx.textAlign = 'center';
-      compCtx.fillText('No document loaded', PRINTER_WIDTH / 2, yCursor + 90);
+      compCtx.fillText('Tap ☰ $\rightarrow$ Open Doc', PRINTER_WIDTH / 2, yCursor + 90);
       yCursor += docH;
     }
 
@@ -950,7 +762,6 @@
       compCtx.drawImage(stampSourceCanvas, 0, yCursor);
     }
 
-    // 2. Threshold to 1-bit monochrome on #printCanvas
     const srcPixels = compCtx.getImageData(0, 0, PRINTER_WIDTH, totalHeight).data;
     printCanvasEl.width = PRINTER_WIDTH;
     printCanvasEl.height = totalHeight;
@@ -971,9 +782,6 @@
     if (resetFitHeight) fitHeight();
   }
 
-  // ==========================================
-  // 6. CAT PRINTER 0x5178 BLE PROTOCOL DRIVER
-  // ==========================================
   function crc8(payload) {
     let crc = 0;
     for (let b of payload) {
@@ -1053,7 +861,6 @@
         }
       }
 
-      // Lattice End (Start & end margins are already embedded in totalRows)
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
       setStatus('Print complete!');
     } catch (err) {
@@ -1064,11 +871,7 @@
     }
   }
 
-  // ==========================================
-  // 7. INITIALIZATION & SHARE / FOLDER ROUTING
-  // ==========================================
   window.addEventListener('load', async () => {
-    // Restore saved settings
     const savedBrightness = localStorage.getItem('cat_brightness');
     if (savedBrightness) document.getElementById('brightnessSlider').value = savedBrightness;
 
@@ -1083,7 +886,6 @@
     document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
     applyReturnAppUI();
 
-    // Restore persisted Stamp from IndexedDB
     try {
       const savedStamp = await idbGet('stampFile');
       if (savedStamp && savedStamp.buffer) {
@@ -1093,18 +895,10 @@
       }
     } catch (e) {}
 
-    // Restore persisted Downloads Folder Handle from IndexedDB
-    try {
-      committedDirHandle = await idbGet('downloadDirHandle');
-      refreshFolderDisplay();
-    } catch (e) {}
-
     rebuildCompositePreview(true);
     updateMainButtonUI();
     startAutoReconnectLoop();
 
-    // Register Service Worker & Check if launched via Android Share Target
-    let loadedFromShare = false;
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('sw.js');
@@ -1118,15 +912,9 @@
             await cache.delete('/shared-file');
             history.replaceState({}, '', './index.html');
             await loadMainDocumentFile(file);
-            loadedFromShare = true;
           }
         }
       } catch (e) {}
-    }
-
-    // Otherwise auto-load most recent document from configured Downloads path
-    if (!loadedFromShare && committedDirHandle) {
-      await loadMostRecentFromFolder(committedDirHandle);
     }
   });
 </script>
