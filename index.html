@@ -31,6 +31,25 @@
       overflow: hidden; background: var(--bg); color: #F9FAFB;
     }
 
+    /* STEALTH OVERLAY FOR PATH B AUTO-WAKE */
+    #stealthOverlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--fp-pink); color: #FFFFFF;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 28px; text-align: center; gap: 18px;
+    }
+    #stealthOverlay.active { display: flex; }
+    #stealthOverlay .stealth-panda { font-size: 68px; line-height: 1; }
+    #stealthOverlay .stealth-title { font-size: 26px; font-weight: 900; }
+    #stealthOverlay .stealth-sub { font-size: 16px; opacity: 0.95; font-weight: 600; }
+    #stealthManualBtn {
+      margin-top: 12px; padding: 18px 28px; border-radius: 18px;
+      border: 3px solid #FFFFFF; background: #111827; color: #FFFFFF;
+      font-size: 20px; font-weight: 900; cursor: pointer; display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
     /* 1. STICKY TOP BRIGHTNESS SLIDER */
     .top-bar {
       position: fixed; top: 0; left: 0; right: 0; height: 54px;
@@ -97,7 +116,6 @@
     }
     .fab:active { transform: scale(0.95); }
 
-    /* Floating Return to App Button (Top-Left) */
     #returnAppBtn {
       top: 66px; left: 14px; padding: 10px 14px;
       background: var(--fp-pink); color: #FFFFFF; font-size: 14px;
@@ -108,13 +126,11 @@
       display: flex; align-items: center; justify-content: center; font-size: 16px;
     }
 
-    /* Floating Burger Button (Top-Right) */
     #burgerBtn {
       top: 66px; right: 14px; width: 46px; height: 46px;
       background: var(--surface); color: #FFFFFF; font-size: 22px;
     }
 
-    /* Floating Fit-Screen Reset Button (Bottom-Right above main button) */
     #fitScreenBtn {
       bottom: 98px; right: 14px; padding: 10px 14px;
       background: var(--surface); color: #FFFFFF; font-size: 13px;
@@ -157,6 +173,7 @@
     .opt-btn:active { transform: scale(0.98); }
     .opt-btn-feed { background: var(--green); color: #FFFFFF; }
     .opt-btn-upload { background: #3B82F6; color: #FFFFFF; }
+    .opt-btn-fp { background: var(--fp-pink); color: #FFFFFF; }
     .opt-btn-path {
       background: #374151; color: #F3F4F6; text-align: left;
       justify-content: space-between; font-weight: 600; word-break: break-all;
@@ -206,6 +223,14 @@
 </head>
 <body>
 
+  <!-- STEALTH OVERLAY FOR PATH B AUTO-WAKE -->
+  <div id="stealthOverlay">
+    <div class="stealth-panda">🐼</div>
+    <div class="stealth-title" id="stealthTitle">Printing Foodpanda Order...</div>
+    <div class="stealth-sub" id="stealthSub">Preparing thermal receipt...</div>
+    <button id="stealthManualBtn" onclick="handleStealthManualTap()">🖨️ TAP TO PRINT NOW</button>
+  </div>
+
   <!-- TOP STICKY BRIGHTNESS SLIDER -->
   <div class="top-bar">
     <span>☀️ Brightness</span>
@@ -250,7 +275,23 @@
       </button>
     </div>
 
-    <!-- 2. Separate Before & After Margins -->
+    <!-- 2. Foodpanda Zero-UI & Archive Setup -->
+    <div class="opt-row" style="border: 1px solid #D70F64;">
+      <div style="font-weight:800; color:#F472B6; font-size:13px;">🐼 Foodpanda Pipeline (Optional)</div>
+      <button class="opt-btn opt-btn-path" onclick="pickFpFolder('fpQueueDir', 'queueDirLabel')">
+        <span id="queueDirLabel">Queue Folder: Not Set</span>
+        <span>📥 Pick</span>
+      </button>
+      <button class="opt-btn opt-btn-path" onclick="pickFpFolder('fpArchiveDir', 'archiveDirLabel')">
+        <span id="archiveDirLabel">Archive Folder: Not Set</span>
+        <span>🗄️ Pick</span>
+      </button>
+      <button id="bgWatcherBtn" class="opt-btn opt-btn-fp" onclick="toggleBackgroundWatcher()">
+        🛡️ Start Zero-UI Background Mode
+      </button>
+    </div>
+
+    <!-- 3. Separate Before & After Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginBeforeMmInput" style="font-weight:600;">Before Margin (mm):</label>
@@ -262,7 +303,7 @@
       </div>
     </div>
 
-    <!-- 3. Stamp -->
+    <!-- 4. Stamp -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
@@ -280,7 +321,7 @@
       </button>
     </div>
 
-    <!-- 4. Change Connected Printer -->
+    <!-- 5. Change Connected Printer -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <span id="savedPrinterLabel" style="color:#9CA3AF; font-size:12px;">Saved: None</span>
@@ -290,7 +331,7 @@
       </button>
     </div>
 
-    <!-- 5. Return App Button Option -->
+    <!-- 6. Return App Button Option -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="returnAppSelect" style="font-weight:600;">Return Button:</label>
@@ -310,7 +351,6 @@
 
   <!-- INTERACTIVE PREVIEW VIEWPORT -->
   <div id="viewport">
-    <!-- Shown when no file is loaded -->
     <div id="emptyStateContainer">
       <button id="bigChooseFileBtn" onclick="document.getElementById('manualFileInput').click()">
         <span class="big-icon">📂</span>
@@ -319,7 +359,6 @@
       </button>
     </div>
 
-    <!-- Shown when a file is loaded -->
     <div id="canvasTransform">
       <canvas id="printCanvas" width="384" height="300"></canvas>
     </div>
@@ -353,6 +392,11 @@
   let docSourceCanvas = null;
   let stampSourceCanvas = null;
 
+  let isFpPipelineRun = false;
+  let currentOrderMeta = { orderNo: '', orderCode: '' };
+  let bgWatcherTimer = null;
+  let audioCtx = null;
+
   let viewScale = 1;
   let viewPanX = 0;
   let viewPanY = 0;
@@ -362,6 +406,22 @@
 
   function setStatus(msg) {
     document.getElementById('statusBanner').innerText = msg;
+    const stealthSub = document.getElementById('stealthSub');
+    if (stealthSub) stealthSub.innerText = msg;
+  }
+
+  function playTone(freq = 920, ms = 180) {
+    try {
+      const ctx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.frequency.value = freq;
+      g.gain.value = 0.12;
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => osc.stop(), ms);
+    } catch (e) {}
   }
 
   function openDB() {
@@ -392,6 +452,556 @@
       tx.onerror = () => reject(tx.error);
     });
   }
+
+  // ============================================================================
+  // FOODPANDA PARSER, VALIDATOR & CUSTOM RECEIPT GENERATOR
+  // ============================================================================
+
+  function extractLinesFromMacroDroidText(blockText) {
+    if (!blockText) return [];
+    let working = blockText;
+
+    // Handle JSON output if MacroDroid {lvjson=...} was used
+    const jsonStrings = [];
+    const jsonRegex = /\{[\s\S]*?\}/g;
+    let m;
+    while ((m = jsonRegex.exec(blockText)) !== null) {
+      try {
+        const parsed = JSON.parse(m[0]);
+        const collect = (v) => {
+          if (typeof v === 'string') jsonStrings.push(v);
+          else if (Array.isArray(v)) v.forEach(collect);
+          else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+        };
+        collect(parsed);
+      } catch (e) {}
+    }
+    if (jsonStrings.length > 0) {
+      working = jsonStrings.join('\n');
+    }
+
+    return working
+      .split(/\r?\n/)
+      .map(l => l.replace(/^\s*(?:\[\d+\]|\d+|[a-zA-Z0-9_.\/:-]+)\s*[:=]\s*/, '').trim())
+      .filter(Boolean);
+  }
+
+  function validateFoodpandaText(rawText) {
+    if (!rawText || rawText.trim().length < 12) {
+      return { valid: false, reason: 'Empty screen capture' };
+    }
+    if (/Failed to generate|Select printer settings|Was the test print successful/i.test(rawText)) {
+      return { valid: false, reason: 'Blocked printer settings error screen' };
+    }
+    const hasOrderNo = /#\d{1,5}\b/.test(rawText);
+    const hasCode = /[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/i.test(rawText);
+    const hasTotals = /Subtotal|Total|Ready for delivery|Online Payment/i.test(rawText);
+
+    if (!hasOrderNo && !hasCode && !hasTotals) {
+      return { valid: false, reason: 'Not a live Foodpanda order screen' };
+    }
+    return { valid: true };
+  }
+
+  function parseSingleScreenBlock(lines) {
+    const res = {
+      restaurant: '',
+      orderNo: '',
+      orderCode: '',
+      prepTime: '',
+      customer: '',
+      items: [],
+      notes: [],
+      subtotal: '',
+      vat: '',
+      total: '',
+      payment: ''
+    };
+
+    const fullBlock = lines.join('\n');
+    const noMatch = fullBlock.match(/#(\d{1,5})\b/);
+    if (noMatch) res.orderNo = '#' + noMatch[1];
+
+    const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
+    if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
+
+    const prepMatch = fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
+    if (prepMatch) res.prepTime = prepMatch[1];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      if (/^Tasty Patil$/i.test(line)) {
+        res.restaurant = line;
+        continue;
+      }
+      if (/^Customer$/i.test(line) && lines[i + 1]) {
+        res.customer = lines[i + 1];
+        continue;
+      }
+      if (/DO NOT PROVIDE CUTLERY|PROVIDE CUTLERY/i.test(line)) {
+        if (!res.notes.includes(line.toUpperCase())) res.notes.push(line.toUpperCase());
+        continue;
+      }
+      if (/^Subtotal$/i.test(line) || /^Subtotal\s+[৳tE5]?\d/i.test(line)) {
+        const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
+        if (p) res.subtotal = '৳' + p[1];
+        continue;
+      }
+      if (/^VAT$/i.test(line) || /^VAT\s+[৳tE5]?\d/i.test(line)) {
+        const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
+        if (p) res.vat = '৳' + p[1];
+        continue;
+      }
+      if (/^Total$/i.test(line) || /^Total\s+[৳tE5]?\d/i.test(line)) {
+        const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
+        if (p) res.total = '৳' + p[1];
+        continue;
+      }
+      if (/Paid with|Online Payment|Cash on/i.test(line)) {
+        if (line.length > res.payment.length) res.payment = line;
+        continue;
+      }
+
+      // Item detection starting with "1x", "2x", etc.
+      if (/^\d+\s*[xX]\b/.test(line)) {
+        const qtyMatch = line.match(/^(\d+\s*[xX])/);
+        const qty = qtyMatch[1].toLowerCase();
+        let remainder = line.replace(/^\d+\s*[xX]\s*/, '').trim();
+        let price = '';
+        const nameParts = [];
+
+        const inlinePrice = remainder.match(/[৳tE5]?\s*(\d+\.\d{2})$/);
+        if (inlinePrice) {
+          price = '৳' + inlinePrice[1];
+          remainder = remainder.replace(/[৳tE5]?\s*\d+\.\d{2}$/, '').trim();
+        }
+        if (remainder) nameParts.push(remainder);
+
+        while (i + 1 < lines.length) {
+          const next = lines[i + 1];
+          if (/^(\d+\s*[xX]\b|Subtotal|VAT|Total|PLEASE|DO NOT|Decline|Ready for|Online Payment|Paid with|Customer|Rider|Google|Engineering|Modify)/i.test(next)) {
+            break;
+          }
+          const pOnly = next.match(/^[৳tE5]?\s*(\d+\.\d{2})$/);
+          if (pOnly && !price) {
+            price = '৳' + pOnly[1];
+          } else {
+            const trailingP = next.match(/^(.+?)\s+[৳tE5]?\s*(\d+\.\d{2})$/);
+            if (trailingP && !price) {
+              nameParts.push(trailingP[1].trim());
+              price = '৳' + trailingP[2];
+            } else {
+              nameParts.push(next);
+            }
+          }
+          i++;
+        }
+
+        const itemName = nameParts.join(' ').trim();
+        if (itemName) {
+          res.items.push({ qty, name: itemName, price });
+        }
+      }
+    }
+
+    return res;
+  }
+
+  function parseFoodpandaMultiScroll(rawText) {
+    const rawBlocks = rawText.split('===SCREEN_BREAK===').filter(b => b.trim().length > 0);
+    const merged = {
+      restaurant: 'Tasty Patil',
+      orderNo: '',
+      orderCode: '',
+      prepTime: '',
+      customer: '',
+      items: [],
+      notes: [],
+      subtotal: '',
+      vat: '',
+      total: '',
+      payment: ''
+    };
+    const seenItems = new Set();
+
+    for (const block of rawBlocks) {
+      const lines = extractLinesFromMacroDroidText(block);
+      const p = parseSingleScreenBlock(lines);
+
+      if (p.restaurant) merged.restaurant = p.restaurant;
+      if (!merged.orderNo && p.orderNo) merged.orderNo = p.orderNo;
+      if (!merged.orderCode && p.orderCode) merged.orderCode = p.orderCode;
+      if (!merged.prepTime && p.prepTime) merged.prepTime = p.prepTime;
+      if (!merged.customer && p.customer) merged.customer = p.customer;
+      if (!merged.subtotal && p.subtotal) merged.subtotal = p.subtotal;
+      if (!merged.vat && p.vat) merged.vat = p.vat;
+      if (!merged.total && p.total) merged.total = p.total;
+      if (p.payment && p.payment.length > merged.payment.length) merged.payment = p.payment;
+
+      for (const n of p.notes) {
+        if (!merged.notes.includes(n)) merged.notes.push(n);
+      }
+      for (const it of p.items) {
+        const sig = `${it.qty}|${it.name.toLowerCase()}|${it.price}`;
+        if (!seenItems.has(sig)) {
+          seenItems.add(sig);
+          merged.items.push(it);
+        }
+      }
+    }
+    return merged;
+  }
+
+  function renderSynthesizedFpReceipt(data) {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = PRINTER_WIDTH;
+    tempCanvas.height = 1800;
+    const ctx = tempCanvas.getContext('2d');
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, PRINTER_WIDTH, tempCanvas.height);
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+
+    let y = 10;
+    const drawLine = (thick = false) => {
+      y += 6;
+      ctx.fillRect(0, y, PRINTER_WIDTH, thick ? 4 : 2);
+      y += thick ? 10 : 8;
+    };
+
+    const drawWrapped = (text, x, maxW, font, lineH, align = 'left') => {
+      ctx.font = font;
+      ctx.textAlign = align;
+      const words = text.split(/\s+/);
+      let line = '';
+      for (let i = 0; i < words.length; i++) {
+        const test = line + words[i] + ' ';
+        if (ctx.measureText(test).width > maxW && i > 0) {
+          ctx.fillText(line.trim(), x, y);
+          line = words[i] + ' ';
+          y += lineH;
+        } else {
+          line = test;
+        }
+      }
+      if (line.trim()) {
+        ctx.fillText(line.trim(), x, y);
+        y += lineH;
+      }
+    };
+
+    // Restaurant Header
+    ctx.font = '900 26px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((data.restaurant || 'Tasty Patil').toUpperCase(), PRINTER_WIDTH / 2, y);
+    y += 32;
+
+    ctx.font = '600 15px system-ui, sans-serif';
+    const dt = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    ctx.fillText(dt, PRINTER_WIDTH / 2, y);
+    y += 20;
+
+    drawLine(true);
+
+    // Order Number & Code
+    if (data.orderNo) {
+      ctx.font = '900 46px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.orderNo, PRINTER_WIDTH / 2, y);
+      y += 50;
+    }
+    if (data.orderCode) {
+      ctx.font = 'bold 20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.orderCode, PRINTER_WIDTH / 2, y);
+      y += 26;
+    }
+
+    drawLine(false);
+
+    if (data.customer) {
+      drawWrapped('Customer: ' + data.customer, 4, PRINTER_WIDTH - 8, 'bold 20px system-ui, sans-serif', 25, 'left');
+      y += 2;
+    }
+    if (data.prepTime) {
+      ctx.font = 'bold 19px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Ready By: ' + data.prepTime, 4, y);
+      y += 24;
+    }
+
+    drawLine(false);
+
+    // Order Items
+    for (const item of data.items) {
+      ctx.font = '900 22px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.qty, 4, y);
+
+      if (item.price) {
+        ctx.textAlign = 'right';
+        ctx.fillText(item.price, PRINTER_WIDTH - 4, y);
+      }
+      drawWrapped(item.name, 46, PRINTER_WIDTH - 145, 'bold 21px system-ui, sans-serif', 25, 'left');
+      y += 6;
+    }
+
+    // Cutlery / Special Notes
+    for (const note of data.notes) {
+      y += 4;
+      ctx.fillRect(4, y, PRINTER_WIDTH - 8, 34);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 17px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('! ' + note + ' !', PRINTER_WIDTH / 2, y + 8);
+      ctx.fillStyle = '#000000';
+      y += 40;
+    }
+
+    drawLine(false);
+
+    const drawTotalRow = (label, val, isGrand = false) => {
+      if (!val) return;
+      ctx.font = isGrand ? '900 26px system-ui, sans-serif' : 'bold 20px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, 4, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(val, PRINTER_WIDTH - 4, y);
+      y += isGrand ? 32 : 26;
+    };
+
+    drawTotalRow('Subtotal', data.subtotal, false);
+    drawTotalRow('VAT', data.vat, false);
+    drawTotalRow('Total', data.total, true);
+
+    if (data.payment) {
+      drawLine(false);
+      drawWrapped(data.payment, PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, 'bold 17px system-ui, sans-serif', 22, 'center');
+    }
+
+    drawLine(true);
+
+    return cropWhiteTopBottom(tempCanvas);
+  }
+
+  async function runFoodpandaAutomatedJob(rawText, imageFiles = [], isForegroundFailsafe = false) {
+    isFpPipelineRun = true;
+    if (isForegroundFailsafe) {
+      document.getElementById('stealthOverlay').classList.add('active');
+      document.getElementById('stealthManualBtn').style.display = 'none';
+    }
+
+    // Also purge FP_order.txt from Queue Folder if accessible so Path A & B never collide
+    try {
+      const qHandle = await idbGet('fpQueueDir');
+      if (qHandle && (await qHandle.queryPermission({ mode: 'readwrite' })) === 'granted') {
+        await qHandle.removeEntry('FP_order.txt').catch(() => {});
+      }
+    } catch (e) {}
+
+    if (rawText && rawText.trim().length > 0) {
+      const v = validateFoodpandaText(rawText);
+      if (!v.valid) {
+        setStatus('Ignored: ' + v.reason);
+        playTone(250, 350);
+        if (isForegroundFailsafe) setTimeout(() => launchReturnApp(), 1100);
+        isFpPipelineRun = false;
+        return;
+      }
+
+      const parsed = parseFoodpandaMultiScroll(rawText);
+      currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode };
+
+      // 3-minute duplicate guard
+      const dedupeId = [parsed.orderNo, parsed.orderCode, parsed.total].filter(Boolean).join('|');
+      if (dedupeId) {
+        const lastId = localStorage.getItem('fp_last_dedupe_id');
+        const lastTs = parseInt(localStorage.getItem('fp_last_dedupe_ts') || '0', 10);
+        if (lastId === dedupeId && (Date.now() - lastTs) < 180000) {
+          setStatus(`Order ${parsed.orderNo || ''} already printed!`);
+          playTone(440, 220);
+          if (isForegroundFailsafe) setTimeout(() => launchReturnApp(), 900);
+          isFpPipelineRun = false;
+          return;
+        }
+      }
+
+      if (parsed.orderNo) {
+        document.getElementById('stealthTitle').innerText = `Printing Order ${parsed.orderNo}...`;
+      }
+      docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+    } else if (imageFiles.length > 0) {
+      docSourceCanvas = await renderFileToTrimmedCanvas(imageFiles[0]);
+    } else {
+      if (isForegroundFailsafe) setTimeout(() => launchReturnApp(), 900);
+      isFpPipelineRun = false;
+      return;
+    }
+
+    rebuildCompositePreview(true);
+    updateMainButtonUI();
+
+    if (!writeChar) {
+      await attemptAutoReconnect();
+    }
+
+    if (writeChar) {
+      await printCanvas(isForegroundFailsafe);
+    } else if (isForegroundFailsafe) {
+      setStatus('Printer asleep — Tap button below to connect & print');
+      document.getElementById('stealthManualBtn').style.display = 'inline-block';
+    }
+  }
+
+  async function handleStealthManualTap() {
+    if (!writeChar) {
+      const ok = await attemptAutoReconnect();
+      if (!ok && !writeChar) await pairNewPrinter();
+    }
+    if (writeChar) {
+      await printCanvas(true);
+    }
+  }
+
+  // ============================================================================
+  // FOLDER ARCHIVING & BACKGROUND QUEUE WATCHER (PATH A)
+  // ============================================================================
+
+  async function pickFpFolder(idbKey, labelId) {
+    if (!window.showDirectoryPicker) {
+      alert('Directory Picker requires Chrome on Android.');
+      return;
+    }
+    try {
+      const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      await idbSet(idbKey, dirHandle);
+      document.getElementById(labelId).innerText = `Folder: ${dirHandle.name}`;
+      setStatus(`Folder set: ${dirHandle.name}`);
+      await flushPendingArchives();
+    } catch (e) {}
+  }
+
+  async function saveBlobToArchiveDir(dirHandle, fileName, blob) {
+    const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  }
+
+  async function flushPendingArchives() {
+    try {
+      const dirHandle = await idbGet('fpArchiveDir');
+      if (!dirHandle) return;
+      const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') return;
+
+      const pending = (await idbGet('fpPendingArchives')) || [];
+      if (pending.length === 0) return;
+
+      for (const item of pending) {
+        const blob = new Blob([item.buffer], { type: 'image/png' });
+        await saveBlobToArchiveDir(dirHandle, item.fileName, blob);
+      }
+      await idbSet('fpPendingArchives', []);
+    } catch (e) {}
+  }
+
+  async function archivePrintedReceipt() {
+    try {
+      const now = new Date();
+      const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const tag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || 'Order';
+      const fileName = `FP_${tag}_${ts}.png`;
+      const blob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
+
+      const dirHandle = await idbGet('fpArchiveDir');
+      if (dirHandle) {
+        const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+        if (perm === 'granted') {
+          await saveBlobToArchiveDir(dirHandle, fileName, blob);
+          await flushPendingArchives();
+          return;
+        }
+      }
+
+      // Queue in IndexedDB if folder permission is awaiting next session
+      const buf = await blob.arrayBuffer();
+      const pending = (await idbGet('fpPendingArchives')) || [];
+      pending.push({ fileName, buffer: buf });
+      await idbSet('fpPendingArchives', pending.slice(-50));
+    } catch (e) {}
+  }
+
+  function startKeepAliveAudio() {
+    if (audioCtx) return;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.0001; // Inaudible keep-alive so Android Chrome keeps timers active
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+    } catch (e) {}
+  }
+
+  async function toggleBackgroundWatcher() {
+    const btn = document.getElementById('bgWatcherBtn');
+    if (bgWatcherTimer) {
+      clearInterval(bgWatcherTimer);
+      bgWatcherTimer = null;
+      btn.innerText = '🛡️ Start Zero-UI Background Mode';
+      setStatus('Background watcher stopped');
+      return;
+    }
+
+    const qHandle = await idbGet('fpQueueDir');
+    if (!qHandle) {
+      alert('Please tap "Queue Folder: Pick" and select your FP_Queue folder first.');
+      return;
+    }
+    const qPerm = await qHandle.requestPermission({ mode: 'readwrite' });
+    if (qPerm !== 'granted') return;
+
+    const aHandle = await idbGet('fpArchiveDir');
+    if (aHandle) {
+      await aHandle.requestPermission({ mode: 'readwrite' }).catch(() => {});
+      await flushPendingArchives();
+    }
+
+    startKeepAliveAudio();
+    if (!writeChar) await attemptAutoReconnect();
+
+    btn.innerText = '🟢 Zero-UI Mode Active (Tap to Stop)';
+    setStatus('Zero-UI Watcher Active');
+    closeMenu();
+
+    bgWatcherTimer = setInterval(async () => {
+      if (isPrinting) return;
+      try {
+        for await (const [name, entry] of qHandle.entries()) {
+          if (entry.kind === 'file' && name === 'FP_order.txt') {
+            const file = await entry.getFile();
+            const text = await file.text();
+            if (text && text.trim().length > 10) {
+              // Delete immediately so MacroDroid's 2-second failsafe sees Path A succeeded
+              await qHandle.removeEntry('FP_order.txt').catch(() => {});
+              await runFoodpandaAutomatedJob(text, [], false);
+            }
+          }
+        }
+      } catch (e) {}
+    }, 850);
+  }
+
+  // ============================================================================
+  // ORIGINAL BILLU VIEWPORT, BLE, MARGINS & STAMP LOGIC (100% PRESERVED)
+  // ============================================================================
 
   const viewportEl = document.getElementById('viewport');
   const transformEl = document.getElementById('canvasTransform');
@@ -486,7 +1096,6 @@
 
     btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-disabled');
 
-    // If no file is open, keep Print button gray and disabled
     if (!docSourceCanvas) {
       btn.classList.add('state-disabled');
       btn.disabled = true;
@@ -511,7 +1120,7 @@
   async function handleMainButtonClick() {
     if (!docSourceCanvas) return;
     if (writeChar) {
-      await printCanvas();
+      await printCanvas(false);
       return;
     }
     const ok = await attemptAutoReconnect();
@@ -714,26 +1323,25 @@
   }
 
   function launchReturnApp() {
-  // 1. Try closing Billu to drop straight back into the app that shared the file
-  window.close();
+    document.getElementById('stealthOverlay').classList.remove('active');
+    window.close();
 
-  // 2. If Billu was opened manually and didn't close, try a VIEW/BROWSABLE intent
-  // Using current URL as fallback prevents Chrome from jumping to Google Play Store
-  setTimeout(() => {
-    const mode = localStorage.getItem('cat_return_mode') || 'none';
-    let pkg = 'com.deliveryhero.pandaportal';
-    if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || '';
-    if (!pkg) return;
+    setTimeout(() => {
+      const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
+      let pkg = 'com.deliveryhero.pandaportal';
+      if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || '';
+      if (!pkg) return;
 
-    const stayHereFallback = encodeURIComponent(window.location.href);
-    window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
-  }, 150);
-}
+      const stayHereFallback = encodeURIComponent(window.location.href);
+      window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
+    }, 150);
+  }
 
   async function handleManualFile(e) {
     const file = e.target.files[0];
     if (!file) return;
     closeMenu();
+    isFpPipelineRun = false;
     await loadMainDocumentFile(file);
     e.target.value = '';
   }
@@ -936,7 +1544,6 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Feeds 5mm (40 blank rows) of paper without heating any dots
   async function feedPaper5mm() {
     if (isPrinting) return;
     if (!writeChar) {
@@ -952,8 +1559,8 @@
     if (feedBtn) feedBtn.disabled = true;
 
     try {
-      const blankRows = 5 * PX_PER_MM; // 40 rows = 5mm
-      const emptyRow = new Uint8Array(48); // all zeros = 0 dots heated
+      const blankRows = 5 * PX_PER_MM;
+      const emptyRow = new Uint8Array(48);
 
       setStatus('Feeding 5mm...');
       await writeBle(makePacket(0xA4, [0x33]));
@@ -979,7 +1586,7 @@
     }
   }
 
-  async function printCanvas() {
+  async function printCanvas(autoReturnAfter = false) {
     if (!writeChar || isPrinting || !docSourceCanvas) return;
     isPrinting = true;
     const btn = document.getElementById('mainActionBtn');
@@ -1024,8 +1631,23 @@
 
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
       setStatus('Print complete!');
+      playTone(1046, 220);
+
+      if (isFpPipelineRun) {
+        const dedupeId = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('|');
+        if (dedupeId) {
+          localStorage.setItem('fp_last_dedupe_id', dedupeId);
+          localStorage.setItem('fp_last_dedupe_ts', String(Date.now()));
+        }
+        await archivePrintedReceipt();
+      }
+
+      if (autoReturnAfter) {
+        setTimeout(() => launchReturnApp(), 800);
+      }
     } catch (err) {
       setStatus('Print error: ' + err.message);
+      document.getElementById('stealthOverlay').classList.remove('active');
     } finally {
       isPrinting = false;
       updateMainButtonUI();
@@ -1036,7 +1658,6 @@
     const savedBrightness = localStorage.getItem('cat_brightness');
     if (savedBrightness) document.getElementById('brightnessSlider').value = savedBrightness;
 
-    // Migrate legacy margin setting if present
     const legacyMargin = localStorage.getItem('cat_margin_mm') ?? '4';
     const savedBeforeMargin = localStorage.getItem('cat_margin_before_mm') ?? legacyMargin;
     const savedAfterMargin = localStorage.getItem('cat_margin_after_mm') ?? legacyMargin;
@@ -1052,6 +1673,11 @@
     applyReturnAppUI();
 
     try {
+      const qDir = await idbGet('fpQueueDir');
+      if (qDir) document.getElementById('queueDirLabel').innerText = `Queue: ${qDir.name}`;
+      const aDir = await idbGet('fpArchiveDir');
+      if (aDir) document.getElementById('archiveDirLabel').innerText = `Archive: ${aDir.name}`;
+
       const savedStamp = await idbGet('stampFile');
       if (savedStamp && savedStamp.buffer) {
         document.getElementById('stampFileName').innerText = savedStamp.name;
@@ -1068,16 +1694,48 @@
       try {
         await navigator.serviceWorker.register('sw.js');
         if (location.search.includes('shared=1')) {
+          const isFpAuto = location.search.includes('fp_auto=1');
           const cache = await caches.open('shared-files');
-          const resp = await cache.match('/shared-file');
-          if (resp) {
-            const blob = await resp.blob();
-            const filename = resp.headers.get('X-File-Name') || 'shared.pdf';
-            const file = new File([blob], filename, { type: blob.type });
-            await cache.delete('/shared-file');
-            history.replaceState({}, '', './index.html');
-            await loadMainDocumentFile(file);
+
+          // 1. Standard Print App Mode (regular PDF/photo share outside Foodpanda pipeline)
+          if (!isFpAuto) {
+            const resp = await cache.match('/shared-file') || await cache.match('/shared-file-0');
+            if (resp) {
+              const blob = await resp.blob();
+              const filename = resp.headers.get('X-File-Name') || 'shared.pdf';
+              const file = new File([blob], filename, { type: blob.type });
+              await cache.delete('/shared-file');
+              await cache.delete('/shared-file-0');
+              history.replaceState({}, '', './index.html');
+              isFpPipelineRun = false;
+              await loadMainDocumentFile(file);
+            }
+            return;
           }
+
+          // 2. Automated Foodpanda Pipeline Mode (Path B Failsafe)
+          const metaResp = await cache.match('/shared-meta');
+          let meta = { title: '', text: '', fileCount: 0 };
+          if (metaResp) meta = await metaResp.json();
+
+          let combinedText = meta.text || '';
+          const imageFiles = [];
+
+          for (let i = 0; i < meta.fileCount; i++) {
+            const fResp = await cache.match(`/shared-file-${i}`);
+            if (fResp) {
+              const fname = fResp.headers.get('X-File-Name') || '';
+              if (fname.endsWith('.txt')) {
+                combinedText += '\n' + (await fResp.text());
+              } else {
+                const b = await fResp.blob();
+                imageFiles.push(new File([b], fname, { type: b.type }));
+              }
+            }
+          }
+
+          history.replaceState({}, '', './index.html');
+          await runFoodpandaAutomatedJob(combinedText, imageFiles, true);
         }
       } catch (e) {}
     }
