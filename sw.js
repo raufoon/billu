@@ -4,7 +4,6 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Intercept Android Share Sheet POST requests
   if (event.request.method === 'POST' && url.pathname.endsWith('/share-receive')) {
     event.respondWith((async () => {
       const formData = await event.request.formData();
