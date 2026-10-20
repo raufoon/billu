@@ -3,323 +3,976 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Panda Print</title>
+  <title>Cat Printer</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#D70F64">
-  <!-- Mozilla PDF.js for client-side PDF rendering -->
+  <meta name="theme-color" content="#111827">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     :root {
-      --fp-pink: #D70F64;
-      --fp-dark: #AD0C50;
+      --bg: #1F2937;
+      --surface: #111827;
+      --card: #FFFFFF;
+      --blue: #2563EB;
+      --amber: #D97706;
       --green: #10B981;
-      --bg: #F3F4F6;
+      --fp-pink: #D70F64;
     }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body { margin: 0; padding: 12px; background: var(--bg); color: #111827; max-width: 480px; margin-inline: auto; }
-    
-    /* Foodpanda Return Header Button */
-    .fp-back-btn {
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      width: 100%; padding: 14px 16px; margin-bottom: 14px;
-      background: var(--fp-pink); color: white; text-decoration: none;
-      border-radius: 14px; font-size: 18px; font-weight: 700;
-      box-shadow: 0 4px 12px rgba(215, 15, 100, 0.3);
-      border: none; cursor: pointer;
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    .fp-back-btn:active { background: var(--fp-dark); transform: scale(0.99); }
-    .fp-logo {
-      width: 34px; height: 34px; background: white; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: var(--bg); color: #F9FAFB;
     }
 
-    /* Main Action Cards */
-    .card {
-      background: white; border-radius: 16px; padding: 16px;
-      margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    /* 1. STICKY TOP BRIGHTNESS SLIDER */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 54px;
+      background: var(--surface); display: flex; align-items: center;
+      gap: 12px; padding: 0 16px; z-index: 30;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
     }
-    .status-bar {
+    .top-bar span { font-size: 14px; font-weight: 600; white-space: nowrap; }
+    .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; }
+
+    /* 2. INTERACTIVE VIEWPORT (BETWEEN TOP & BOTTOM BARS) */
+    #viewport {
+      position: fixed; top: 54px; bottom: 84px; left: 0; right: 0;
+      overflow: hidden; touch-action: none;
+      display: flex; align-items: flex-start; justify-content: flex-start;
+      background: #374151;
+    }
+    #canvasTransform {
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+    #printCanvas {
+      display: block; background: #FFFFFF;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+    }
+    #statusBanner {
+      position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
+      background: rgba(17,24,39,0.82); color: #E5E7EB;
+      padding: 5px 12px; border-radius: 99px; font-size: 12px;
+      pointer-events: none; z-index: 25; white-space: nowrap;
+    }
+
+    /* 3. FLOATING BUTTONS */
+    .fab {
+      position: fixed; z-index: 35; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 99px; font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      transition: transform 0.1s ease;
+    }
+    .fab:active { transform: scale(0.95); }
+
+    /* Floating Return to App Button (Top-Left, only if enabled) */
+    #returnAppBtn {
+      top: 66px; left: 14px; padding: 10px 14px;
+      background: var(--fp-pink); color: #FFFFFF; font-size: 14px;
+      display: none;
+    }
+    #returnAppBtn .app-icon {
+      width: 24px; height: 24px; background: #FFFFFF; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+
+    /* Floating Burger Button (Top-Right) */
+    #burgerBtn {
+      top: 66px; right: 14px; width: 46px; height: 46px;
+      background: var(--surface); color: #FFFFFF; font-size: 22px;
+    }
+
+    /* Floating Fit-Height Reset Button (Bottom-Right above main button) */
+    #fitHeightBtn {
+      bottom: 98px; right: 14px; padding: 10px 14px;
+      background: var(--surface); color: #FFFFFF; font-size: 13px;
+      border: 1px solid #4B5563;
+    }
+
+    /* Floating Folder Permission Prompt (Shown if Android needs 1 tap to unlock folder) */
+    #folderPermBtn {
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      padding: 16px 22px; background: var(--blue); color: #FFFFFF;
+      font-size: 16px; border-radius: 14px; display: none; z-index: 32;
+    }
+
+    /* 4. FLOATING CARETAKER OPTIONS MENU */
+    #optionsOverlay {
+      position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 360px;
+      max-height: calc(100% - 160px); overflow-y: auto;
+      background: rgba(17, 24, 39, 0.96); backdrop-filter: blur(8px);
+      border: 1px solid #374151; border-radius: 18px; padding: 14px;
+      z-index: 40; display: none; flex-direction: column; gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+    #optionsOverlay.open { display: flex; }
+
+    .opt-header {
       display: flex; align-items: center; justify-content: space-between;
-      font-size: 15px; font-weight: 600; margin-bottom: 10px;
+      padding-bottom: 8px; border-bottom: 1px solid #374151;
     }
-    .badge {
-      padding: 4px 10px; border-radius: 99px; font-size: 13px;
-      background: #FEE2E2; color: #991B1B;
+    .icon-pill {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 14px; border-radius: 99px; border: none;
+      background: #374151; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;
     }
-    .badge.connected { background: #D1FAE5; color: #065F46; }
+    .opt-row {
+      background: #1F2937; border-radius: 12px; padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 8px; font-size: 13px;
+    }
+    .opt-row-inline {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .opt-btn {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: none;
+      font-weight: 700; font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .opt-btn-upload { background: #3B82F6; color: #FFFFFF; }
+    .opt-btn-path {
+      background: #374151; color: #F3F4F6; text-align: left;
+      justify-content: space-between; font-weight: 600; word-break: break-all;
+    }
+    .opt-btn-confirm { background: var(--green); color: #FFFFFF; flex: 1; }
+    .opt-btn-warn { background: #EF4444; color: #FFFFFF; }
+    .opt-input, .opt-select {
+      background: #111827; color: #FFFFFF; border: 1px solid #4B5563;
+      border-radius: 8px; padding: 6px 10px; font-size: 14px; width: 90px;
+    }
+    .opt-select { width: auto; flex: 1; }
 
-    .btn {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; padding: 18px; border-radius: 14px; border: none;
-      font-size: 19px; font-weight: 700; cursor: pointer; margin-bottom: 10px;
+    /* 5. STICKY BOTTOM SINGLE ACTION BUTTON */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 84px;
+      background: var(--surface); padding: 12px 16px; z-index: 30;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.35);
     }
-    .btn-connect { background: #2563EB; color: white; }
-    .btn-upload { background: #F59E0B; color: #111827; }
-    .btn-print { background: var(--green); color: white; font-size: 22px; padding: 20px; }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #mainActionBtn {
+      width: 100%; height: 100%; border: none; border-radius: 16px;
+      font-size: 22px; font-weight: 800; color: #FFFFFF; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.2s ease;
+    }
+    #mainActionBtn.state-connect { background: var(--blue); }
+    #mainActionBtn.state-searching { background: var(--amber); }
+    #mainActionBtn.state-print { background: var(--green); }
+    #mainActionBtn:disabled { opacity: 0.75; cursor: not-allowed; }
 
-    /* Controls & Preview */
-    .controls { display: flex; flex-direction: column; gap: 8px; font-size: 14px; margin-top: 8px; }
-    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .preview-box {
-      width: 100%; overflow-x: auto; background: #E5E7EB;
-      border-radius: 10px; padding: 10px; text-align: center; min-height: 120px;
-      display: flex; align-items: center; justify-content: center;
+    /* Animated Dots for "Looking for Printer..." */
+    .dots::after {
+      content: '';
+      display: inline-block;
+      width: 1.2em;
+      text-align: left;
+      animation: dotAnim 1.4s infinite steps(4, end);
     }
-    canvas { background: white; max-width: 100%; height: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-    #fileInput { display: none; }
-    #log { font-size: 13px; color: #4B5563; text-align: center; margin-top: 6px; min-height: 18px; }
+    @keyframes dotAnim {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
   </style>
 </head>
 <body>
 
-  <!-- BACK TO FOODPANDA PARTNER BUTTON -->
-  <button class="fp-back-btn" onclick="openFoodpandaPartner()">
-    <span class="fp-logo">🐼</span>
-    <span>Back to foodpanda partner</span>
+  <!-- TOP STICKY BRIGHTNESS SLIDER -->
+  <div class="top-bar">
+    <span>☀️ Brightness</span>
+    <input type="range" id="brightnessSlider" min="40" max="230" value="155" oninput="onBrightnessChange()">
+  </div>
+
+  <!-- STATUS BANNER -->
+  <div id="statusBanner">Ready</div>
+
+  <!-- FLOATING RETURN TO APP BUTTON (Only shown if configured in Options) -->
+  <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
+    <span class="app-icon" id="returnAppIcon">🐼</span>
+    <span id="returnAppLabel">Foodpanda</span>
   </button>
 
-  <!-- STEP 1: CONNECT PRINTER -->
-  <div class="card">
-    <div class="status-bar">
-      <span>Printer Status:</span>
-      <span id="bleBadge" class="badge">Disconnected</span>
+  <!-- FLOATING BURGER BUTTON -->
+  <button id="burgerBtn" class="fab" onclick="toggleMenu(true)" aria-label="Options">☰</button>
+
+  <!-- FLOATING FIT HEIGHT BUTTON -->
+  <button id="fitHeightBtn" class="fab" onclick="fitHeight()">⤢ Fit Height</button>
+
+  <!-- ONE-TAP FOLDER ACCESS UNLOCK (If browser requests permission after reboot) -->
+  <button id="folderPermBtn" class="fab" onclick="unlockSavedFolder()">📂 Tap to Load Latest Download</button>
+
+  <!-- FLOATING CARETAKER OPTIONS MENU -->
+  <div id="optionsOverlay">
+    <div class="opt-header">
+      <button class="icon-pill" onclick="closeMenu(true)">← Back</button>
+      <span style="font-weight:700; font-size:15px;">Caretaker Options</span>
+      <button class="icon-pill" onclick="closeMenu(true)">☰</button>
     </div>
-    <button id="connectBtn" class="btn btn-connect" onclick="connectPrinter()">
-      🔵 1. Connect Printer (C9 / PD01)
-    </button>
+
+    <!-- 1. Open Doc / Photo (Up Button) -->
+    <div class="opt-row">
+      <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleManualFile(event)">
+      <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
+        ⬆️ Open Doc / Photo
+      </button>
+    </div>
+
+    <!-- 2. Download Path (Staged with Confirmation, Back undoes change) -->
+    <div class="opt-row">
+      <div style="font-weight:600; color:#9CA3AF;">Auto-Load Folder Path:</div>
+      <button class="opt-btn opt-btn-path" onclick="stageDownloadFolder()">
+        <span id="folderPathDisplay">Not set (Tap to choose)</span>
+        <span>📁</span>
+      </button>
+      <div id="folderConfirmRow" class="opt-row-inline" style="display:none; margin-top:4px;">
+        <span style="font-size:12px; color:#FBBF24;">Confirm new folder? (Back cancels)</span>
+        <button class="opt-btn opt-btn-confirm" style="width:auto; padding:6px 14px;" onclick="confirmDownloadFolder()">✓ Confirm</button>
+      </div>
+    </div>
+
+    <!-- 3. Margin (Single value in mm for Start & End) -->
+    <div class="opt-row">
+      <div class="opt-row-inline">
+        <label for="marginMmInput" style="font-weight:600;">Start & End Margin (mm):</label>
+        <input type="number" id="marginMmInput" class="opt-input" min="0" max="60" step="1" value="4" onchange="saveMarginSetting()">
+      </div>
+    </div>
+
+    <!-- 4. Stamp (Persisted in IndexedDB, prints Before/After within margins) -->
+    <div class="opt-row">
+      <div class="opt-row-inline">
+        <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="stampEnabled" onchange="saveStampSettings()"> Enable Stamp
+        </label>
+        <select id="stampPosition" class="opt-select" onchange="saveStampSettings()">
+          <option value="before">Before Doc</option>
+          <option value="after">After Doc</option>
+        </select>
+      </div>
+      <input type="file" id="stampFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleStampFileSelect(event)">
+      <button class="opt-btn opt-btn-path" onclick="document.getElementById('stampFileInput').click()">
+        <span id="stampFileName">No stamp file chosen</span>
+        <span>🏷️ Choose</span>
+      </button>
+    </div>
+
+    <!-- 5. Change Connected Printer -->
+    <div class="opt-row">
+      <div class="opt-row-inline">
+        <span id="savedPrinterLabel" style="color:#9CA3AF; font-size:12px;">Saved: None</span>
+      </div>
+      <button class="opt-btn opt-btn-warn" onclick="changeConnectedPrinter()">
+        🔄 Change Connected Printer
+      </button>
+    </div>
+
+    <!-- 6. Return App Button Option -->
+    <div class="opt-row">
+      <div class="opt-row-inline">
+        <label for="returnAppSelect" style="font-weight:600;">Return Button:</label>
+        <select id="returnAppSelect" class="opt-select" onchange="saveReturnAppSetting()">
+          <option value="none">None (Hidden)</option>
+          <option value="foodpanda">🐼 Foodpanda Partner</option>
+          <option value="custom">⚙️ Custom Android App</option>
+        </select>
+      </div>
+      <div id="customAppFields" style="display:none; flex-direction:column; gap:6px; margin-top:4px;">
+        <input type="text" id="customAppName" class="opt-input" style="width:100%" placeholder="Button Label (e.g. Orders)" onchange="saveReturnAppSetting()">
+        <input type="text" id="customAppIcon" class="opt-input" style="width:100%" placeholder="Emoji Icon (e.g. 📦)" onchange="saveReturnAppSetting()">
+        <input type="text" id="customAppPkg" class="opt-input" style="width:100%" placeholder="Package (com.example.app)" onchange="saveReturnAppSetting()">
+      </div>
+    </div>
   </div>
 
-  <!-- STEP 2: PICK PDF OR IMAGE & PRINT -->
-  <div class="card">
-    <input type="file" id="fileInput" accept="application/pdf,image/*" onchange="handleFileSelect(event)">
-    <button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">
-      📄 2. Select Order PDF / Image
-    </button>
-
-    <button id="printBtn" class="btn btn-print" onclick="printCanvas()" disabled>
-      🖨️ 3. PRINT RECEIPT NOW
-    </button>
-    <div id="log">Ready. Pick a PDF or image to preview.</div>
-
-    <div class="controls">
-      <div class="row">
-        <label for="threshold">Darkness / Contrast:</label>
-        <input type="range" id="threshold" min="60" max="220" value="160" oninput="reprocessPreview()">
-      </div>
-      <div class="row">
-        <label><input type="checkbox" id="trimMargins" checked onchange="reprocessPreview()"> Auto-trim blank top/bottom</label>
-        <label><input type="checkbox" id="msbOrder"> Flip Bit Order</label>
-      </div>
+  <!-- INTERACTIVE PREVIEW VIEWPORT -->
+  <div id="viewport">
+    <div id="canvasTransform">
+      <canvas id="printCanvas" width="384" height="300"></canvas>
     </div>
   </div>
 
-  <!-- RECEIPT PREVIEW -->
-  <div class="card">
-    <div style="font-weight:600; margin-bottom:8px; font-size:14px;">384px Thermal Preview:</div>
-    <div class="preview-box">
-      <canvas id="printCanvas" width="384" height="100"></canvas>
-    </div>
+  <!-- STICKY BOTTOM SINGLE BUTTON -->
+  <div class="bottom-bar">
+    <button id="mainActionBtn" class="state-connect" onclick="handleMainButtonClick()">
+      Connect
+    </button>
   </div>
 
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   const PRINTER_WIDTH = 384;
+  const PX_PER_MM = 8; // 203 DPI thermal head: 384px / 48mm = 8px/mm
+  const BLE_SERVICES = [
+    '0000ae30-0000-1000-8000-00805f9b34fb',
+    '0000af30-0000-1000-8000-00805f9b34fb',
+    '0000ff00-0000-1000-8000-00805f9b34fb'
+  ];
+
+  // App State
   let writeChar = null;
-  let rawSourceCanvas = null; // Stores full-color stitched image before B&W thresholding
+  let activeBleDevice = null;
+  let isPrinting = false;
+  let reconnectTimer = null;
 
-  // Launch Foodpanda Partner App (com.deliveryhero.pandaportal)
-  function openFoodpandaPartner() {
-    // Android Chrome Intent URI for official Foodpanda Partner app
-    const intentUrl = "intent://#Intent;package=com.deliveryhero.pandaportal;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=com.deliveryhero.pandaportal") + ";end";
-    window.location.href = intentUrl;
+  // Canvases (Full color 384px wide sources before thresholding)
+  let docSourceCanvas = null;
+  let stampSourceCanvas = null;
+
+  // Directory Handles (Committed vs Staged in Options)
+  let committedDirHandle = null;
+  let stagedDirHandle = null;
+
+  // Pan & Pinch-Zoom State
+  let viewScale = 1;
+  let viewPanX = 0;
+  let viewPanY = 0;
+  let activeTouches = new Map();
+  let lastPinchDist = null;
+  let lastPinchCenter = null;
+
+  function setStatus(msg) {
+    document.getElementById('statusBanner').innerText = msg;
   }
 
-  function setLog(msg) {
-    document.getElementById('log').innerText = msg;
+  // ==========================================
+  // 1. INDEXEDDB PERSISTENCE (Folder & Stamp)
+  // ==========================================
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('CatPrinterDB', 1);
+      req.onupgradeneeded = (e) => {
+        e.target.result.createObjectStore('kv');
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
   }
 
-  // ========================
-  // 1. WEB BLUETOOTH ENGINE
-  // ========================
-  async function connectPrinter() {
+  async function idbGet(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('kv', 'readonly');
+      const req = tx.objectStore('kv').get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbSet(key, val) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(val, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // ==========================================
+  // 2. VIEWPORT PAN, PINCH-ZOOM & FIT-HEIGHT
+  // ==========================================
+  const viewportEl = document.getElementById('viewport');
+  const transformEl = document.getElementById('canvasTransform');
+  const printCanvasEl = document.getElementById('printCanvas');
+
+  function applyTransform() {
+    transformEl.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
+  }
+
+  function fitHeight() {
+    const vw = viewportEl.clientWidth;
+    const vh = viewportEl.clientHeight;
+    const cw = printCanvasEl.width || 384;
+    const ch = printCanvasEl.height || 300;
+    const pad = 20;
+    viewScale = Math.max(0.1, (vh - pad * 2) / ch);
+    viewPanX = (vw - cw * viewScale) / 2;
+    viewPanY = pad;
+    applyTransform();
+  }
+
+  function getDistance(p1, p2) {
+    return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  }
+
+  function getCenter(p1, p2) {
+    return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  }
+
+  viewportEl.addEventListener('pointerdown', (e) => {
+    viewportEl.setPointerCapture(e.pointerId);
+    activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activeTouches.size === 2) {
+      const pts = Array.from(activeTouches.values());
+      lastPinchDist = getDistance(pts[0], pts[1]);
+      lastPinchCenter = getCenter(pts[0], pts[1]);
+    }
+  });
+
+  viewportEl.addEventListener('pointermove', (e) => {
+    if (!activeTouches.has(e.pointerId)) return;
+    const prev = activeTouches.get(e.pointerId);
+    const curr = { x: e.clientX, y: e.clientY };
+    activeTouches.set(e.pointerId, curr);
+
+    if (activeTouches.size === 1) {
+      // 1-Finger Pan
+      viewPanX += curr.x - prev.x;
+      viewPanY += curr.y - prev.y;
+      applyTransform();
+    } else if (activeTouches.size === 2) {
+      // 2-Finger Pinch-Zoom + Pan
+      const pts = Array.from(activeTouches.values());
+      const dist = getDistance(pts[0], pts[1]);
+      const center = getCenter(pts[0], pts[1]);
+      if (lastPinchDist && lastPinchDist > 0) {
+        const rect = viewportEl.getBoundingClientRect();
+        const cx = center.x - rect.left;
+        const cy = center.y - rect.top;
+        const scaleFactor = dist / lastPinchDist;
+        const nextScale = Math.min(5, Math.max(0.15, viewScale * scaleFactor));
+        const actualFactor = nextScale / viewScale;
+
+        viewPanX = cx - (cx - viewPanX) * actualFactor + (center.x - lastPinchCenter.x);
+        viewPanY = cy - (cy - viewPanY) * actualFactor + (center.y - lastPinchCenter.y);
+        viewScale = nextScale;
+        applyTransform();
+      }
+      lastPinchDist = dist;
+      lastPinchCenter = center;
+    }
+  });
+
+  function onPointerUpOrCancel(e) {
+    activeTouches.delete(e.pointerId);
+    if (activeTouches.size < 2) {
+      lastPinchDist = null;
+      lastPinchCenter = null;
+    }
+  }
+  viewportEl.addEventListener('pointerup', onPointerUpOrCancel);
+  viewportEl.addEventListener('pointercancel', onPointerUpOrCancel);
+  window.addEventListener('resize', fitHeight);
+
+  // ==========================================
+  // 3. BLUETOOTH PERSISTENCE & AUTO-RECONNECT
+  // ==========================================
+  function getSavedPrinterId() {
+    return localStorage.getItem('cat_printer_id');
+  }
+
+  function updateMainButtonUI() {
+    const btn = document.getElementById('mainActionBtn');
+    const savedId = getSavedPrinterId();
+    const savedName = localStorage.getItem('cat_printer_name') || 'None';
+    document.getElementById('savedPrinterLabel').innerText = `Saved: ${savedId ? savedName : 'None'}`;
+
+    if (isPrinting) return;
+
+    btn.classList.remove('state-connect', 'state-searching', 'state-print');
+    btn.disabled = false;
+
+    if (writeChar) {
+      btn.classList.add('state-print');
+      btn.innerHTML = 'Print';
+    } else if (!savedId) {
+      btn.classList.add('state-connect');
+      btn.innerHTML = 'Connect';
+    } else {
+      btn.classList.add('state-searching');
+      btn.innerHTML = '<span>Looking for Printer<span class="dots"></span></span>';
+    }
+  }
+
+  async function handleMainButtonClick() {
+    const savedId = getSavedPrinterId();
+    if (!savedId) {
+      await pairNewPrinter();
+    } else if (writeChar) {
+      await printCanvas();
+    } else {
+      // Nudge immediate reconnect check if currently in "Looking for Printer..."
+      await attemptAutoReconnect(true);
+    }
+  }
+
+  async function pairNewPrinter() {
     try {
-      setLog("Scanning for C9 / PD01 printer...");
+      setStatus('Select printer from Bluetooth list...');
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [
-          '0000ae30-0000-1000-8000-00805f9b34fb',
-          '0000af30-0000-1000-8000-00805f9b34fb',
-          '0000ff00-0000-1000-8000-00805f9b34fb'
-        ]
+        optionalServices: BLE_SERVICES
       });
+      localStorage.setItem('cat_printer_id', device.id);
+      localStorage.setItem('cat_printer_name', device.name || 'Cat Printer');
+      updateMainButtonUI();
+      await connectToBleDevice(device);
+    } catch (err) {
+      setStatus('Pairing cancelled or failed.');
+      updateMainButtonUI();
+    }
+  }
 
-      device.addEventListener('gattserverdisconnected', () => {
-        writeChar = null;
-        const badge = document.getElementById('bleBadge');
-        badge.innerText = "Disconnected";
-        badge.classList.remove('connected');
-        updatePrintButtonState();
-        setLog("Printer disconnected.");
-      });
+  async function changeConnectedPrinter() {
+    if (activeBleDevice && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
+      activeBleDevice.gatt.disconnect();
+    }
+    writeChar = null;
+    activeBleDevice = null;
+    localStorage.removeItem('cat_printer_id');
+    localStorage.removeItem('cat_printer_name');
+    updateMainButtonUI();
+    closeMenu(true);
+    await pairNewPrinter();
+  }
+
+  async function connectToBleDevice(device) {
+    try {
+      activeBleDevice = device;
+      device.removeEventListener('gattserverdisconnected', onBleDisconnected);
+      device.addEventListener('gattserverdisconnected', onBleDisconnected);
 
       const server = await device.gatt.connect();
       const services = await server.getPrimaryServices();
+      let foundChar = null;
       for (const service of services) {
         const chars = await service.getCharacteristics();
         for (const c of chars) {
           if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
-            writeChar = c;
+            foundChar = c;
             if (c.uuid.includes('ae01')) break;
           }
         }
-        if (writeChar && writeChar.uuid.includes('ae01')) break;
+        if (foundChar && foundChar.uuid.includes('ae01')) break;
       }
+      if (!foundChar) throw new Error('Write characteristic not found');
 
-      if (!writeChar) throw new Error("Could not find printer write characteristic (ae01).");
-
-      const badge = document.getElementById('bleBadge');
-      badge.innerText = "Connected (" + (device.name || "Printer") + ")";
-      badge.classList.add('connected');
-      updatePrintButtonState();
-      setLog("Connected! Ready to print.");
+      writeChar = foundChar;
+      setStatus(`Connected to ${device.name || 'Cat Printer'}`);
+      updateMainButtonUI();
     } catch (err) {
-      setLog("Connection failed: " + err.message);
+      writeChar = null;
+      updateMainButtonUI();
     }
   }
 
-  function updatePrintButtonState() {
-    document.getElementById('printBtn').disabled = !(writeChar && rawSourceCanvas);
+  function onBleDisconnected() {
+    writeChar = null;
+    setStatus('Printer offline. Waiting for printer...');
+    updateMainButtonUI();
+    startAutoReconnectLoop();
   }
 
-  // ======================================
-  // 2. PDF & IMAGE RENDERING (384px WIDTH)
-  // ======================================
-  async function handleFileSelect(e) {
-    const file = e.target.files[0];
-    if (file) await loadFileObject(file);
-  }
+  async function attemptAutoReconnect() {
+    const savedId = getSavedPrinterId();
+    if (!savedId || writeChar || isPrinting) return;
+    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
 
-  async function loadFileObject(file) {
-    setLog("Loading " + file.name + "...");
-    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-      await renderPdfToSourceCanvas(file);
-    } else {
-      await renderImageToSourceCanvas(file);
-    }
-    reprocessPreview();
-    updatePrintButtonState();
-  }
+    try {
+      const devices = await navigator.bluetooth.getDevices();
+      const target = devices.find(d => d.id === savedId) || devices[0];
+      if (!target) return;
 
-  async function renderPdfToSourceCanvas(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pageCanvases = [];
-    let totalHeight = 0;
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      setLog(`Rendering PDF page ${i} of ${pdf.numPages}...`);
-      const page = await pdf.getPage(i);
-      const unscaledViewport = page.getViewport({ scale: 1 });
-      const scale = PRINTER_WIDTH / unscaledViewport.width;
-      const viewport = page.getViewport({ scale: scale });
-
-      const c = document.createElement('canvas');
-      c.width = PRINTER_WIDTH;
-      c.height = Math.floor(viewport.height);
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, c.width, c.height);
-
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      pageCanvases.push(c);
-      totalHeight += c.height;
-    }
-
-    rawSourceCanvas = document.createElement('canvas');
-    rawSourceCanvas.width = PRINTER_WIDTH;
-    rawSourceCanvas.height = totalHeight;
-    const finalCtx = rawSourceCanvas.getContext('2d');
-    let yOffset = 0;
-    for (const pc of pageCanvases) {
-      finalCtx.drawImage(pc, 0, yOffset);
-      yOffset += pc.height;
-    }
-  }
-
-  async function renderImageToSourceCanvas(file) {
-    const bitmap = await createImageBitmap(file);
-    const targetHeight = Math.floor(bitmap.height * (PRINTER_WIDTH / bitmap.width));
-    rawSourceCanvas = document.createElement('canvas');
-    rawSourceCanvas.width = PRINTER_WIDTH;
-    rawSourceCanvas.height = targetHeight;
-    const ctx = rawSourceCanvas.getContext('2d');
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, PRINTER_WIDTH, targetHeight);
-    ctx.drawImage(bitmap, 0, 0, PRINTER_WIDTH, targetHeight);
-  }
-
-  function reprocessPreview() {
-    if (!rawSourceCanvas) return;
-    const threshold = parseInt(document.getElementById('threshold').value, 10);
-    const trim = document.getElementById('trimMargins').checked;
-
-    const srcCtx = rawSourceCanvas.getContext('2d');
-    const srcData = srcCtx.getImageData(0, 0, PRINTER_WIDTH, rawSourceCanvas.height);
-    const pixels = srcData.data;
-    const totalRows = rawSourceCanvas.height;
-
-    // 1. Convert to 1-bit monochrome rows
-    let minRow = 0;
-    let maxRow = totalRows - 1;
-
-    if (trim) {
-      // Find first non-white row
-      topLoop: for (let y = 0; y < totalRows; y++) {
-        for (let x = 0; x < PRINTER_WIDTH; x++) {
-          const idx = (y * PRINTER_WIDTH + x) * 4;
-          const lum = (pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114);
-          if (lum < threshold) { minRow = Math.max(0, y - 8); break topLoop; }
-        }
+      // Listen for BLE advertisement packets when the printer gets switched on
+      if (target.watchAdvertisements && !target._watchingAds) {
+        target._watchingAds = true;
+        target.addEventListener('advertisementreceived', () => {
+          if (!writeChar) connectToBleDevice(target);
+        });
+        target.watchAdvertisements().catch(() => {});
       }
-      // Find last non-white row
-      bottomLoop: for (let y = totalRows - 1; y >= minRow; y--) {
-        for (let x = 0; x < PRINTER_WIDTH; x++) {
-          const idx = (y * PRINTER_WIDTH + x) * 4;
-          const lum = (pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114);
-          if (lum < threshold) { maxRow = Math.min(totalRows - 1, y + 8); break bottomLoop; }
-        }
-      }
-    }
 
-    const croppedHeight = Math.max(10, maxRow - minRow + 1);
-    const dstCanvas = document.getElementById('printCanvas');
-    dstCanvas.width = PRINTER_WIDTH;
-    dstCanvas.height = croppedHeight;
-    const dstCtx = dstCanvas.getContext('2d');
-    const dstImgData = dstCtx.createImageData(PRINTER_WIDTH, croppedHeight);
-    const dstPixels = dstImgData.data;
-
-    for (let y = 0; y < croppedHeight; y++) {
-      const srcY = minRow + y;
-      for (let x = 0; x < PRINTER_WIDTH; x++) {
-        const srcIdx = (srcY * PRINTER_WIDTH + x) * 4;
-        const dstIdx = (y * PRINTER_WIDTH + x) * 4;
-        const lum = (pixels[srcIdx] * 0.299 + pixels[srcIdx+1] * 0.587 + pixels[srcIdx+2] * 0.114);
-        const val = lum < threshold ? 0 : 255;
-        dstPixels[dstIdx] = val;
-        dstPixels[dstIdx+1] = val;
-        dstPixels[dstIdx+2] = val;
-        dstPixels[dstIdx+3] = 255;
-      }
+      await connectToBleDevice(target);
+    } catch (e) {
+      // Silently continue polling until printer is powered on
     }
-    dstCtx.putImageData(dstImgData, 0, 0);
-    setLog(`Ready to print (${PRINTER_WIDTH}x${croppedHeight} px).`);
+  }
+
+  function startAutoReconnectLoop() {
+    if (reconnectTimer) clearInterval(reconnectTimer);
+    attemptAutoReconnect();
+    reconnectTimer = setInterval(() => {
+      if (!writeChar && getSavedPrinterId()) {
+        attemptAutoReconnect();
+      }
+    }, 2500);
   }
 
   // ==========================================
-  // 3. CAT PRINTER 0x5178 BLE PROTOCOL DRIVER
+  // 4. OPTIONS MENU & CARETAKER SETTINGS
+  // ==========================================
+  function toggleMenu() {
+    const overlay = document.getElementById('optionsOverlay');
+    if (overlay.classList.contains('open')) {
+      closeMenu(true);
+    } else {
+      stagedDirHandle = null;
+      document.getElementById('folderConfirmRow').style.display = 'none';
+      refreshFolderDisplay();
+      overlay.classList.add('open');
+    }
+  }
+
+  function closeMenu(undoStagedChanges) {
+    if (undoStagedChanges) {
+      stagedDirHandle = null;
+      document.getElementById('folderConfirmRow').style.display = 'none';
+      refreshFolderDisplay();
+    }
+    document.getElementById('optionsOverlay').classList.remove('open');
+  }
+
+  function refreshFolderDisplay() {
+    const el = document.getElementById('folderPathDisplay');
+    if (stagedDirHandle) {
+      el.innerText = `[Unconfirmed] ${stagedDirHandle.name}`;
+    } else if (committedDirHandle) {
+      el.innerText = `/${committedDirHandle.name}`;
+    } else {
+      el.innerText = 'Not set (Tap to choose)';
+    }
+  }
+
+  async function stageDownloadFolder() {
+    if (!window.showDirectoryPicker) {
+      alert('Folder picker is not supported in this browser.');
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      stagedDirHandle = handle;
+      refreshFolderDisplay();
+      document.getElementById('folderConfirmRow').style.display = 'flex';
+    } catch (e) {
+      // Cancelled picker
+    }
+  }
+
+  async function confirmDownloadFolder() {
+    if (!stagedDirHandle) return;
+    committedDirHandle = stagedDirHandle;
+    stagedDirHandle = null;
+    await idbSet('downloadDirHandle', committedDirHandle);
+    document.getElementById('folderConfirmRow').style.display = 'none';
+    refreshFolderDisplay();
+    await loadMostRecentFromFolder(committedDirHandle);
+  }
+
+  async function unlockSavedFolder() {
+    document.getElementById('folderPermBtn').style.display = 'none';
+    if (!committedDirHandle) return;
+    try {
+      const perm = await committedDirHandle.requestPermission({ mode: 'read' });
+      if (perm === 'granted') {
+        await loadMostRecentFromFolder(committedDirHandle);
+      }
+    } catch (e) {}
+  }
+
+  async function loadMostRecentFromFolder(dirHandle) {
+    if (!dirHandle) return;
+    try {
+      const perm = await dirHandle.queryPermission({ mode: 'read' });
+      if (perm !== 'granted') {
+        document.getElementById('folderPermBtn').style.display = 'flex';
+        setStatus('Tap button to allow reading Downloads folder');
+        return;
+      }
+      document.getElementById('folderPermBtn').style.display = 'none';
+      setStatus(`Scanning /${dirHandle.name} for newest file...`);
+
+      let newestFile = null;
+      let newestTime = -1;
+
+      for await (const entry of dirHandle.values()) {
+        if (entry.kind === 'file' && isValidPrintFileName(entry.name)) {
+          const file = await entry.getFile();
+          if (file.lastModified > newestTime) {
+            newestTime = file.lastModified;
+            newestFile = file;
+          }
+        }
+      }
+
+      if (newestFile) {
+        await loadMainDocumentFile(newestFile);
+      } else {
+        setStatus(`No PDF or image found in /${dirHandle.name}`);
+      }
+    } catch (err) {
+      setStatus('Folder scan error: ' + err.message);
+    }
+  }
+
+  function isValidPrintFileName(name, type = '') {
+    const lower = (name || '').toLowerCase();
+    return (
+      type === 'application/pdf' ||
+      type.startsWith('image/') ||
+      lower.endsWith('.pdf') ||
+      /\.(png|jpe?g|webp|bmp|gif)$/i.test(lower)
+    );
+  }
+
+  // Margin Setting
+  function saveMarginSetting() {
+    const val = Math.max(0, parseInt(document.getElementById('marginMmInput').value || '0', 10));
+    localStorage.setItem('cat_margin_mm', val);
+    rebuildCompositePreview(false);
+  }
+
+  // Stamp Settings
+  function saveStampSettings() {
+    const enabled = document.getElementById('stampEnabled').checked;
+    const pos = document.getElementById('stampPosition').value;
+    localStorage.setItem('cat_stamp_enabled', enabled ? '1' : '0');
+    localStorage.setItem('cat_stamp_pos', pos);
+    rebuildCompositePreview(true);
+  }
+
+  async function handleStampFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!isValidPrintFileName(file.name, file.type)) {
+      alert('Please choose a valid PDF or Image file for the stamp.');
+      e.target.value = '';
+      return;
+    }
+    const buf = await file.arrayBuffer();
+    const stampRecord = { name: file.name, type: file.type, buffer: buf };
+    await idbSet('stampFile', stampRecord);
+    document.getElementById('stampFileName').innerText = file.name;
+    document.getElementById('stampEnabled').checked = true;
+    localStorage.setItem('cat_stamp_enabled', '1');
+
+    const rebuiltFile = new File([buf], file.name, { type: file.type });
+    stampSourceCanvas = await renderFileToTrimmedCanvas(rebuiltFile);
+    rebuildCompositePreview(true);
+  }
+
+  // Return App Settings
+  function saveReturnAppSetting() {
+    const mode = document.getElementById('returnAppSelect').value;
+    const customName = document.getElementById('customAppName').value.trim() || 'Return';
+    const customIcon = document.getElementById('customAppIcon').value.trim() || '📱';
+    const customPkg = document.getElementById('customAppPkg').value.trim();
+
+    localStorage.setItem('cat_return_mode', mode);
+    localStorage.setItem('cat_return_name', customName);
+    localStorage.setItem('cat_return_icon', customIcon);
+    localStorage.setItem('cat_return_pkg', customPkg);
+    applyReturnAppUI();
+  }
+
+  function applyReturnAppUI() {
+    const mode = localStorage.getItem('cat_return_mode') || 'none';
+    const btn = document.getElementById('returnAppBtn');
+    const customBox = document.getElementById('customAppFields');
+    document.getElementById('returnAppSelect').value = mode;
+    customBox.style.display = mode === 'custom' ? 'flex' : 'none';
+
+    if (mode === 'none') {
+      btn.style.display = 'none';
+    } else if (mode === 'foodpanda') {
+      btn.style.display = 'flex';
+      document.getElementById('returnAppIcon').innerText = '🐼';
+      document.getElementById('returnAppLabel').innerText = 'Foodpanda';
+    } else if (mode === 'custom') {
+      btn.style.display = 'flex';
+      document.getElementById('returnAppIcon').innerText = localStorage.getItem('cat_return_icon') || '📱';
+      document.getElementById('returnAppLabel').innerText = localStorage.getItem('cat_return_name') || 'Return';
+    }
+  }
+
+  function launchReturnApp() {
+    const mode = localStorage.getItem('cat_return_mode') || 'none';
+    let pkg = 'com.deliveryhero.pandaportal';
+    if (mode === 'custom') {
+      pkg = localStorage.getItem('cat_return_pkg') || '';
+    }
+    if (!pkg) return;
+    const fallback = encodeURIComponent(`https://play.google.com/store/apps/details?id=${pkg}`);
+    window.location.href = `intent://#Intent;package=${pkg};action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${fallback};end`;
+  }
+
+  // ==========================================
+  // 5. PDF / IMAGE + STAMP + MARGIN ENGINE
+  // ==========================================
+  async function handleManualFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!isValidPrintFileName(file.name, file.type)) {
+      alert('Please choose a valid PDF or Image file.');
+      return;
+    }
+    closeMenu(true);
+    await loadMainDocumentFile(file);
+  }
+
+  async function loadMainDocumentFile(file) {
+    setStatus(`Loading ${file.name}...`);
+    docSourceCanvas = await renderFileToTrimmedCanvas(file);
+    rebuildCompositePreview(true);
+    setStatus(`Loaded: ${file.name}`);
+  }
+
+  async function renderFileToTrimmedCanvas(file) {
+    let rawCanvas;
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pageCanvases = [];
+      let totalHeight = 0;
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const unscaled = page.getViewport({ scale: 1 });
+        const scale = PRINTER_WIDTH / unscaled.width;
+        const viewport = page.getViewport({ scale });
+
+        const c = document.createElement('canvas');
+        c.width = PRINTER_WIDTH;
+        c.height = Math.floor(viewport.height);
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, c.width, c.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        pageCanvases.push(c);
+        totalHeight += c.height;
+      }
+
+      rawCanvas = document.createElement('canvas');
+      rawCanvas.width = PRINTER_WIDTH;
+      rawCanvas.height = Math.max(10, totalHeight);
+      const finalCtx = rawCanvas.getContext('2d');
+      let yOffset = 0;
+      for (const pc of pageCanvases) {
+        finalCtx.drawImage(pc, 0, yOffset);
+        yOffset += pc.height;
+      }
+    } else {
+      const bitmap = await createImageBitmap(file);
+      const targetHeight = Math.max(10, Math.floor(bitmap.height * (PRINTER_WIDTH / bitmap.width)));
+      rawCanvas = document.createElement('canvas');
+      rawCanvas.width = PRINTER_WIDTH;
+      rawCanvas.height = targetHeight;
+      const ctx = rawCanvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, PRINTER_WIDTH, targetHeight);
+      ctx.drawImage(bitmap, 0, 0, PRINTER_WIDTH, targetHeight);
+    }
+
+    return cropWhiteTopBottom(rawCanvas);
+  }
+
+  function cropWhiteTopBottom(srcCanvas) {
+    const ctx = srcCanvas.getContext('2d');
+    const h = srcCanvas.height;
+    const pixels = ctx.getImageData(0, 0, PRINTER_WIDTH, h).data;
+    let minRow = 0;
+    let maxRow = h - 1;
+
+    topScan: for (let y = 0; y < h; y++) {
+      for (let x = 0; x < PRINTER_WIDTH; x++) {
+        const idx = (y * PRINTER_WIDTH + x) * 4;
+        const lum = pixels[idx] * 0.299 + pixels[idx + 1] * 0.587 + pixels[idx + 2] * 0.114;
+        if (lum < 242) { minRow = y; break topScan; }
+      }
+    }
+    bottomScan: for (let y = h - 1; y >= minRow; y--) {
+      for (let x = 0; x < PRINTER_WIDTH; x++) {
+        const idx = (y * PRINTER_WIDTH + x) * 4;
+        const lum = pixels[idx] * 0.299 + pixels[idx + 1] * 0.587 + pixels[idx + 2] * 0.114;
+        if (lum < 242) { maxRow = y; break bottomScan; }
+      }
+    }
+
+    const croppedH = Math.max(10, maxRow - minRow + 1);
+    const out = document.createElement('canvas');
+    out.width = PRINTER_WIDTH;
+    out.height = croppedH;
+    out.getContext('2d').drawImage(srcCanvas, 0, minRow, PRINTER_WIDTH, croppedH, 0, 0, PRINTER_WIDTH, croppedH);
+    return out;
+  }
+
+  function onBrightnessChange() {
+    const val = document.getElementById('brightnessSlider').value;
+    localStorage.setItem('cat_brightness', val);
+    rebuildCompositePreview(false);
+  }
+
+  function rebuildCompositePreview(resetFitHeight = false) {
+    const threshold = parseInt(document.getElementById('brightnessSlider').value || '155', 10);
+    const marginMm = parseInt(localStorage.getItem('cat_margin_mm') ?? '4', 10);
+    const marginPx = Math.max(0, Math.round(marginMm * PX_PER_MM));
+
+    const stampEnabled = localStorage.getItem('cat_stamp_enabled') === '1' && stampSourceCanvas;
+    const stampPos = localStorage.getItem('cat_stamp_pos') || 'after';
+    const stampGap = stampEnabled && docSourceCanvas ? 16 : 0;
+
+    const docH = docSourceCanvas ? docSourceCanvas.height : 200;
+    const stampH = stampEnabled ? stampSourceCanvas.height : 0;
+    const totalHeight = Math.max(40, marginPx + docH + stampH + stampGap + marginPx);
+
+    // 1. Assemble full-color composite inside start & end margins
+    const compCanvas = document.createElement('canvas');
+    compCanvas.width = PRINTER_WIDTH;
+    compCanvas.height = totalHeight;
+    const compCtx = compCanvas.getContext('2d');
+    compCtx.fillStyle = '#FFFFFF';
+    compCtx.fillRect(0, 0, PRINTER_WIDTH, totalHeight);
+
+    let yCursor = marginPx;
+
+    if (stampEnabled && stampPos === 'before') {
+      compCtx.drawImage(stampSourceCanvas, 0, yCursor);
+      yCursor += stampH + stampGap;
+    }
+
+    if (docSourceCanvas) {
+      compCtx.drawImage(docSourceCanvas, 0, yCursor);
+      yCursor += docH;
+    } else {
+      compCtx.fillStyle = '#000000';
+      compCtx.font = 'bold 20px sans-serif';
+      compCtx.textAlign = 'center';
+      compCtx.fillText('No document loaded', PRINTER_WIDTH / 2, yCursor + 90);
+      yCursor += docH;
+    }
+
+    if (stampEnabled && stampPos === 'after') {
+      yCursor += stampGap;
+      compCtx.drawImage(stampSourceCanvas, 0, yCursor);
+    }
+
+    // 2. Threshold to 1-bit monochrome on #printCanvas
+    const srcPixels = compCtx.getImageData(0, 0, PRINTER_WIDTH, totalHeight).data;
+    printCanvasEl.width = PRINTER_WIDTH;
+    printCanvasEl.height = totalHeight;
+    const dstCtx = printCanvasEl.getContext('2d');
+    const dstImg = dstCtx.createImageData(PRINTER_WIDTH, totalHeight);
+    const dstPixels = dstImg.data;
+
+    for (let i = 0; i < srcPixels.length; i += 4) {
+      const lum = srcPixels[i] * 0.299 + srcPixels[i + 1] * 0.587 + srcPixels[i + 2] * 0.114;
+      const v = lum < threshold ? 0 : 255;
+      dstPixels[i] = v;
+      dstPixels[i + 1] = v;
+      dstPixels[i + 2] = v;
+      dstPixels[i + 3] = 255;
+    }
+    dstCtx.putImageData(dstImg, 0, 0);
+
+    if (resetFitHeight) fitHeight();
+  }
+
+  // ==========================================
+  // 6. CAT PRINTER 0x5178 BLE PROTOCOL DRIVER
   // ==========================================
   function crc8(payload) {
     let crc = 0;
@@ -358,32 +1011,26 @@
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
   async function printCanvas() {
-    if (!writeChar) return alert("Please connect the printer first!");
-    const printBtn = document.getElementById('printBtn');
-    printBtn.disabled = true;
+    if (!writeChar || isPrinting) return;
+    isPrinting = true;
+    const btn = document.getElementById('mainActionBtn');
+    btn.disabled = true;
 
     try {
-      const canvas = document.getElementById('printCanvas');
-      const ctx = canvas.getContext('2d');
-      const imgData = ctx.getImageData(0, 0, PRINTER_WIDTH, canvas.height).data;
-      const msbFirst = document.getElementById('msbOrder').checked;
+      const ctx = printCanvasEl.getContext('2d');
+      const totalRows = printCanvasEl.height;
+      const imgData = ctx.getImageData(0, 0, PRINTER_WIDTH, totalRows).data;
 
-      setLog("Initializing C9 / PD01 printer...");
-      // 1. Set Quality (0xA4 -> 0x33)
+      setStatus('Initializing printer...');
       await writeBle(makePacket(0xA4, [0x33]));
       await sleep(30);
-      // 2. Set Energy / Darkness (0xAF -> 0xFFFF max contrast for receipts)
       await writeBle(makePacket(0xAF, [0xFF, 0xFF]));
       await sleep(30);
-      // 3. Set Drawing Mode to Bitmap (0xBE -> 0x00)
       await writeBle(makePacket(0xBE, [0x00]));
       await sleep(30);
-      // 4. Lattice Start (0xA6)
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
       await sleep(30);
 
-      // 5. Stream 48-byte bitmap rows (0xA2)
-      const totalRows = canvas.height;
       for (let y = 0; y < totalRows; y++) {
         const rowBytes = new Uint8Array(48);
         for (let byteIdx = 0; byteIdx < 48; byteIdx++) {
@@ -391,50 +1038,97 @@
           for (let bit = 0; bit < 8; bit++) {
             const x = byteIdx * 8 + bit;
             const pixelIdx = (y * PRINTER_WIDTH + x) * 4;
-            const isBlack = imgData[pixelIdx] === 0;
-            if (isBlack) {
-              b |= msbFirst ? (1 << (7 - bit)) : (1 << bit);
+            if (imgData[pixelIdx] === 0) {
+              b |= (1 << bit);
             }
           }
           rowBytes[byteIdx] = b;
         }
         await writeBle(makePacket(0xA2, rowBytes));
-        // Short pacing delay every 4 lines so the C9 BLE buffer never overflows
         if (y % 4 === 0) await sleep(12);
-        if (y % 40 === 0) setLog(`Printing: ${Math.round((y / totalRows) * 100)}%`);
+        if (y % 35 === 0) {
+          const pct = Math.round((y / totalRows) * 100);
+          btn.innerText = `Printing... ${pct}%`;
+          setStatus(`Printing ${pct}%`);
+        }
       }
 
-      // 6. Feed Paper 80 steps so receipt tears cleanly (0xA1)
-      await writeBle(makePacket(0xA1, [0x50, 0x00]));
-      await sleep(50);
-      // 7. Lattice End (0xA6)
+      // Lattice End (Start & end margins are already embedded in totalRows)
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
-
-      setLog("✅ Receipt printed! Tap top button to return to Foodpanda.");
+      setStatus('Print complete!');
     } catch (err) {
-      setLog("Print error: " + err.message);
+      setStatus('Print error: ' + err.message);
     } finally {
-      printBtn.disabled = false;
+      isPrinting = false;
+      updateMainButtonUI();
     }
   }
 
-  // Register Service Worker & Check for Shared PDF/Image from Android Share Sheet
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', async () => {
-      await navigator.serviceWorker.register('sw.js');
-      if (location.search.includes('shared=1')) {
-        const cache = await caches.open('shared-files');
-        const resp = await cache.match('/shared-file');
-        if (resp) {
-          const blob = await resp.blob();
-          const filename = resp.headers.get('X-File-Name') || 'receipt.pdf';
-          const file = new File([blob], filename, { type: blob.type });
-          await cache.delete('/shared-file');
-          await loadFileObject(file);
-        }
+  // ==========================================
+  // 7. INITIALIZATION & SHARE / FOLDER ROUTING
+  // ==========================================
+  window.addEventListener('load', async () => {
+    // Restore saved settings
+    const savedBrightness = localStorage.getItem('cat_brightness');
+    if (savedBrightness) document.getElementById('brightnessSlider').value = savedBrightness;
+
+    const savedMargin = localStorage.getItem('cat_margin_mm') ?? '4';
+    document.getElementById('marginMmInput').value = savedMargin;
+
+    document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
+    document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
+
+    document.getElementById('customAppName').value = localStorage.getItem('cat_return_name') || '';
+    document.getElementById('customAppIcon').value = localStorage.getItem('cat_return_icon') || '';
+    document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
+    applyReturnAppUI();
+
+    // Restore persisted Stamp from IndexedDB
+    try {
+      const savedStamp = await idbGet('stampFile');
+      if (savedStamp && savedStamp.buffer) {
+        document.getElementById('stampFileName').innerText = savedStamp.name;
+        const stampFile = new File([savedStamp.buffer], savedStamp.name, { type: savedStamp.type });
+        stampSourceCanvas = await renderFileToTrimmedCanvas(stampFile);
       }
-    });
-  }
+    } catch (e) {}
+
+    // Restore persisted Downloads Folder Handle from IndexedDB
+    try {
+      committedDirHandle = await idbGet('downloadDirHandle');
+      refreshFolderDisplay();
+    } catch (e) {}
+
+    rebuildCompositePreview(true);
+    updateMainButtonUI();
+    startAutoReconnectLoop();
+
+    // Register Service Worker & Check if launched via Android Share Target
+    let loadedFromShare = false;
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('sw.js');
+        if (location.search.includes('shared=1')) {
+          const cache = await caches.open('shared-files');
+          const resp = await cache.match('/shared-file');
+          if (resp) {
+            const blob = await resp.blob();
+            const filename = resp.headers.get('X-File-Name') || 'shared.pdf';
+            const file = new File([blob], filename, { type: blob.type });
+            await cache.delete('/shared-file');
+            history.replaceState({}, '', './index.html');
+            await loadMainDocumentFile(file);
+            loadedFromShare = true;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Otherwise auto-load most recent document from configured Downloads path
+    if (!loadedFromShare && committedDirHandle) {
+      await loadMostRecentFromFolder(committedDirHandle);
+    }
+  });
 </script>
 </body>
 </html>
