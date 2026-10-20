@@ -1,6 +1,6 @@
 {
-  "name": "Cat Printer",
-  "short_name": "Cat Printer",
+  "name": "Billu",
+  "short_name": "Billu",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1F2937",
