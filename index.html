@@ -146,7 +146,7 @@
     }
     #mainActionBtn {
       width: 100%; height: 100%; border: none; border-radius: 16px;
-      font-size: 22px; font-weight: 800; color: #FFFFFF; cursor: pointer;
+      font-size: 20px; font-weight: 800; color: #FFFFFF; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       transition: background 0.2s ease;
     }
@@ -201,7 +201,7 @@
       <button class="icon-pill" onclick="closeMenu()">☰</button>
     </div>
 
-    <!-- 1. Open Doc / Photo (Up Button - Defaults to Downloads/Recent) -->
+    <!-- 1. Open Doc / Photo -->
     <div class="opt-row">
       <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleManualFile(event)">
       <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
@@ -209,7 +209,7 @@
       </button>
     </div>
 
-    <!-- 2. Margin (Single value in mm for Start & End) -->
+    <!-- 2. Margin -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginMmInput" style="font-weight:600;">Start & End Margin (mm):</label>
@@ -217,7 +217,7 @@
       </div>
     </div>
 
-    <!-- 3. Stamp (Persisted in IndexedDB, prints Before/After within margins) -->
+    <!-- 3. Stamp -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
@@ -284,6 +284,7 @@
   const PX_PER_MM = 8;
   const BLE_SERVICES = [
     '0000ae30-0000-1000-8000-00805f9b34fb',
+    '0000ae00-0000-1000-8000-00805f9b34fb',
     '0000af30-0000-1000-8000-00805f9b34fb',
     '0000ff00-0000-1000-8000-00805f9b34fb'
   ];
@@ -291,6 +292,7 @@
   let writeChar = null;
   let activeBleDevice = null;
   let isPrinting = false;
+  let isConnecting = false;
   let reconnectTimer = null;
 
   let docSourceCanvas = null;
@@ -430,18 +432,19 @@
       btn.innerHTML = 'Connect';
     } else {
       btn.classList.add('state-searching');
-      btn.innerHTML = '<span>Looking for Printer<span class="dots"></span></span>';
+      btn.innerHTML = '<span>Looking for Printer<span class="dots"></span> (Tap to Pair)</span>';
     }
   }
 
   async function handleMainButtonClick() {
-    const savedId = getSavedPrinterId();
-    if (!savedId) {
-      await pairNewPrinter();
-    } else if (writeChar) {
+    if (writeChar) {
       await printCanvas();
-    } else {
-      await attemptAutoReconnect();
+      return;
+    }
+    // Try silent auto-reconnect first; if unavailable or blocked, open Bluetooth picker immediately
+    const ok = await attemptAutoReconnect();
+    if (!ok && !writeChar) {
+      await pairNewPrinter();
     }
   }
 
@@ -468,19 +471,23 @@
     }
     writeChar = null;
     activeBleDevice = null;
+    isConnecting = false;
     localStorage.removeItem('cat_printer_id');
     localStorage.removeItem('cat_printer_name');
     updateMainButtonUI();
-    toggleMenu();
+    closeMenu();
     await pairNewPrinter();
   }
 
   async function connectToBleDevice(device) {
+    if (isConnecting || writeChar) return Boolean(writeChar);
+    isConnecting = true;
     try {
       activeBleDevice = device;
       device.removeEventListener('gattserverdisconnected', onBleDisconnected);
       device.addEventListener('gattserverdisconnected', onBleDisconnected);
 
+      setStatus(`Connecting to ${device.name || 'Billu'}...`);
       const server = await device.gatt.connect();
       const services = await server.getPrimaryServices();
       let foundChar = null;
@@ -499,14 +506,19 @@
       writeChar = foundChar;
       setStatus(`Connected to ${device.name || 'Billu'}`);
       updateMainButtonUI();
+      return true;
     } catch (err) {
       writeChar = null;
       updateMainButtonUI();
+      return false;
+    } finally {
+      isConnecting = false;
     }
   }
 
   function onBleDisconnected() {
     writeChar = null;
+    isConnecting = false;
     setStatus('Printer offline. Waiting for printer...');
     updateMainButtonUI();
     startAutoReconnectLoop();
@@ -514,33 +526,50 @@
 
   async function attemptAutoReconnect() {
     const savedId = getSavedPrinterId();
-    if (!savedId || writeChar || isPrinting) return;
-    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+    if (!savedId || writeChar || isPrinting || isConnecting) return Boolean(writeChar);
+    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
 
     try {
       const devices = await navigator.bluetooth.getDevices();
+      if (!devices || devices.length === 0) return false;
+
       const target = devices.find(d => d.id === savedId) || devices[0];
-      if (!target) return;
+      if (!target) return false;
 
       if (target.watchAdvertisements && !target._watchingAds) {
         target._watchingAds = true;
         target.addEventListener('advertisementreceived', () => {
-          if (!writeChar) connectToBleDevice(target);
+          if (!writeChar && !isConnecting) {
+            connectToBleDevice(target);
+          }
         });
-        target.watchAdvertisements().catch(() => {});
+        target.watchAdvertisements().catch(() => {
+          target._watchingAds = false;
+        });
       }
 
-      await connectToBleDevice(target);
-    } catch (e) {}
+      return await connectToBleDevice(target);
+    } catch (e) {
+      return false;
+    }
   }
 
   function startAutoReconnectLoop() {
     if (reconnectTimer) clearInterval(reconnectTimer);
     attemptAutoReconnect();
     reconnectTimer = setInterval(() => {
-      if (!writeChar && getSavedPrinterId()) attemptAutoReconnect();
-    }, 2500);
+      if (!writeChar && !isConnecting && !isPrinting && getSavedPrinterId()) {
+        attemptAutoReconnect();
+      }
+    }, 4500);
   }
+
+  // Reconnect immediately when switching back to Billu from Foodpanda
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !writeChar && !isConnecting) {
+      attemptAutoReconnect();
+    }
+  });
 
   function toggleMenu() {
     const overlay = document.getElementById('optionsOverlay');
@@ -753,7 +782,7 @@
       compCtx.fillStyle = '#000000';
       compCtx.font = 'bold 20px sans-serif';
       compCtx.textAlign = 'center';
-      compCtx.fillText('Tap ☰ $\rightarrow$ Open Doc', PRINTER_WIDTH / 2, yCursor + 90);
+      compCtx.fillText('Tap ☰ → Open Doc', PRINTER_WIDTH / 2, yCursor + 90);
       yCursor += docH;
     }
 
