@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Billu</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/616/616430.png">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/616/616430.png">
   <meta name="theme-color" content="#111827">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
@@ -15,6 +17,7 @@
       --blue: #2563EB;
       --amber: #D97706;
       --green: #10B981;
+      --gray-btn: #4B5563;
       --fp-pink: #D70F64;
     }
     * {
@@ -48,11 +51,35 @@
     #canvasTransform {
       transform-origin: 0 0;
       will-change: transform;
+      display: none;
     }
     #printCanvas {
       display: block; background: #FFFFFF;
       box-shadow: 0 4px 20px rgba(0,0,0,0.45);
     }
+
+    /* CENTER BIG BUTTON WHEN NO FILE IS OPEN */
+    #emptyStateContainer {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; z-index: 20;
+    }
+    #bigChooseFileBtn {
+      width: 100%; max-width: 340px; min-height: 170px;
+      background: var(--blue); color: #FFFFFF;
+      border: 2px dashed rgba(255,255,255,0.45);
+      border-radius: 24px; padding: 24px 20px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; cursor: pointer;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+      transition: transform 0.1s ease, background 0.15s ease;
+      text-align: center;
+    }
+    #bigChooseFileBtn:active { transform: scale(0.97); }
+    #bigChooseFileBtn .big-icon { font-size: 42px; line-height: 1; }
+    #bigChooseFileBtn .big-title { font-size: 20px; font-weight: 800; line-height: 1.25; }
+    #bigChooseFileBtn .big-sub { font-size: 13px; color: #DBEAFE; font-weight: 500; }
+
     #statusBanner {
       position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
       background: rgba(17,24,39,0.82); color: #E5E7EB;
@@ -87,14 +114,15 @@
       background: var(--surface); color: #FFFFFF; font-size: 22px;
     }
 
-    /* Floating Fit-Height Reset Button (Bottom-Right above main button) */
-    #fitHeightBtn {
+    /* Floating Fit-Screen Reset Button (Bottom-Right above main button) */
+    #fitScreenBtn {
       bottom: 98px; right: 14px; padding: 10px 14px;
       background: var(--surface); color: #FFFFFF; font-size: 13px;
       border: 1px solid #4B5563;
+      display: none;
     }
 
-    /* 4. FLOATING CARETAKER OPTIONS MENU */
+    /* 4. FLOATING OPTIONS MENU */
     #optionsOverlay {
       position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 360px;
       max-height: calc(100% - 160px); overflow-y: auto;
@@ -126,6 +154,8 @@
       font-weight: 700; font-size: 14px; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
+    .opt-btn:active { transform: scale(0.98); }
+    .opt-btn-feed { background: var(--green); color: #FFFFFF; }
     .opt-btn-upload { background: #3B82F6; color: #FFFFFF; }
     .opt-btn-path {
       background: #374151; color: #F3F4F6; text-align: left;
@@ -134,7 +164,7 @@
     .opt-btn-warn { background: #EF4444; color: #FFFFFF; }
     .opt-input, .opt-select {
       background: #111827; color: #FFFFFF; border: 1px solid #4B5563;
-      border-radius: 8px; padding: 6px 10px; font-size: 14px; width: 90px;
+      border-radius: 8px; padding: 6px 10px; font-size: 14px; width: 85px;
     }
     .opt-select { width: auto; flex: 1; }
 
@@ -148,11 +178,15 @@
       width: 100%; height: 100%; border: none; border-radius: 16px;
       font-size: 20px; font-weight: 800; color: #FFFFFF; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: background 0.2s ease;
+      transition: background 0.2s ease, opacity 0.2s ease;
     }
     #mainActionBtn.state-connect { background: var(--blue); }
     #mainActionBtn.state-searching { background: var(--amber); }
     #mainActionBtn.state-print { background: var(--green); }
+    #mainActionBtn.state-disabled {
+      background: var(--gray-btn);
+      color: #9CA3AF;
+    }
     #mainActionBtn:disabled { opacity: 0.75; cursor: not-allowed; }
 
     .dots::after {
@@ -190,15 +224,22 @@
   <!-- FLOATING BURGER BUTTON -->
   <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
 
-  <!-- FLOATING FIT HEIGHT BUTTON -->
-  <button id="fitHeightBtn" class="fab" onclick="fitHeight()">⤢ Fit Height</button>
+  <!-- FLOATING FIT SCREEN BUTTON -->
+  <button id="fitScreenBtn" class="fab" onclick="fitScreen()">⤢ Fit Screen</button>
 
-  <!-- FLOATING CARETAKER OPTIONS MENU -->
+  <!-- FLOATING OPTIONS MENU -->
   <div id="optionsOverlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeMenu()">← Back</button>
-      <span style="font-weight:700; font-size:15px;">Caretaker Options</span>
+      <span style="font-weight:700; font-size:15px;">Options</span>
       <button class="icon-pill" onclick="closeMenu()">☰</button>
+    </div>
+
+    <!-- 0. Top of Burger Menu: Feed 5mm Blank Paper -->
+    <div class="opt-row">
+      <button id="feedPaperBtn" class="opt-btn opt-btn-feed" onclick="feedPaper5mm()">
+        ⏫ Feed Blank 5mm
+      </button>
     </div>
 
     <!-- 1. Open Doc / Photo -->
@@ -209,11 +250,15 @@
       </button>
     </div>
 
-    <!-- 2. Margin -->
+    <!-- 2. Separate Before & After Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
-        <label for="marginMmInput" style="font-weight:600;">Start & End Margin (mm):</label>
-        <input type="number" id="marginMmInput" class="opt-input" min="0" max="60" step="1" value="4" onchange="saveMarginSetting()">
+        <label for="marginBeforeMmInput" style="font-weight:600;">Before Margin (mm):</label>
+        <input type="number" id="marginBeforeMmInput" class="opt-input" min="0" max="60" step="1" value="4" onchange="saveMarginSettings()">
+      </div>
+      <div class="opt-row-inline">
+        <label for="marginAfterMmInput" style="font-weight:600;">After Margin (mm):</label>
+        <input type="number" id="marginAfterMmInput" class="opt-input" min="0" max="60" step="1" value="4" onchange="saveMarginSettings()">
       </div>
     </div>
 
@@ -265,6 +310,16 @@
 
   <!-- INTERACTIVE PREVIEW VIEWPORT -->
   <div id="viewport">
+    <!-- Shown when no file is loaded -->
+    <div id="emptyStateContainer">
+      <button id="bigChooseFileBtn" onclick="document.getElementById('manualFileInput').click()">
+        <span class="big-icon">📂</span>
+        <span class="big-title">Choose a File / Image to Print</span>
+        <span class="big-sub">Opens Downloads / Recent Files</span>
+      </button>
+    </div>
+
+    <!-- Shown when a file is loaded -->
     <div id="canvasTransform">
       <canvas id="printCanvas" width="384" height="300"></canvas>
     </div>
@@ -272,8 +327,8 @@
 
   <!-- STICKY BOTTOM SINGLE BUTTON -->
   <div class="bottom-bar">
-    <button id="mainActionBtn" class="state-connect" onclick="handleMainButtonClick()">
-      Connect
+    <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>
+      Print
     </button>
   </div>
 
@@ -341,20 +396,27 @@
   const viewportEl = document.getElementById('viewport');
   const transformEl = document.getElementById('canvasTransform');
   const printCanvasEl = document.getElementById('printCanvas');
+  const emptyStateEl = document.getElementById('emptyStateContainer');
+  const fitScreenBtnEl = document.getElementById('fitScreenBtn');
 
   function applyTransform() {
     transformEl.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
   }
 
-  function fitHeight() {
+  function fitScreen() {
+    if (!docSourceCanvas) return;
     const vw = viewportEl.clientWidth;
     const vh = viewportEl.clientHeight;
     const cw = printCanvasEl.width || 384;
     const ch = printCanvasEl.height || 300;
     const pad = 20;
-    viewScale = Math.max(0.1, (vh - pad * 2) / ch);
+
+    const scaleX = (vw - pad * 2) / cw;
+    const scaleY = (vh - pad * 2) / ch;
+    viewScale = Math.max(0.1, Math.min(scaleX, scaleY));
+
     viewPanX = (vw - cw * viewScale) / 2;
-    viewPanY = pad;
+    viewPanY = (vh - ch * viewScale) / 2;
     applyTransform();
   }
 
@@ -362,6 +424,7 @@
   function getCenter(p1, p2) { return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; }
 
   viewportEl.addEventListener('pointerdown', (e) => {
+    if (!docSourceCanvas || e.target.closest('#bigChooseFileBtn')) return;
     viewportEl.setPointerCapture(e.pointerId);
     activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (activeTouches.size === 2) {
@@ -409,7 +472,7 @@
   }
   viewportEl.addEventListener('pointerup', onPointerUpOrCancel);
   viewportEl.addEventListener('pointercancel', onPointerUpOrCancel);
-  window.addEventListener('resize', fitHeight);
+  window.addEventListener('resize', fitScreen);
 
   function getSavedPrinterId() { return localStorage.getItem('cat_printer_id'); }
 
@@ -421,7 +484,16 @@
 
     if (isPrinting) return;
 
-    btn.classList.remove('state-connect', 'state-searching', 'state-print');
+    btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-disabled');
+
+    // If no file is open, keep Print button gray and disabled
+    if (!docSourceCanvas) {
+      btn.classList.add('state-disabled');
+      btn.disabled = true;
+      btn.innerHTML = 'Print';
+      return;
+    }
+
     btn.disabled = false;
 
     if (writeChar) {
@@ -437,11 +509,11 @@
   }
 
   async function handleMainButtonClick() {
+    if (!docSourceCanvas) return;
     if (writeChar) {
       await printCanvas();
       return;
     }
-    // Try silent auto-reconnect first; if unavailable or blocked, open Bluetooth picker immediately
     const ok = await attemptAutoReconnect();
     if (!ok && !writeChar) {
       await pairNewPrinter();
@@ -564,7 +636,6 @@
     }, 4500);
   }
 
-  // Reconnect immediately when switching back to Billu from Foodpanda
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !writeChar && !isConnecting) {
       attemptAutoReconnect();
@@ -580,9 +651,11 @@
     document.getElementById('optionsOverlay').classList.remove('open');
   }
 
-  function saveMarginSetting() {
-    const val = Math.max(0, parseInt(document.getElementById('marginMmInput').value || '0', 10));
-    localStorage.setItem('cat_margin_mm', val);
+  function saveMarginSettings() {
+    const beforeVal = Math.max(0, parseInt(document.getElementById('marginBeforeMmInput').value || '0', 10));
+    const afterVal = Math.max(0, parseInt(document.getElementById('marginAfterMmInput').value || '0', 10));
+    localStorage.setItem('cat_margin_before_mm', beforeVal);
+    localStorage.setItem('cat_margin_after_mm', afterVal);
     rebuildCompositePreview(false);
   }
 
@@ -654,12 +727,14 @@
     if (!file) return;
     closeMenu();
     await loadMainDocumentFile(file);
+    e.target.value = '';
   }
 
   async function loadMainDocumentFile(file) {
     setStatus(`Loading ${file.name}...`);
     docSourceCanvas = await renderFileToTrimmedCanvas(file);
     rebuildCompositePreview(true);
+    updateMainButtonUI();
     setStatus(`Loaded: ${file.name}`);
   }
 
@@ -748,18 +823,32 @@
     rebuildCompositePreview(false);
   }
 
-  function rebuildCompositePreview(resetFitHeight = false) {
+  function rebuildCompositePreview(resetFitScreen = false) {
+    if (!docSourceCanvas) {
+      emptyStateEl.style.display = 'flex';
+      transformEl.style.display = 'none';
+      fitScreenBtnEl.style.display = 'none';
+      updateMainButtonUI();
+      return;
+    }
+
+    emptyStateEl.style.display = 'none';
+    transformEl.style.display = 'block';
+    fitScreenBtnEl.style.display = 'flex';
+
     const threshold = parseInt(document.getElementById('brightnessSlider').value || '155', 10);
-    const marginMm = parseInt(localStorage.getItem('cat_margin_mm') ?? '4', 10);
-    const marginPx = Math.max(0, Math.round(marginMm * PX_PER_MM));
+    const marginBeforeMm = parseInt(localStorage.getItem('cat_margin_before_mm') ?? '4', 10);
+    const marginAfterMm = parseInt(localStorage.getItem('cat_margin_after_mm') ?? '4', 10);
+    const marginBeforePx = Math.max(0, Math.round(marginBeforeMm * PX_PER_MM));
+    const marginAfterPx = Math.max(0, Math.round(marginAfterMm * PX_PER_MM));
 
     const stampEnabled = localStorage.getItem('cat_stamp_enabled') === '1' && stampSourceCanvas;
     const stampPos = localStorage.getItem('cat_stamp_pos') || 'after';
-    const stampGap = stampEnabled && docSourceCanvas ? 16 : 0;
+    const stampGap = stampEnabled ? 16 : 0;
 
-    const docH = docSourceCanvas ? docSourceCanvas.height : 200;
+    const docH = docSourceCanvas.height;
     const stampH = stampEnabled ? stampSourceCanvas.height : 0;
-    const totalHeight = Math.max(40, marginPx + docH + stampH + stampGap + marginPx);
+    const totalHeight = Math.max(40, marginBeforePx + docH + stampH + stampGap + marginAfterPx);
 
     const compCanvas = document.createElement('canvas');
     compCanvas.width = PRINTER_WIDTH;
@@ -768,23 +857,15 @@
     compCtx.fillStyle = '#FFFFFF';
     compCtx.fillRect(0, 0, PRINTER_WIDTH, totalHeight);
 
-    let yCursor = marginPx;
+    let yCursor = marginBeforePx;
 
     if (stampEnabled && stampPos === 'before') {
       compCtx.drawImage(stampSourceCanvas, 0, yCursor);
       yCursor += stampH + stampGap;
     }
 
-    if (docSourceCanvas) {
-      compCtx.drawImage(docSourceCanvas, 0, yCursor);
-      yCursor += docH;
-    } else {
-      compCtx.fillStyle = '#000000';
-      compCtx.font = 'bold 20px sans-serif';
-      compCtx.textAlign = 'center';
-      compCtx.fillText('Tap ☰ → Open Doc', PRINTER_WIDTH / 2, yCursor + 90);
-      yCursor += docH;
-    }
+    compCtx.drawImage(docSourceCanvas, 0, yCursor);
+    yCursor += docH;
 
     if (stampEnabled && stampPos === 'after') {
       yCursor += stampGap;
@@ -808,7 +889,7 @@
     }
     dstCtx.putImageData(dstImg, 0, 0);
 
-    if (resetFitHeight) fitHeight();
+    if (resetFitScreen) fitScreen();
   }
 
   function crc8(payload) {
@@ -847,8 +928,51 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+  // Feeds 5mm (40 blank rows) of paper without heating any dots
+  async function feedPaper5mm() {
+    if (isPrinting) return;
+    if (!writeChar) {
+      const ok = await attemptAutoReconnect();
+      if (!ok && !writeChar) {
+        await pairNewPrinter();
+        if (!writeChar) return;
+      }
+    }
+
+    isPrinting = true;
+    const feedBtn = document.getElementById('feedPaperBtn');
+    if (feedBtn) feedBtn.disabled = true;
+
+    try {
+      const blankRows = 5 * PX_PER_MM; // 40 rows = 5mm
+      const emptyRow = new Uint8Array(48); // all zeros = 0 dots heated
+
+      setStatus('Feeding 5mm...');
+      await writeBle(makePacket(0xA4, [0x33]));
+      await sleep(20);
+      await writeBle(makePacket(0xBE, [0x00]));
+      await sleep(20);
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
+      await sleep(20);
+
+      for (let y = 0; y < blankRows; y++) {
+        await writeBle(makePacket(0xA2, emptyRow));
+        if (y % 4 === 0) await sleep(10);
+      }
+
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
+      setStatus('Fed 5mm paper');
+    } catch (err) {
+      setStatus('Feed error: ' + err.message);
+    } finally {
+      isPrinting = false;
+      if (feedBtn) feedBtn.disabled = false;
+      updateMainButtonUI();
+    }
+  }
+
   async function printCanvas() {
-    if (!writeChar || isPrinting) return;
+    if (!writeChar || isPrinting || !docSourceCanvas) return;
     isPrinting = true;
     const btn = document.getElementById('mainActionBtn');
     btn.disabled = true;
@@ -904,8 +1028,12 @@
     const savedBrightness = localStorage.getItem('cat_brightness');
     if (savedBrightness) document.getElementById('brightnessSlider').value = savedBrightness;
 
-    const savedMargin = localStorage.getItem('cat_margin_mm') ?? '4';
-    document.getElementById('marginMmInput').value = savedMargin;
+    // Migrate legacy margin setting if present
+    const legacyMargin = localStorage.getItem('cat_margin_mm') ?? '4';
+    const savedBeforeMargin = localStorage.getItem('cat_margin_before_mm') ?? legacyMargin;
+    const savedAfterMargin = localStorage.getItem('cat_margin_after_mm') ?? legacyMargin;
+    document.getElementById('marginBeforeMmInput').value = savedBeforeMargin;
+    document.getElementById('marginAfterMmInput').value = savedAfterMargin;
 
     document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
     document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
