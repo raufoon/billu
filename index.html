@@ -277,7 +277,7 @@
 
     <!-- 2. Foodpanda Zero-UI & Archive Setup -->
     <div class="opt-row" style="border: 1px solid #D70F64;">
-      <div style="font-weight:800; color:#F472B6; font-size:13px;">🐼 Foodpanda Pipeline (Optional)</div>
+      <div style="font-weight:800; color:#F472B6; font-size:13px;">🐼 Foodpanda Pipeline</div>
       <button class="opt-btn opt-btn-path" onclick="pickFpFolder('fpQueueDir', 'queueDirLabel')">
         <span id="queueDirLabel">Queue Folder: Not Set</span>
         <span>📥 Pick</span>
@@ -288,6 +288,9 @@
       </button>
       <button id="bgWatcherBtn" class="opt-btn opt-btn-fp" onclick="toggleBackgroundWatcher()">
         🛡️ Start Zero-UI Background Mode
+      </button>
+      <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
+        🧪 Load Sample Order (Test Preview)
       </button>
     </div>
 
@@ -393,7 +396,7 @@
   let stampSourceCanvas = null;
 
   let isFpPipelineRun = false;
-  let currentOrderMeta = { orderNo: '', orderCode: '' };
+  let currentOrderMeta = { orderNo: '', orderCode: '', isHistory: false };
   let bgWatcherTimer = null;
   let audioCtx = null;
 
@@ -454,30 +457,36 @@
   }
 
   // ============================================================================
-  // FOODPANDA PARSER, VALIDATOR & CUSTOM RECEIPT GENERATOR
+  // UNIVERSAL FOODPANDA PARSER (LIVE ORDERS + ORDER HISTORY + ANY ITEM BREAKDOWN)
   // ============================================================================
 
   function extractLinesFromMacroDroidText(blockText) {
     if (!blockText) return [];
-    let working = blockText;
+    let working = blockText.replace(/===FP_AUTO===/g, '').trim();
 
-    // Handle JSON output if MacroDroid {lvjson=...} was used
-    const jsonStrings = [];
-    const jsonRegex = /\{[\s\S]*?\}/g;
-    let m;
-    while ((m = jsonRegex.exec(blockText)) !== null) {
+    // Try parsing JSON if MacroDroid {lvjson=...} was used
+    if (working.startsWith('{') && working.endsWith('}')) {
       try {
-        const parsed = JSON.parse(m[0]);
-        const collect = (v) => {
-          if (typeof v === 'string') jsonStrings.push(v);
-          else if (Array.isArray(v)) v.forEach(collect);
-          else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+        const parsed = JSON.parse(working);
+        const collected = [];
+        const walk = (v) => {
+          if (typeof v === 'string') collected.push(v);
+          else if (Array.isArray(v)) v.forEach(walk);
+          else if (v && typeof v === 'object') Object.values(v).forEach(walk);
         };
-        collect(parsed);
-      } catch (e) {}
-    }
-    if (jsonStrings.length > 0) {
-      working = jsonStrings.join('\n');
+        walk(parsed);
+        if (collected.length > 0) working = collected.join('\n');
+      } catch (e) {
+        // Fallback: extract quoted JSON string values if multi-object
+        const strMatches = [];
+        const re = /"((?:\\.|[^"\\])*)"/g;
+        let m;
+        while ((m = re.exec(working)) !== null) {
+          const val = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+          if (val && !/^\d+$/.test(val)) strMatches.push(val);
+        }
+        if (strMatches.length > 0) working = strMatches.join('\n');
+      }
     }
 
     return working
@@ -487,7 +496,7 @@
   }
 
   function validateFoodpandaText(rawText) {
-    if (!rawText || rawText.trim().length < 12) {
+    if (!rawText || rawText.trim().length < 8) {
       return { valid: false, reason: 'Empty screen capture' };
     }
     if (/Failed to generate|Select printer settings|Was the test print successful/i.test(rawText)) {
@@ -495,10 +504,11 @@
     }
     const hasOrderNo = /#\d{1,5}\b/.test(rawText);
     const hasCode = /[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/i.test(rawText);
-    const hasTotals = /Subtotal|Total|Ready for delivery|Online Payment/i.test(rawText);
+    const hasItems = /(?:^|\s)\d+\s*[xX\u00D7*]\s+/m.test(rawText);
+    const hasPrices = /(?:Subtotal|Total|Order details|৳\s*\d+|\d+\.\d{2})/i.test(rawText);
 
-    if (!hasOrderNo && !hasCode && !hasTotals) {
-      return { valid: false, reason: 'Not a live Foodpanda order screen' };
+    if (!hasOrderNo && !hasCode && !hasItems && !hasPrices) {
+      return { valid: false, reason: 'No order or item price breakdown found on screen' };
     }
     return { valid: true };
   }
@@ -509,53 +519,84 @@
       orderNo: '',
       orderCode: '',
       prepTime: '',
+      orderReceivedTime: '',
       customer: '',
+      isHistory: false,
       items: [],
       notes: [],
       subtotal: '',
       vat: '',
       total: '',
-      payment: ''
+      payment: '',
+      deliveryType: ''
     };
 
     const fullBlock = lines.join('\n');
+    if (/Order History|COMPLETED|Order timeline/i.test(fullBlock)) {
+      res.isHistory = true;
+    }
+
     const noMatch = fullBlock.match(/#(\d{1,5})\b/);
     if (noMatch) res.orderNo = '#' + noMatch[1];
 
     const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
     if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
 
-    const prepMatch = fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
+    const prepMatch =
+      fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i) ||
+      fullBlock.match(/Committed preparation time:\s*([0-2]?\d:[0-5]\d)/i);
     if (prepMatch) res.prepTime = prepMatch[1];
+
+    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|PLEASE|DO NOT|Decline|Ready for|Online Payment|Paid with|Payment method|Delivery type|Need help|Contact help|Order timeline|Order details|Order received|Order accepted|Rider|In delivery|Order delivered|Customer|Google|Engineering|Modify|You are closed)/i;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (/^Tasty Patil$/i.test(line)) {
-        res.restaurant = line;
+      if (/^Tasty Patil/i.test(line)) {
+        res.restaurant = line.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
         continue;
       }
       if (/^Customer$/i.test(line) && lines[i + 1]) {
         res.customer = lines[i + 1];
         continue;
       }
+      if (/^Order received$/i.test(line) && lines[i + 1] && /^[0-2]?\d:[0-5]\d$/.test(lines[i + 1])) {
+        res.orderReceivedTime = lines[i + 1];
+        continue;
+      }
       if (/DO NOT PROVIDE CUTLERY|PROVIDE CUTLERY/i.test(line)) {
         if (!res.notes.includes(line.toUpperCase())) res.notes.push(line.toUpperCase());
         continue;
       }
-      if (/^Subtotal$/i.test(line) || /^Subtotal\s+[৳tE5]?\d/i.test(line)) {
+      if (/^Subtotal\b/i.test(line)) {
         const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
         if (p) res.subtotal = '৳' + p[1];
         continue;
       }
-      if (/^VAT$/i.test(line) || /^VAT\s+[৳tE5]?\d/i.test(line)) {
+      if (/^VAT\b/i.test(line)) {
         const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
         if (p) res.vat = '৳' + p[1];
         continue;
       }
-      if (/^Total$/i.test(line) || /^Total\s+[৳tE5]?\d/i.test(line)) {
+      if (/^Total\b/i.test(line)) {
         const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
         if (p) res.total = '৳' + p[1];
+        continue;
+      }
+      if (/^Payment method$/i.test(line) && lines[i + 1]) {
+        if (!/^(Delivery type|Need help)/i.test(lines[i + 1])) {
+          res.payment = lines[i + 1];
+        } else if (lines[i + 2]) {
+          res.payment = lines[i + 2];
+        }
+        continue;
+      }
+      if (/^Delivery type$/i.test(line) && lines[i + 1]) {
+        if (!/^(Online|Cash|Need help)/i.test(lines[i + 1])) {
+          res.deliveryType = lines[i + 1];
+        } else if (lines[i + 2] && !/^Need help/i.test(lines[i + 2])) {
+          res.deliveryType = lines[i + 2];
+        }
         continue;
       }
       if (/Paid with|Online Payment|Cash on/i.test(line)) {
@@ -563,26 +604,26 @@
         continue;
       }
 
-      // Item detection starting with "1x", "2x", etc.
-      if (/^\d+\s*[xX]\b/.test(line)) {
-        const qtyMatch = line.match(/^(\d+\s*[xX])/);
-        const qty = qtyMatch[1].toLowerCase();
-        let remainder = line.replace(/^\d+\s*[xX]\s*/, '').trim();
+      // Universal Item Matcher: supports "1x", "1X", "1×" (\u00D7), and "1*"
+      const itemStart = line.match(/^(\d+)\s*[xX\u00D7*](?:\s+(.*))?$/);
+      if (itemStart) {
+        const qty = itemStart[1] + 'x';
+        let remainder = (itemStart[2] || '').trim();
         let price = '';
         const nameParts = [];
 
-        const inlinePrice = remainder.match(/[৳tE5]?\s*(\d+\.\d{2})$/);
+        const inlinePrice = remainder.match(/[৳tE5]?\s*(\d+(?:\.\d{2}))$/);
         if (inlinePrice) {
           price = '৳' + inlinePrice[1];
-          remainder = remainder.replace(/[৳tE5]?\s*\d+\.\d{2}$/, '').trim();
+          remainder = remainder.replace(/[৳tE5]?\s*\d+(?:\.\d{2})$/, '').trim();
         }
         if (remainder) nameParts.push(remainder);
 
+        // Scan subsequent lines belonging to this item (handles both Name->Price and Price->Name DOM order)
         while (i + 1 < lines.length) {
           const next = lines[i + 1];
-          if (/^(\d+\s*[xX]\b|Subtotal|VAT|Total|PLEASE|DO NOT|Decline|Ready for|Online Payment|Paid with|Customer|Rider|Google|Engineering|Modify)/i.test(next)) {
-            break;
-          }
+          if (stopWordsRe.test(next)) break;
+
           const pOnly = next.match(/^[৳tE5]?\s*(\d+\.\d{2})$/);
           if (pOnly && !price) {
             price = '৳' + pOnly[1];
@@ -591,7 +632,7 @@
             if (trailingP && !price) {
               nameParts.push(trailingP[1].trim());
               price = '৳' + trailingP[2];
-            } else {
+            } else if (!/^(?:pro|COMPLETED|PAYABLE)$/i.test(next)) {
               nameParts.push(next);
             }
           }
@@ -615,13 +656,16 @@
       orderNo: '',
       orderCode: '',
       prepTime: '',
+      orderReceivedTime: '',
       customer: '',
+      isHistory: false,
       items: [],
       notes: [],
       subtotal: '',
       vat: '',
       total: '',
-      payment: ''
+      payment: '',
+      deliveryType: ''
     };
     const seenItems = new Set();
 
@@ -630,14 +674,17 @@
       const p = parseSingleScreenBlock(lines);
 
       if (p.restaurant) merged.restaurant = p.restaurant;
+      if (p.isHistory) merged.isHistory = true;
       if (!merged.orderNo && p.orderNo) merged.orderNo = p.orderNo;
       if (!merged.orderCode && p.orderCode) merged.orderCode = p.orderCode;
       if (!merged.prepTime && p.prepTime) merged.prepTime = p.prepTime;
+      if (!merged.orderReceivedTime && p.orderReceivedTime) merged.orderReceivedTime = p.orderReceivedTime;
       if (!merged.customer && p.customer) merged.customer = p.customer;
       if (!merged.subtotal && p.subtotal) merged.subtotal = p.subtotal;
       if (!merged.vat && p.vat) merged.vat = p.vat;
       if (!merged.total && p.total) merged.total = p.total;
       if (p.payment && p.payment.length > merged.payment.length) merged.payment = p.payment;
+      if (!merged.deliveryType && p.deliveryType) merged.deliveryType = p.deliveryType;
 
       for (const n of p.notes) {
         if (!merged.notes.includes(n)) merged.notes.push(n);
@@ -650,13 +697,35 @@
         }
       }
     }
+
+    // Fallback 1: If Order History has no #108 short number, promote last 4 chars of cvgi-2643-peac -> #PEAC
+    if (!merged.orderNo && merged.orderCode) {
+      const parts = merged.orderCode.split('-');
+      merged.orderNo = '#' + parts[parts.length - 1].toUpperCase();
+    }
+
+    // Fallback 2: If screen only shows item prices without Subtotal/Total, sum the items
+    if (!merged.subtotal && !merged.total && merged.items.length > 0) {
+      let sum = 0;
+      for (const it of merged.items) {
+        const num = parseFloat((it.price || '').replace(/[^\d.]/g, ''));
+        if (!isNaN(num)) sum += num;
+      }
+      if (sum > 0) merged.subtotal = '৳' + sum.toFixed(2);
+    }
+
+    // Fallback 3: On Order History, only Subtotal is shown; promote it to Total if Total is missing
+    if (!merged.total && merged.subtotal) {
+      merged.total = merged.subtotal;
+    }
+
     return merged;
   }
 
   function renderSynthesizedFpReceipt(data) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = PRINTER_WIDTH;
-    tempCanvas.height = 1800;
+    tempCanvas.height = 2000;
     const ctx = tempCanvas.getContext('2d');
 
     ctx.fillStyle = '#FFFFFF';
@@ -706,14 +775,20 @@
     ctx.fillText(dt, PRINTER_WIDTH / 2, y);
     y += 20;
 
+    if (data.isHistory) {
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.fillText('[ ORDER HISTORY / REPRINT ]', PRINTER_WIDTH / 2, y);
+      y += 18;
+    }
+
     drawLine(true);
 
     // Order Number & Code
     if (data.orderNo) {
-      ctx.font = '900 46px system-ui, sans-serif';
+      ctx.font = '900 44px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(data.orderNo, PRINTER_WIDTH / 2, y);
-      y += 50;
+      y += 48;
     }
     if (data.orderCode) {
       ctx.font = 'bold 20px monospace';
@@ -722,17 +797,23 @@
       y += 26;
     }
 
-    drawLine(false);
-
-    if (data.customer) {
-      drawWrapped('Customer: ' + data.customer, 4, PRINTER_WIDTH - 8, 'bold 20px system-ui, sans-serif', 25, 'left');
-      y += 2;
-    }
-    if (data.prepTime) {
-      ctx.font = 'bold 19px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('Ready By: ' + data.prepTime, 4, y);
-      y += 24;
+    if (data.customer || data.prepTime || data.orderReceivedTime) {
+      drawLine(false);
+      if (data.customer) {
+        drawWrapped('Customer: ' + data.customer, 4, PRINTER_WIDTH - 8, 'bold 20px system-ui, sans-serif', 25, 'left');
+        y += 2;
+      }
+      if (data.prepTime) {
+        ctx.font = 'bold 19px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Ready By: ' + data.prepTime, 4, y);
+        y += 24;
+      } else if (data.orderReceivedTime) {
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Ordered At: ' + data.orderReceivedTime, 4, y);
+        y += 24;
+      }
     }
 
     drawLine(false);
@@ -775,18 +856,56 @@
       y += isGrand ? 32 : 26;
     };
 
-    drawTotalRow('Subtotal', data.subtotal, false);
-    drawTotalRow('VAT', data.vat, false);
-    drawTotalRow('Total', data.total, true);
+    if (data.subtotal && data.subtotal !== data.total) {
+      drawTotalRow('Subtotal', data.subtotal, false);
+    }
+    if (data.vat) {
+      drawTotalRow('VAT', data.vat, false);
+    }
+    drawTotalRow('Total', data.total || data.subtotal, true);
 
-    if (data.payment) {
+    if (data.payment || data.deliveryType) {
       drawLine(false);
-      drawWrapped(data.payment, PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, 'bold 17px system-ui, sans-serif', 22, 'center');
+      const footerLine = [
+        data.payment ? `Payment: ${data.payment}` : '',
+        data.deliveryType ? `${data.deliveryType}` : ''
+      ].filter(Boolean).join(' • ');
+      drawWrapped(footerLine, PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, 'bold 17px system-ui, sans-serif', 22, 'center');
     }
 
     drawLine(true);
 
     return cropWhiteTopBottom(tempCanvas);
+  }
+
+  // Built-in test using your exact Order History screenshot (cvgi-2643-peac)
+  function loadSampleFpOrder() {
+    closeMenu();
+    const sampleHistoryText = `
+      Tasty Patil (CVGI)
+      Order History
+      COMPLETED
+      PAYABLE
+      cvgi-2643-peac
+      Order received
+      16:43
+      Committed preparation time: 17:17
+      Order details
+      1× Special Chicken Tehari Kofta Combo - Regular ৳290.00
+      1× Chicken Kofta Curry ৳100.00
+      1× Special Chicken Tehari - Regular ৳210.00
+      Subtotal ৳630.00
+      Payment method
+      Online
+      Delivery type
+      Platform delivery
+    `;
+    const parsed = parseFoodpandaMultiScroll(sampleHistoryText);
+    currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
+    docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+    rebuildCompositePreview(true);
+    updateMainButtonUI();
+    setStatus('Loaded Sample Order #PEAC (৳630.00)');
   }
 
   async function runFoodpandaAutomatedJob(rawText, imageFiles = [], isForegroundFailsafe = false) {
@@ -796,7 +915,7 @@
       document.getElementById('stealthManualBtn').style.display = 'none';
     }
 
-    // Also purge FP_order.txt from Queue Folder if accessible so Path A & B never collide
+    // Purge FP_order.txt from Queue Folder if accessible so Path A & B never collide
     try {
       const qHandle = await idbGet('fpQueueDir');
       if (qHandle && (await qHandle.queryPermission({ mode: 'readwrite' })) === 'granted') {
@@ -815,15 +934,15 @@
       }
 
       const parsed = parseFoodpandaMultiScroll(rawText);
-      currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode };
+      currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
 
-      // 3-minute duplicate guard
+      // 15-second accidental double-tap guard ONLY on live orders (disabled on Order History so you can test freely)
       const dedupeId = [parsed.orderNo, parsed.orderCode, parsed.total].filter(Boolean).join('|');
-      if (dedupeId) {
+      if (!parsed.isHistory && dedupeId) {
         const lastId = localStorage.getItem('fp_last_dedupe_id');
         const lastTs = parseInt(localStorage.getItem('fp_last_dedupe_ts') || '0', 10);
-        if (lastId === dedupeId && (Date.now() - lastTs) < 180000) {
-          setStatus(`Order ${parsed.orderNo || ''} already printed!`);
+        if (lastId === dedupeId && (Date.now() - lastTs) < 15000) {
+          setStatus(`Order ${parsed.orderNo || ''} just printed!`);
           playTone(440, 220);
           if (isForegroundFailsafe) setTimeout(() => launchReturnApp(), 900);
           isFpPipelineRun = false;
@@ -859,6 +978,7 @@
   }
 
   async function handleStealthManualTap() {
+    startKeepAliveAudio();
     if (!writeChar) {
       const ok = await attemptAutoReconnect();
       if (!ok && !writeChar) await pairNewPrinter();
@@ -869,7 +989,7 @@
   }
 
   // ============================================================================
-  // FOLDER ARCHIVING & BACKGROUND QUEUE WATCHER (PATH A)
+  // FOLDER ARCHIVING & SELF-HEALING BACKGROUND QUEUE WATCHER (PATH A)
   // ============================================================================
 
   async function pickFpFolder(idbKey, labelId) {
@@ -929,7 +1049,6 @@
         }
       }
 
-      // Queue in IndexedDB if folder permission is awaiting next session
       const buf = await blob.arrayBuffer();
       const pending = (await idbGet('fpPendingArchives')) || [];
       pending.push({ fileName, buffer: buf });
@@ -938,23 +1057,78 @@
   }
 
   function startKeepAliveAudio() {
-    if (audioCtx) return;
+    if (audioCtx) {
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return;
+    }
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      gain.gain.value = 0.0001; // Inaudible keep-alive so Android Chrome keeps timers active
+      gain.gain.value = 0.0001; // Inaudible keep-alive
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
     } catch (e) {}
   }
 
+  function startPollingQueueFolder(qHandle) {
+    if (bgWatcherTimer) clearInterval(bgWatcherTimer);
+    const btn = document.getElementById('bgWatcherBtn');
+    btn.innerText = '🟢 Zero-UI Mode Active (Tap to Stop)';
+
+    bgWatcherTimer = setInterval(async () => {
+      if (isPrinting) return;
+      try {
+        for await (const [name, entry] of qHandle.entries()) {
+          if (entry.kind === 'file' && name === 'FP_order.txt') {
+            const file = await entry.getFile();
+            const text = await file.text();
+            if (text && text.trim().length > 8) {
+              await qHandle.removeEntry('FP_order.txt').catch(() => {});
+              await runFoodpandaAutomatedJob(text, [], false);
+            }
+          }
+        }
+      } catch (e) {}
+    }, 850);
+  }
+
+  // Silently resumes background watcher if permission is already granted
+  async function trySilentResumeWatcher() {
+    if (bgWatcherTimer || localStorage.getItem('fp_bg_enabled') !== '1') return;
+    try {
+      const qHandle = await idbGet('fpQueueDir');
+      if (!qHandle) return;
+      const perm = await qHandle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        startKeepAliveAudio();
+        startPollingQueueFolder(qHandle);
+      }
+    } catch (e) {}
+  }
+
+  // Resume keep-alive & folder watcher on any tap anywhere in the app
+  document.addEventListener('pointerdown', async () => {
+    if (localStorage.getItem('fp_bg_enabled') === '1' && !bgWatcherTimer) {
+      startKeepAliveAudio();
+      try {
+        const qHandle = await idbGet('fpQueueDir');
+        if (qHandle) {
+          let perm = await qHandle.queryPermission({ mode: 'readwrite' });
+          if (perm !== 'granted') perm = await qHandle.requestPermission({ mode: 'readwrite' });
+          if (perm === 'granted') startPollingQueueFolder(qHandle);
+        }
+      } catch (e) {}
+    }
+  }, { passive: true });
+
   async function toggleBackgroundWatcher() {
     const btn = document.getElementById('bgWatcherBtn');
     if (bgWatcherTimer) {
       clearInterval(bgWatcherTimer);
       bgWatcherTimer = null;
+      localStorage.setItem('fp_bg_enabled', '0');
       btn.innerText = '🛡️ Start Zero-UI Background Mode';
       setStatus('Background watcher stopped');
       return;
@@ -974,29 +1148,13 @@
       await flushPendingArchives();
     }
 
+    localStorage.setItem('fp_bg_enabled', '1');
     startKeepAliveAudio();
     if (!writeChar) await attemptAutoReconnect();
 
-    btn.innerText = '🟢 Zero-UI Mode Active (Tap to Stop)';
-    setStatus('Zero-UI Watcher Active');
+    startPollingQueueFolder(qHandle);
+    setStatus('Zero-UI Watcher Active (Auto-Resumes)');
     closeMenu();
-
-    bgWatcherTimer = setInterval(async () => {
-      if (isPrinting) return;
-      try {
-        for await (const [name, entry] of qHandle.entries()) {
-          if (entry.kind === 'file' && name === 'FP_order.txt') {
-            const file = await entry.getFile();
-            const text = await file.text();
-            if (text && text.trim().length > 10) {
-              // Delete immediately so MacroDroid's 2-second failsafe sees Path A succeeded
-              await qHandle.removeEntry('FP_order.txt').catch(() => {});
-              await runFoodpandaAutomatedJob(text, [], false);
-            }
-          }
-        }
-      } catch (e) {}
-    }, 850);
   }
 
   // ============================================================================
@@ -1635,7 +1793,7 @@
 
       if (isFpPipelineRun) {
         const dedupeId = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('|');
-        if (dedupeId) {
+        if (dedupeId && !currentOrderMeta.isHistory) {
           localStorage.setItem('fp_last_dedupe_id', dedupeId);
           localStorage.setItem('fp_last_dedupe_ts', String(Date.now()));
         }
@@ -1689,6 +1847,7 @@
     rebuildCompositePreview(true);
     updateMainButtonUI();
     startAutoReconnectLoop();
+    await trySilentResumeWatcher();
 
     if ('serviceWorker' in navigator) {
       try {
