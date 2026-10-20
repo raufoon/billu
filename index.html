@@ -714,13 +714,21 @@
   }
 
   function launchReturnApp() {
+  // 1. Try closing Billu to drop straight back into the app that shared the file
+  window.close();
+
+  // 2. If Billu was opened manually and didn't close, try a VIEW/BROWSABLE intent
+  // Using current URL as fallback prevents Chrome from jumping to Google Play Store
+  setTimeout(() => {
     const mode = localStorage.getItem('cat_return_mode') || 'none';
     let pkg = 'com.deliveryhero.pandaportal';
     if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || '';
     if (!pkg) return;
-    const fallback = encodeURIComponent(`https://play.google.com/store/apps/details?id=${pkg}`);
-    window.location.href = `intent://#Intent;package=${pkg};action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url=${fallback};end`;
-  }
+
+    const stayHereFallback = encodeURIComponent(window.location.href);
+    window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
+  }, 150);
+}
 
   async function handleManualFile(e) {
     const file = e.target.files[0];
