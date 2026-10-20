@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Cat Printer</title>
+  <title>Billu</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#111827">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -509,7 +509,7 @@
         optionalServices: BLE_SERVICES
       });
       localStorage.setItem('cat_printer_id', device.id);
-      localStorage.setItem('cat_printer_name', device.name || 'Cat Printer');
+      localStorage.setItem('cat_printer_name', device.name || 'Billu');
       updateMainButtonUI();
       await connectToBleDevice(device);
     } catch (err) {
@@ -553,7 +553,7 @@
       if (!foundChar) throw new Error('Write characteristic not found');
 
       writeChar = foundChar;
-      setStatus(`Connected to ${device.name || 'Cat Printer'}`);
+      setStatus(`Connected to ${device.name || 'Billu'}`);
       updateMainButtonUI();
     } catch (err) {
       writeChar = null;
