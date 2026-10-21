@@ -267,11 +267,11 @@
       </button>
     </div>
 
-    <!-- 1. Open Doc / Photo -->
+    <!-- 1. Open Doc / Photo / FP_Log.txt -->
     <div class="opt-row">
-      <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleManualFile(event)">
+      <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf,.txt,text/plain" style="display:none" onchange="handleManualFile(event)">
       <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
-        📂 Open Doc / Photo (Downloads)
+        📂 Open Doc / Photo / Log
       </button>
     </div>
 
@@ -290,7 +290,7 @@
         🛡️ Start Zero-UI Background Mode
       </button>
       <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
-        🧪 Load Sample Order (Test Preview)
+        🧪 Load Sample Order (#109 Test)
       </button>
     </div>
 
@@ -358,7 +358,7 @@
       <button id="bigChooseFileBtn" onclick="document.getElementById('manualFileInput').click()">
         <span class="big-icon">📂</span>
         <span class="big-title">Choose a File / Image to Print</span>
-        <span class="big-sub">Opens Downloads / Recent Files</span>
+        <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
     </div>
 
@@ -457,43 +457,8 @@
   }
 
   // ============================================================================
-  // UNIVERSAL FOODPANDA PARSER (LIVE ORDERS + ORDER HISTORY + ANY ITEM BREAKDOWN)
+  // UNIVERSAL FOODPANDA PARSER (CALIBRATED TO MACRODROID JSON & ORDER HISTORY)
   // ============================================================================
-
-  function extractLinesFromMacroDroidText(blockText) {
-    if (!blockText) return [];
-    let working = blockText.replace(/===FP_AUTO===/g, '').trim();
-
-    // Try parsing JSON if MacroDroid {lvjson=...} was used
-    if (working.startsWith('{') && working.endsWith('}')) {
-      try {
-        const parsed = JSON.parse(working);
-        const collected = [];
-        const walk = (v) => {
-          if (typeof v === 'string') collected.push(v);
-          else if (Array.isArray(v)) v.forEach(walk);
-          else if (v && typeof v === 'object') Object.values(v).forEach(walk);
-        };
-        walk(parsed);
-        if (collected.length > 0) working = collected.join('\n');
-      } catch (e) {
-        // Fallback: extract quoted JSON string values if multi-object
-        const strMatches = [];
-        const re = /"((?:\\.|[^"\\])*)"/g;
-        let m;
-        while ((m = re.exec(working)) !== null) {
-          const val = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-          if (val && !/^\d+$/.test(val)) strMatches.push(val);
-        }
-        if (strMatches.length > 0) working = strMatches.join('\n');
-      }
-    }
-
-    return working
-      .split(/\r?\n/)
-      .map(l => l.replace(/^\s*(?:\[\d+\]|\d+|[a-zA-Z0-9_.\/:-]+)\s*[:=]\s*/, '').trim())
-      .filter(Boolean);
-  }
 
   function validateFoodpandaText(rawText) {
     if (!rawText || rawText.trim().length < 8) {
@@ -504,7 +469,7 @@
     }
     const hasOrderNo = /#\d{1,5}\b/.test(rawText);
     const hasCode = /[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/i.test(rawText);
-    const hasItems = /(?:^|\s)\d+\s*[xX\u00D7*]\s+/m.test(rawText);
+    const hasItems = /(?:^|["\s])\d+\s*[xX\u00D7*](?:["\s]|$)/m.test(rawText);
     const hasPrices = /(?:Subtotal|Total|Order details|৳\s*\d+|\d+\.\d{2})/i.test(rawText);
 
     if (!hasOrderNo && !hasCode && !hasItems && !hasPrices) {
@@ -513,7 +478,7 @@
     return { valid: true };
   }
 
-  function parseSingleScreenBlock(lines) {
+  function parseSingleScreenBlock(blockText) {
     const res = {
       restaurant: '',
       orderNo: '',
@@ -531,6 +496,51 @@
       deliveryType: ''
     };
 
+    if (!blockText) return res;
+    let working = blockText.replace(/===FP_AUTO===/g, '').trim();
+    let lines = [];
+
+    // 1. Direct JSON Dictionary Extraction (handles MacroDroid's exact {lvjson=...} structure)
+    const firstBrace = working.indexOf('{');
+    const lastBrace = working.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        const jsonObj = JSON.parse(working.slice(firstBrace, lastBrace + 1));
+        if (jsonObj && typeof jsonObj === 'object') {
+          if (typeof jsonObj.test_id_customer_name_text === 'string') {
+            res.customer = jsonObj.test_id_customer_name_text.trim();
+          }
+          if (typeof jsonObj.test_id_new_order_id === 'string') {
+            res.orderCode = jsonObj.test_id_new_order_id.trim().toLowerCase();
+          }
+
+          const ignoredKeys = new Set([
+            'test_id_customer_name_text',
+            'test_id_new_order_id',
+            'test_id_modify_order_button',
+            'test_id_order_ready_for_delivery_button',
+            'test_id_rider_section'
+          ]);
+
+          for (const [k, v] of Object.entries(jsonObj)) {
+            if (ignoredKeys.has(k)) continue;
+            if (typeof v === 'string') {
+              const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+              lines.push(...splitLines);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fallback Line Splitter if non-JSON text was passed
+    if (lines.length === 0) {
+      lines = working
+        .split(/\r?\n/)
+        .map(l => l.replace(/^\s*(?:\[\d+\]|\d+|[a-zA-Z0-9_.\/:-]+)\s*[:=]\s*/, '').trim())
+        .filter(Boolean);
+    }
+
     const fullBlock = lines.join('\n');
     if (/Order History|COMPLETED|Order timeline/i.test(fullBlock)) {
       res.isHistory = true;
@@ -539,15 +549,17 @@
     const noMatch = fullBlock.match(/#(\d{1,5})\b/);
     if (noMatch) res.orderNo = '#' + noMatch[1];
 
-    const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
-    if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
+    if (!res.orderCode) {
+      const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
+      if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
+    }
 
     const prepMatch =
       fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i) ||
       fullBlock.match(/Committed preparation time:\s*([0-2]?\d:[0-5]\d)/i);
     if (prepMatch) res.prepTime = prepMatch[1];
 
-    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|PLEASE|DO NOT|Decline|Ready for|Online Payment|Paid with|Payment method|Delivery type|Need help|Contact help|Order timeline|Order details|Order received|Order accepted|Rider|In delivery|Order delivered|Customer|Google|Engineering|Modify|You are closed)/i;
+    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|Order timeline|Order details|Order received|Order accepted|Rider|In delivery|Order delivered|Customer|Google|Engineering|Modify|You are closed)/i;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -556,8 +568,12 @@
         res.restaurant = line.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
         continue;
       }
-      if (/^Customer$/i.test(line) && lines[i + 1]) {
-        res.customer = lines[i + 1];
+      // Only use positional line after "Customer" if test_id_customer_name_text wasn't already set
+      // and the next line isn't an item quantity like "1x"
+      if (/^Customer$/i.test(line)) {
+        if (!res.customer && lines[i + 1] && !stopWordsRe.test(lines[i + 1])) {
+          res.customer = lines[i + 1];
+        }
         continue;
       }
       if (/^Order received$/i.test(line) && lines[i + 1] && /^[0-2]?\d:[0-5]\d$/.test(lines[i + 1])) {
@@ -599,7 +615,7 @@
         }
         continue;
       }
-      if (/Paid with|Online Payment|Cash on/i.test(line)) {
+      if (/Paid with|Online Payment|Cash On Delivery|Cash on/i.test(line)) {
         if (line.length > res.payment.length) res.payment = line;
         continue;
       }
@@ -619,7 +635,6 @@
         }
         if (remainder) nameParts.push(remainder);
 
-        // Scan subsequent lines belonging to this item (handles both Name->Price and Price->Name DOM order)
         while (i + 1 < lines.length) {
           const next = lines[i + 1];
           if (stopWordsRe.test(next)) break;
@@ -632,7 +647,7 @@
             if (trailingP && !price) {
               nameParts.push(trailingP[1].trim());
               price = '৳' + trailingP[2];
-            } else if (!/^(?:pro|COMPLETED|PAYABLE)$/i.test(next)) {
+            } else if (!/^(?:pro|COMPLETED|PAYABLE|￼)$/i.test(next)) {
               nameParts.push(next);
             }
           }
@@ -670,8 +685,7 @@
     const seenItems = new Set();
 
     for (const block of rawBlocks) {
-      const lines = extractLinesFromMacroDroidText(block);
-      const p = parseSingleScreenBlock(lines);
+      const p = parseSingleScreenBlock(block);
 
       if (p.restaurant) merged.restaurant = p.restaurant;
       if (p.isHistory) merged.isHistory = true;
@@ -698,13 +712,13 @@
       }
     }
 
-    // Fallback 1: If Order History has no #108 short number, promote last 4 chars of cvgi-2643-peac -> #PEAC
+    // Fallback 1: If Order History has no #109 short number, promote last 4 chars of code -> #PEAC
     if (!merged.orderNo && merged.orderCode) {
       const parts = merged.orderCode.split('-');
       merged.orderNo = '#' + parts[parts.length - 1].toUpperCase();
     }
 
-    // Fallback 2: If screen only shows item prices without Subtotal/Total, sum the items
+    // Fallback 2: Sum items if Subtotal/Total are missing
     if (!merged.subtotal && !merged.total && merged.items.length > 0) {
       let sum = 0;
       for (const it of merged.items) {
@@ -714,7 +728,7 @@
       if (sum > 0) merged.subtotal = '৳' + sum.toFixed(2);
     }
 
-    // Fallback 3: On Order History, only Subtotal is shown; promote it to Total if Total is missing
+    // Fallback 3: Promote Subtotal to Total if Total is missing (Order History)
     if (!merged.total && merged.subtotal) {
       merged.total = merged.subtotal;
     }
@@ -878,34 +892,19 @@
     return cropWhiteTopBottom(tempCanvas);
   }
 
-  // Built-in test using your exact Order History screenshot (cvgi-2643-peac)
+  // Built-in test using your exact captured Order #109 JSON
   function loadSampleFpOrder() {
     closeMenu();
-    const sampleHistoryText = `
-      Tasty Patil (CVGI)
-      Order History
-      COMPLETED
-      PAYABLE
-      cvgi-2643-peac
-      Order received
-      16:43
-      Committed preparation time: 17:17
-      Order details
-      1× Special Chicken Tehari Kofta Combo - Regular ৳290.00
-      1× Chicken Kofta Curry ৳100.00
-      1× Special Chicken Tehari - Regular ৳210.00
-      Subtotal ৳630.00
-      Payment method
-      Online
-      Delivery type
-      Platform delivery
-    `;
-    const parsed = parseFoodpandaMultiScroll(sampleHistoryText);
+    const sampleLiveOrderLog = `{"" :"Modify","$2" :"Tasty Patil","$3" :"#109","$4" :"0, 10\\u000amins","$5" :"Customer","$6" :"1x","$7" :"Thai Chili Chicken Rice Bowl - Regular","$8" :"৳165.00","$9" :"PLEASE DO NOT PROVIDE CUTLERY","$10" :"Subtotal","$11" :"৳165.00","$12" :"VAT","$13" :"৳8.25","$14" :"Total","$15" :"৳173.25","test_id_customer_name_text" :"tarana tfi","test_id_modify_order_button" :"￼","test_id_new_order_id" :"cvgi-2643-bos5","test_id_order_ready_for_delivery_button" :"Ready for delivery\\u000a1 item","test_id_rider_section" :"Rider\\u000aRider is on the way"}
+===SCREEN_BREAK===
+{"" :"Modify","$2" :"Customer","$3" :"1x","$4" :"Thai Chili Chicken Rice Bowl - Regular","$5" :"৳165.00","$6" :"PLEASE DO NOT PROVIDE CUTLERY","$7" :"Subtotal","$8" :"৳165.00","$9" :"VAT","$10" :"৳8.25","$11" :"Total","$12" :"৳173.25","$13" :"Cash On Delivery","$14" :"Decline","test_id_customer_name_text" :"tarana tfi","test_id_modify_order_button" :"￼","test_id_order_ready_for_delivery_button" :"Ready for delivery\\u000a1 item","test_id_rider_section" :"Rider\\u000aRider is on the way"}`;
+
+    const parsed = parseFoodpandaMultiScroll(sampleLiveOrderLog);
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
     docSourceCanvas = renderSynthesizedFpReceipt(parsed);
     rebuildCompositePreview(true);
     updateMainButtonUI();
-    setStatus('Loaded Sample Order #PEAC (৳630.00)');
+    setStatus(`Loaded Order ${parsed.orderNo} (${parsed.total})`);
   }
 
   async function runFoodpandaAutomatedJob(rawText, imageFiles = [], isForegroundFailsafe = false) {
@@ -915,7 +914,6 @@
       document.getElementById('stealthManualBtn').style.display = 'none';
     }
 
-    // Purge FP_order.txt from Queue Folder if accessible so Path A & B never collide
     try {
       const qHandle = await idbGet('fpQueueDir');
       if (qHandle && (await qHandle.queryPermission({ mode: 'readwrite' })) === 'granted') {
@@ -936,7 +934,7 @@
       const parsed = parseFoodpandaMultiScroll(rawText);
       currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
 
-      // 15-second accidental double-tap guard ONLY on live orders (disabled on Order History so you can test freely)
+      // 15-second accidental double-tap guard on live orders
       const dedupeId = [parsed.orderNo, parsed.orderCode, parsed.total].filter(Boolean).join('|');
       if (!parsed.isHistory && dedupeId) {
         const lastId = localStorage.getItem('fp_last_dedupe_id');
@@ -987,6 +985,36 @@
       await printCanvas(true);
     }
   }
+
+  // Checks URL Hash for #fp_b64=... sent by MacroDroid's Open Website action
+  async function checkUrlHashForFpPayload() {
+    const hash = window.location.hash || '';
+    if (!hash.startsWith('#fp_b64=')) return false;
+
+    let b64 = hash.slice('#fp_b64='.length).trim();
+    history.replaceState({}, '', './index.html');
+
+    try {
+      b64 = decodeURIComponent(b64).replace(/\s+/g, '');
+      const binStr = atob(b64);
+      const bytes = new Uint8Array(binStr.length);
+      for (let i = 0; i < binStr.length; i++) {
+        bytes[i] = binStr.charCodeAt(i);
+      }
+      const decodedText = new TextDecoder('utf-8').decode(bytes);
+      if (decodedText && decodedText.trim().length > 8) {
+        await runFoodpandaAutomatedJob(decodedText, [], true);
+        return true;
+      }
+    } catch (e) {
+      setStatus('Hash decode error: ' + e.message);
+    }
+    return false;
+  }
+
+  window.addEventListener('hashchange', () => {
+    checkUrlHashForFpPayload();
+  });
 
   // ============================================================================
   // FOLDER ARCHIVING & SELF-HEALING BACKGROUND QUEUE WATCHER (PATH A)
@@ -1065,7 +1093,7 @@
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      gain.gain.value = 0.0001; // Inaudible keep-alive
+      gain.gain.value = 0.0001;
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
@@ -1094,7 +1122,6 @@
     }, 850);
   }
 
-  // Silently resumes background watcher if permission is already granted
   async function trySilentResumeWatcher() {
     if (bgWatcherTimer || localStorage.getItem('fp_bg_enabled') !== '1') return;
     try {
@@ -1108,7 +1135,6 @@
     } catch (e) {}
   }
 
-  // Resume keep-alive & folder watcher on any tap anywhere in the app
   document.addEventListener('pointerdown', async () => {
     if (localStorage.getItem('fp_bg_enabled') === '1' && !bgWatcherTimer) {
       startKeepAliveAudio();
@@ -1499,6 +1525,20 @@
     const file = e.target.files[0];
     if (!file) return;
     closeMenu();
+
+    // Allow selecting any FP_Log .txt file directly to preview & print
+    if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
+      const txt = await file.text();
+      const parsed = parseFoodpandaMultiScroll(txt);
+      currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
+      docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+      rebuildCompositePreview(true);
+      updateMainButtonUI();
+      setStatus(`Loaded Log: ${parsed.orderNo || file.name}`);
+      e.target.value = '';
+      return;
+    }
+
     isFpPipelineRun = false;
     await loadMainDocumentFile(file);
     e.target.value = '';
@@ -1849,6 +1889,10 @@
     startAutoReconnectLoop();
     await trySilentResumeWatcher();
 
+    // Check if woken by MacroDroid Open Website (#fp_b64=...)
+    const handledByHash = await checkUrlHashForFpPayload();
+    if (handledByHash) return;
+
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('sw.js');
@@ -1856,7 +1900,6 @@
           const isFpAuto = location.search.includes('fp_auto=1');
           const cache = await caches.open('shared-files');
 
-          // 1. Standard Print App Mode (regular PDF/photo share outside Foodpanda pipeline)
           if (!isFpAuto) {
             const resp = await cache.match('/shared-file') || await cache.match('/shared-file-0');
             if (resp) {
@@ -1872,7 +1915,6 @@
             return;
           }
 
-          // 2. Automated Foodpanda Pipeline Mode (Path B Failsafe)
           const metaResp = await cache.match('/shared-meta');
           let meta = { title: '', text: '', fileCount: 0 };
           if (metaResp) meta = await metaResp.json();
