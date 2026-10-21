@@ -42,7 +42,7 @@
     .top-bar span { font-size: 14px; font-weight: 600; white-space: nowrap; }
     .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; }
 
-    /* 2. INTERACTIVE VIEWPORT (BETWEEN TOP & BOTTOM BARS) */
+    /* 2. INTERACTIVE VIEWPORT */
     #viewport {
       position: fixed; top: 54px; bottom: 84px; left: 0; right: 0;
       overflow: hidden; touch-action: none;
@@ -94,9 +94,9 @@
       pointer-events: none; z-index: 25; white-space: nowrap;
     }
 
-    /* FOODPANDA PRE-PRINT & POST-PRINT PROMPT MODAL */
+    /* FOODPANDA PRE-PRINT & POST-PRINT MODAL (Leaves bottom bar uncovered!) */
     #fpModalBackdrop {
-      position: fixed; inset: 0; z-index: 9000;
+      position: fixed; top: 54px; bottom: 84px; left: 0; right: 0; z-index: 80;
       background: rgba(17, 24, 39, 0.78); backdrop-filter: blur(4px);
       display: none; align-items: center; justify-content: center;
       padding: 20px;
@@ -110,8 +110,8 @@
       text-align: center; gap: 14px;
       box-shadow: 0 16px 40px rgba(0,0,0,0.7);
     }
-    .fp-modal-icon { font-size: 48px; line-height: 1; }
-    .fp-modal-title { font-size: 22px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
+    .fp-modal-icon { font-size: 46px; line-height: 1; }
+    .fp-modal-title { font-size: 21px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
     .fp-modal-sub { font-size: 14px; color: #D1D5DB; font-weight: 600; }
     .fp-modal-actions {
       display: flex; width: 100%; gap: 12px; margin-top: 6px;
@@ -125,6 +125,27 @@
     .fp-btn-yes { background: var(--green); }
     .fp-btn-go { background: var(--fp-pink); }
     .fp-btn-no { background: #374151; color: #E5E7EB; }
+
+    /* INTERNAL RECEIPT VAULT OVERLAY */
+    #vaultOverlay {
+      position: fixed; inset: 0; z-index: 95;
+      background: #111827; display: none; flex-direction: column;
+      padding: 16px; gap: 12px;
+    }
+    #vaultOverlay.open { display: flex; }
+    #vaultList {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+    }
+    .vault-item {
+      background: #1F2937; border: 1px solid #374151; border-radius: 14px;
+      padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .vault-info { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+    .vault-btns { display: flex; gap: 8px; }
+    .vault-pill-btn {
+      padding: 8px 12px; border-radius: 10px; border: none; font-weight: 800;
+      font-size: 12px; cursor: pointer; color: #FFFFFF;
+    }
 
     /* 3. FLOATING BUTTONS */
     .fab {
@@ -208,7 +229,7 @@
     /* 5. STICKY BOTTOM SINGLE ACTION BUTTON */
     .bottom-bar {
       position: fixed; bottom: 0; left: 0; right: 0; height: 84px;
-      background: var(--surface); padding: 12px 16px; z-index: 30;
+      background: var(--surface); padding: 12px 16px; z-index: 90;
       box-shadow: 0 -2px 10px rgba(0,0,0,0.35);
     }
     #mainActionBtn {
@@ -278,6 +299,19 @@
     </div>
   </div>
 
+  <!-- BUILT-IN RECEIPT VAULT OVERLAY (STORES PDF + PNG WITH ZERO PERMISSION POPUPS) -->
+  <div id="vaultOverlay">
+    <div class="opt-header">
+      <button class="icon-pill" onclick="closeVault()">← Back</button>
+      <span style="font-weight:800; font-size:16px;">🗄️ Saved Receipts Vault</span>
+      <button class="icon-pill" style="background:#EF4444;" onclick="clearVault()">Clear</button>
+    </div>
+    <div style="font-size:12px; color:#9CA3AF;">
+      Automatically stores both selectable-text <b>.PDF</b> and <b>.PNG</b> receipts inside Billu's internal storage (no Android folder permissions needed).
+    </div>
+    <div id="vaultList"></div>
+  </div>
+
   <!-- FLOATING RETURN TO APP BUTTON -->
   <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
     <span class="app-icon" id="returnAppIcon">🐼</span>
@@ -301,7 +335,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.1.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.2.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px;" onclick="forceUpdatePWA()">
@@ -324,9 +358,12 @@
       </button>
     </div>
 
-    <!-- 2. Foodpanda Pipeline Settings -->
+    <!-- 2. Foodpanda Pipeline & Internal Vault -->
     <div class="opt-row" style="border: 1px solid #D70F64;">
-      <div style="font-weight:800; color:#F472B6; font-size:13px;">🐼 Foodpanda Pipeline</div>
+      <div style="font-weight:800; color:#F472B6; font-size:13px;">🐼 Foodpanda Pipeline (100% Base64)</div>
+      <button class="opt-btn opt-btn-fp" onclick="openVault()">
+        🗄️ Open Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
+      </button>
       <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
         <input type="checkbox" id="fpAskBeforePrint" onchange="saveFpPromptSettings()">
         Confirm "Print / Don't Print" Before Print
@@ -335,14 +372,7 @@
         <input type="checkbox" id="fpAskAfterPrint" onchange="saveFpPromptSettings()">
         Prompt "Go / No Stay" After Print
       </label>
-      <button class="opt-btn opt-btn-path" onclick="pickFpFolder('fpQueueDir', 'queueDirLabel')">
-        <span id="queueDirLabel">Queue Folder: Not Set</span>
-        <span>📥 Pick</span>
-      </button>
-      <button class="opt-btn opt-btn-path" onclick="pickFpFolder('fpArchiveDir', 'archiveDirLabel')">
-        <span id="archiveDirLabel">Archive Folder: Not Set</span>
-        <span>🗄️ Pick</span>
-      </button>
+      <input type="text" id="gdriveWebhookInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Optional: Google Drive Webhook URL" onchange="saveFpPromptSettings()">
       <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
         🧪 Load Sample Order (#110 Test)
       </button>
@@ -414,7 +444,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.1.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.2.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -433,8 +463,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.1.0';
-  const APP_UPDATED_DHAKA = '22 Oct 2026, 01:05 AM (Dhaka)';
+  const APP_VERSION = 'v3.2.0';
+  const APP_UPDATED_DHAKA = '22 Oct 2026, 01:30 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -458,7 +488,6 @@
   let stampSourceCanvas = null;
 
   let isFpPipelineRun = false;
-  let pendingQueueReadOnTap = false;
   let lastParsedFpData = null;
   let currentOrderMeta = { orderNo: '', orderCode: '', isHistory: false };
   let audioCtx = null;
@@ -533,7 +562,7 @@
   }
 
   // ============================================================================
-  // REAL SELECTABLE-TEXT PDF 1.4 GENERATOR (ZERO EXTERNAL DEPENDENCIES)
+  // REAL SELECTABLE-TEXT PDF 1.4 GENERATOR
   // ============================================================================
 
   function pdfCleanStr(str) {
@@ -564,9 +593,9 @@
   }
 
   function generateOrderTextPdfBlob(data) {
-    const pageW = 164; // 58mm roll width in PDF points (72 pt/inch)
+    const pageW = 164; // 58mm width in PDF points
     const ops = [];
-    let yCursor = 16; // top-down coordinate before flipping
+    let yCursor = 16;
 
     const addText = (txt, x, yTop, size = 9, bold = false) => {
       ops.push({ type: 'text', txt: pdfCleanStr(txt), x, yTop, size, bold });
@@ -587,7 +616,6 @@
       ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
     };
 
-    // Header
     addCenterText((data.restaurant || 'TASTY PATIL').toUpperCase(), yCursor, 12, true);
     yCursor += 14;
 
@@ -637,7 +665,6 @@
     addRule(yCursor, false);
     yCursor += 13;
 
-    // Items
     for (const item of (data.items || [])) {
       addText(item.qty || '1x', 6, yCursor, 9, true);
       if (item.price) {
@@ -651,7 +678,6 @@
       yCursor += 3;
     }
 
-    // Notes
     for (const note of (data.notes || [])) {
       yCursor += 2;
       for (const nl of wrapPdfLine('! ' + note + ' !', 24)) {
@@ -663,7 +689,6 @@
     addRule(yCursor, false);
     yCursor += 13;
 
-    // Totals
     if (data.subtotal && data.subtotal !== data.total) {
       addText('Subtotal', 6, yCursor, 8.5, false);
       addRightText(data.subtotal, yCursor, 8.5, false);
@@ -700,7 +725,6 @@
     addRule(yCursor, true);
     const pageH = Math.max(200, yCursor + 20);
 
-    // Convert top-down coordinates into PDF bottom-up Content Stream
     const streamLines = [];
     for (const op of ops) {
       const pdfY = (pageH - op.yTop).toFixed(1);
@@ -739,7 +763,7 @@
   }
 
   // ============================================================================
-  // UNIVERSAL FOODPANDA PARSER
+  // UNIVERSAL FOODPANDA PARSER (WITH FAULT-TOLERANT REGEX KEY/VALUE FALLBACK)
   // ============================================================================
 
   function validateFoodpandaText(rawText) {
@@ -758,6 +782,27 @@
       return { valid: false, reason: 'No order or item price breakdown found on screen' };
     }
     return { valid: true };
+  }
+
+  function extractKeyValuePairsRobust(text) {
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        const obj = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+        if (obj && typeof obj === 'object') return Object.entries(obj);
+      } catch (e) {}
+    }
+    // Fault-tolerant regex key-value extractor if JSON contains unescaped newlines or is truncated
+    const pairs = [];
+    const kvRegex = /"([^"]*)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+    let m;
+    while ((m = kvRegex.exec(text)) !== null) {
+      const k = m[1];
+      const v = m[2].replace(/\\u000a|\\n/gi, '\n').replace(/\\"/g, '"');
+      pairs.push([k, v]);
+    }
+    return pairs;
   }
 
   function parseSingleScreenBlock(blockText) {
@@ -780,35 +825,25 @@
     };
 
     if (!blockText) return res;
-    let working = blockText.replace(/===FP_AUTO===/g, '').trim();
+    const working = blockText.replace(/===FP_AUTO===/g, '').trim();
     let lines = [];
 
-    const firstBrace = working.indexOf('{');
-    const lastBrace = working.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      try {
-        const jsonObj = JSON.parse(working.slice(firstBrace, lastBrace + 1));
-        if (jsonObj && typeof jsonObj === 'object') {
-          if (typeof jsonObj.test_id_customer_name_text === 'string') {
-            res.customer = jsonObj.test_id_customer_name_text.trim();
-          }
-          if (typeof jsonObj.test_id_new_order_id === 'string') {
-            res.orderCode = jsonObj.test_id_new_order_id.trim().toLowerCase();
-          }
-          if (typeof jsonObj.test_id_prep_time_adjustment_proof_banner === 'string') {
-            const pm = jsonObj.test_id_prep_time_adjustment_proof_banner.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
-            if (pm) res.prepTime = pm[1];
-          }
-
-          for (const [k, v] of Object.entries(jsonObj)) {
-            if (k.startsWith('test_id_') || k.startsWith('index:')) continue;
-            if (typeof v === 'string') {
-              const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-              lines.push(...splitLines);
-            }
-          }
+    const kvPairs = extractKeyValuePairsRobust(working);
+    if (kvPairs.length > 0) {
+      for (const [k, v] of kvPairs) {
+        if (typeof v !== 'string') continue;
+        if (k === 'test_id_customer_name_text') {
+          res.customer = v.trim();
+        } else if (k === 'test_id_new_order_id') {
+          res.orderCode = v.trim().toLowerCase();
+        } else if (k === 'test_id_prep_time_adjustment_proof_banner') {
+          const pm = v.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
+          if (pm) res.prepTime = pm[1];
+        } else if (!k.startsWith('test_id_') && !k.startsWith('index:')) {
+          const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          lines.push(...splitLines);
         }
-      } catch (e) {}
+      }
     }
 
     if (lines.length === 0) {
@@ -958,7 +993,7 @@
   }
 
   function parseFoodpandaMultiScroll(rawText) {
-    const rawBlocks = rawText.split('===SCREEN_BREAK===').filter(b => b.trim().length > 0);
+    const rawBlocks = rawText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
     const merged = {
       restaurant: 'Tasty Patil',
       orderNo: '',
@@ -1038,7 +1073,7 @@
   function renderSynthesizedFpReceipt(data) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = PRINTER_WIDTH;
-    tempCanvas.height = 2200;
+    tempCanvas.height = 2400;
     const ctx = tempCanvas.getContext('2d');
 
     ctx.fillStyle = '#FFFFFF';
@@ -1185,11 +1220,173 @@
 
     drawLine(true);
 
-    return cropWhiteTopBottom(tempCanvas);
+    // Slice exact drawn height (y + 10) directly so there is never extra blank canvas space
+    const exactH = Math.max(80, Math.min(tempCanvas.height, Math.ceil(y + 10)));
+    const sliced = document.createElement('canvas');
+    sliced.width = PRINTER_WIDTH;
+    sliced.height = exactH;
+    sliced.getContext('2d').drawImage(tempCanvas, 0, 0, PRINTER_WIDTH, exactH, 0, 0, PRINTER_WIDTH, exactH);
+    return cropWhiteTopBottom(sliced);
   }
 
   // ============================================================================
-  // FOODPANDA MODAL PROMPTS & QUEUE LOADER (PRE-PRINT & POST-PRINT)
+  // BUILT-IN INTERNAL RECEIPT VAULT (INDEXEDDB + OPTIONAL GOOGLE DRIVE UPLOAD)
+  // ============================================================================
+
+  async function refreshVaultCount() {
+    try {
+      const vault = (await idbGet('fpInternalVault')) || [];
+      const badge = document.getElementById('vaultCountBadge');
+      if (badge) badge.innerText = String(vault.length);
+    } catch (e) {}
+  }
+
+  async function archivePrintedReceiptToVault() {
+    try {
+      const now = new Date();
+      const dhakaTime = now.toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'Asia/Dhaka'
+      });
+      const tsFile = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const tag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || 'Order';
+      const baseName = `FP_${tag}_${tsFile}`;
+
+      const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
+      const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData) : null;
+
+      const pngBuffer = await pngBlob.arrayBuffer();
+      const pdfBuffer = pdfBlob ? await pdfBlob.arrayBuffer() : null;
+
+      const entry = {
+        id: Date.now(),
+        orderNo: currentOrderMeta.orderNo || '#Order',
+        orderCode: currentOrderMeta.orderCode || '',
+        customer: (lastParsedFpData && lastParsedFpData.customer) || '',
+        total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
+        dhakaTime,
+        baseName,
+        pngBuffer,
+        pdfBuffer
+      };
+
+      const vault = (await idbGet('fpInternalVault')) || [];
+      vault.unshift(entry);
+      // Keep last 150 receipts in internal storage
+      await idbSet('fpInternalVault', vault.slice(0, 150));
+      await refreshVaultCount();
+
+      // Optional: If user configured a Google Drive Apps Script Webhook URL, upload automatically
+      const gdriveUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
+      if (gdriveUrl && gdriveUrl.startsWith('https://')) {
+        uploadEntryToGoogleDrive(gdriveUrl, entry, pngBlob, pdfBlob);
+      }
+    } catch (e) {}
+  }
+
+  async function blobToBase64(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || '').split(',')[1] || '');
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function uploadEntryToGoogleDrive(webhookUrl, entry, pngBlob, pdfBlob) {
+    try {
+      const payload = {
+        baseName: entry.baseName,
+        orderNo: entry.orderNo,
+        pngBase64: await blobToBase64(pngBlob),
+        pdfBase64: pdfBlob ? await blobToBase64(pdfBlob) : ''
+      };
+      await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {}
+  }
+
+  async function openVault() {
+    closeMenu();
+    const listEl = document.getElementById('vaultList');
+    listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:24px;">Loading saved receipts...</div>';
+    document.getElementById('vaultOverlay').classList.add('open');
+
+    const vault = (await idbGet('fpInternalVault')) || [];
+    if (vault.length === 0) {
+      listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:32px;">No saved receipts yet. Every printed Foodpanda order will automatically appear here as both PDF and PNG.</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    for (const item of vault) {
+      const row = document.createElement('div');
+      row.className = 'vault-item';
+
+      const info = document.createElement('div');
+      info.className = 'vault-info';
+      info.innerHTML = `
+        <div style="font-weight:900; color:#FFFFFF; font-size:15px;">${item.orderNo} ${item.total ? '• ' + item.total : ''}</div>
+        <div style="color:#D1D5DB;">${item.customer || item.orderCode || ''}</div>
+        <div style="color:#9CA3AF; font-size:11px;">${item.dhakaTime}</div>
+      `;
+
+      const btns = document.createElement('div');
+      btns.className = 'vault-btns';
+
+      if (item.pdfBuffer) {
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'vault-pill-btn';
+        pdfBtn.style.background = '#2563EB';
+        pdfBtn.innerText = '📄 PDF';
+        pdfBtn.onclick = () => downloadVaultFile(item.pdfBuffer, `${item.baseName}.pdf`, 'application/pdf');
+        btns.appendChild(pdfBtn);
+      }
+
+      if (item.pngBuffer) {
+        const pngBtn = document.createElement('button');
+        pngBtn.className = 'vault-pill-btn';
+        pngBtn.style.background = '#10B981';
+        pngBtn.innerText = '🖼️ PNG';
+        pngBtn.onclick = () => downloadVaultFile(item.pngBuffer, `${item.baseName}.png`, 'image/png');
+        btns.appendChild(pngBtn);
+      }
+
+      row.appendChild(info);
+      row.appendChild(btns);
+      listEl.appendChild(row);
+    }
+  }
+
+  function closeVault() {
+    document.getElementById('vaultOverlay').classList.remove('open');
+  }
+
+  async function clearVault() {
+    if (!confirm('Delete all saved receipts from Billu Vault?')) return;
+    await idbSet('fpInternalVault', []);
+    await refreshVaultCount();
+    await openVault();
+  }
+
+  function downloadVaultFile(buffer, fileName, mimeType) {
+    const blob = new Blob([buffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  // ============================================================================
+  // FOODPANDA MODAL PROMPTS (PRE-PRINT & POST-PRINT)
   // ============================================================================
 
   function showFpPrePrintModal(title, sub) {
@@ -1210,32 +1407,11 @@
     document.getElementById('fpModalBackdrop').classList.remove('active');
   }
 
-  // Triggered when user taps "Print" or "Don't Print"
   async function onFpPrePrintChoice(shouldPrint) {
     hideFpModal();
     if (!shouldPrint) {
-      pendingQueueReadOnTap = false;
-      setStatus('Print cancelled');
-      launchReturnApp();
+      setStatus('Print cancelled — Tap Print anytime or Panda icon to return');
       return;
-    }
-
-    // Because this is inside a physical click handler (User Gesture),
-    // we can unlock FP_Queue & FP_Archive folder permissions if Chrome reset them!
-    try {
-      const aHandle = await idbGet('fpArchiveDir');
-      if (aHandle && (await aHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
-        await aHandle.requestPermission({ mode: 'readwrite' }).catch(() => {});
-      }
-    } catch (e) {}
-
-    if (pendingQueueReadOnTap) {
-      pendingQueueReadOnTap = false;
-      const loaded = await tryLoadFromFpQueueFolder(true);
-      if (!loaded) {
-        setStatus('No order file found in FP_Queue');
-        return;
-      }
     }
 
     if (!writeChar) {
@@ -1247,7 +1423,6 @@
     }
   }
 
-  // Triggered when user taps "Go" or "No, Stay" after printing finishes
   function onFpPostPrintChoice(goBack) {
     hideFpModal();
     if (goBack) {
@@ -1260,44 +1435,13 @@
   function saveFpPromptSettings() {
     const askBefore = document.getElementById('fpAskBeforePrint').checked;
     const askAfter = document.getElementById('fpAskAfterPrint').checked;
+    const gdriveUrl = document.getElementById('gdriveWebhookInput').value.trim();
     localStorage.setItem('fp_ask_before_print', askBefore ? '1' : '0');
     localStorage.setItem('fp_ask_after_print', askAfter ? '1' : '0');
-  }
-
-  async function tryLoadFromFpQueueFolder(hasUserGesture = false) {
-    try {
-      const qHandle = await idbGet('fpQueueDir');
-      if (!qHandle) return false;
-
-      let perm = await qHandle.queryPermission({ mode: 'readwrite' });
-      if (perm !== 'granted' && hasUserGesture) {
-        perm = await qHandle.requestPermission({ mode: 'readwrite' });
-      }
-      if (perm !== 'granted') {
-        // Permission was revoked because app was closed; prompt user tap so we can unlock it!
-        pendingQueueReadOnTap = true;
-        showFpPrePrintModal('Print Foodpanda Order?', 'Tap Print to load queued order & print');
-        return true;
-      }
-
-      const fHandle = await qHandle.getFileHandle('FP_order.txt').catch(() => null);
-      if (!fHandle) return false;
-
-      const file = await fHandle.getFile();
-      const text = await file.text();
-      await qHandle.removeEntry('FP_order.txt').catch(() => {});
-
-      if (text && text.trim().length > 8) {
-        await prepareFoodpandaOrderFromText(text, !hasUserGesture);
-        return true;
-      }
-    } catch (e) {}
-    return false;
+    localStorage.setItem('fp_gdrive_webhook', gdriveUrl);
   }
 
   async function prepareFoodpandaOrderFromText(rawText, showConfirmIfEnabled = true) {
-    isFpPipelineRun = true;
-
     const v = validateFoodpandaText(rawText);
     if (!v.valid) {
       setStatus('Ignored: ' + v.reason);
@@ -1306,12 +1450,21 @@
     }
 
     const parsed = parseFoodpandaMultiScroll(rawText);
+    // Strict guard: never generate a blank receipt if 0 items AND no total were found
+    if (parsed.items.length === 0 && !parsed.total && !parsed.subtotal) {
+      setStatus('Order text had 0 items — check screen capture');
+      playTone(250, 350);
+      return false;
+    }
+
+    isFpPipelineRun = true;
     lastParsedFpData = parsed;
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
 
     docSourceCanvas = renderSynthesizedFpReceipt(parsed);
     rebuildCompositePreview(true);
     updateMainButtonUI();
+    setStatus(`Order ${parsed.orderNo || ''}: ${parsed.items.length} item(s) • ${parsed.total || ''}`);
 
     const askBefore = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
     if (showConfirmIfEnabled && askBefore) {
@@ -1364,109 +1517,24 @@
       b64 = hash.split('fp_b64=')[1] || '';
     }
 
-    const isFpAutoUrl = params.get('fp_auto') === '1' || hash.includes('fp_auto=1') || Boolean(b64);
+    if (!b64 || b64 === 'GONE') return false;
 
-    if (b64) {
-      history.replaceState({}, '', './index.html');
-      try {
-        const decodedText = decodeBase64Utf8(b64);
-        if (decodedText && decodedText.trim().length > 8) {
-          await prepareFoodpandaOrderFromText(decodedText, true);
-          return true;
-        }
-      } catch (e) {
-        setStatus('URL decode fallback to Queue Folder...');
+    history.replaceState({}, '', './index.html');
+    try {
+      const decodedText = decodeBase64Utf8(b64);
+      if (decodedText && decodedText.trim().length > 8) {
+        await prepareFoodpandaOrderFromText(decodedText, true);
+        return true;
       }
+    } catch (e) {
+      setStatus('Base64 decode error: ' + e.message);
     }
-
-    if (isFpAutoUrl) {
-      history.replaceState({}, '', './index.html');
-      const loaded = await tryLoadFromFpQueueFolder(false);
-      if (loaded) return true;
-    }
-
     return false;
   }
 
   window.addEventListener('hashchange', () => {
     checkUrlForFpPayload();
   });
-
-  // ============================================================================
-  // FOLDER ARCHIVING (SAVES BOTH .PNG IMAGE AND REAL SELECTABLE-TEXT .PDF)
-  // ============================================================================
-
-  async function pickFpFolder(idbKey, labelId) {
-    if (!window.showDirectoryPicker) {
-      alert('Directory Picker requires Chrome on Android.');
-      return;
-    }
-    try {
-      const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      await idbSet(idbKey, dirHandle);
-      document.getElementById(labelId).innerText = `Folder: ${dirHandle.name}`;
-      setStatus(`Folder set: ${dirHandle.name}`);
-      await flushPendingArchives();
-    } catch (e) {}
-  }
-
-  async function saveBlobToArchiveDir(dirHandle, fileName, blob) {
-    const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-  }
-
-  async function flushPendingArchives() {
-    try {
-      const dirHandle = await idbGet('fpArchiveDir');
-      if (!dirHandle) return;
-      const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
-      if (perm !== 'granted') return;
-
-      const pending = (await idbGet('fpPendingArchives')) || [];
-      if (pending.length === 0) return;
-
-      for (const item of pending) {
-        const blob = new Blob([item.buffer], { type: item.type || 'image/png' });
-        await saveBlobToArchiveDir(dirHandle, item.fileName, blob);
-      }
-      await idbSet('fpPendingArchives', []);
-    } catch (e) {}
-  }
-
-  async function archivePrintedReceipt() {
-    try {
-      const now = new Date();
-      const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const tag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || 'Order';
-      const baseName = `FP_${tag}_${ts}`;
-
-      const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
-      const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData) : null;
-
-      const dirHandle = await idbGet('fpArchiveDir');
-      if (dirHandle) {
-        const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
-        if (perm === 'granted') {
-          await saveBlobToArchiveDir(dirHandle, `${baseName}.png`, pngBlob);
-          if (pdfBlob) {
-            await saveBlobToArchiveDir(dirHandle, `${baseName}.pdf`, pdfBlob);
-          }
-          await flushPendingArchives();
-          return;
-        }
-      }
-
-      // Queue in IndexedDB if folder permission is awaiting next user tap
-      const pending = (await idbGet('fpPendingArchives')) || [];
-      pending.push({ fileName: `${baseName}.png`, type: 'image/png', buffer: await pngBlob.arrayBuffer() });
-      if (pdfBlob) {
-        pending.push({ fileName: `${baseName}.pdf`, type: 'application/pdf', buffer: await pdfBlob.arrayBuffer() });
-      }
-      await idbSet('fpPendingArchives', pending.slice(-60));
-    } catch (e) {}
-  }
 
   // ============================================================================
   // ORIGINAL BILLU VIEWPORT, BLE, STOP PRINT, MARGINS & STAMP LOGIC
@@ -1591,14 +1659,14 @@
   }
 
   async function handleMainButtonClick() {
-    // If currently printing, tapping the big button triggers STOP PRINT
     if (isPrinting) {
       cancelPrintRequested = true;
-      setStatus('Stopping print...');
+      setStatus('Stopping printer immediately...');
       document.getElementById('mainActionBtn').innerText = '🛑 Stopping...';
       return;
     }
 
+    hideFpModal();
     if (!docSourceCanvas) return;
     if (writeChar) {
       await printCanvas(isFpPipelineRun);
@@ -1681,8 +1749,10 @@
   function onBleDisconnected() {
     writeChar = null;
     isConnecting = false;
-    setStatus('Printer offline. Waiting for printer...');
-    updateMainButtonUI();
+    if (!isPrinting) {
+      setStatus('Printer offline. Waiting for printer...');
+      updateMainButtonUI();
+    }
     startAutoReconnectLoop();
   }
 
@@ -1726,13 +1796,9 @@
     }, 4500);
   }
 
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible') {
-      if (!writeChar && !isConnecting) attemptAutoReconnect();
-      if (!isPrinting) {
-        const handledUrl = await checkUrlForFpPayload();
-        if (!handledUrl) await tryLoadFromFpQueueFolder(false);
-      }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !writeChar && !isConnecting) {
+      attemptAutoReconnect();
     }
   });
 
@@ -2073,7 +2139,7 @@
 
       for (let y = 0; y < blankRows; y++) {
         await writeBle(makePacket(0xA2, emptyRow));
-        if (y % 4 === 0) await sleep(10);
+        if (y % 4 === 0) await sleep(12);
       }
 
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
@@ -2135,33 +2201,38 @@
         if (rowHasInk) batchHasDarkPixels = true;
         await writeBle(makePacket(0xA2, rowBytes));
 
-        // Hardware-synced pacing: 26ms per 4 dark rows (~6.5ms/row) matches actual motor feed speed
+        // True physical stepper-motor pacing (48ms per 4 dark rows = 12ms/row; 18ms per 4 white rows)
+        // Prevents OS Bluetooth buffer buildup so Stop Print is instant and 100% matches physical paper!
         if (y % 4 === 3) {
-          await sleep(batchHasDarkPixels ? 26 : 12);
+          await sleep(batchHasDarkPixels ? 48 : 18);
           batchHasDarkPixels = false;
         }
 
-        if (y % 24 === 0) {
+        if (y % 20 === 0) {
           const pct = Math.min(99, Math.round((y / totalRows) * 100));
           btn.innerText = `🛑 Stop Print (${pct}%)`;
           setStatus(`Printing ${pct}%`);
         }
       }
 
-      // Send end-of-print / stop-heating command
-      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
-
       if (cancelPrintRequested) {
-        setStatus('Print stopped by user');
+        // Send heater stop + cycle GATT connection to flush any OS-queued packets immediately
+        await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17])).catch(() => {});
+        if (activeBleDevice && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
+          activeBleDevice.gatt.disconnect();
+        }
+        setStatus('Print stopped immediately');
         playTone(300, 250);
         return;
       }
 
-      // Wait briefly for the printer's physical stepper motor to finish the last few rows
-      btn.innerText = 'Finishing print... 99%';
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
+
+      // Wait for physical motor to complete the final lines (Stop Print button remains active!)
+      btn.innerText = '🛑 Finishing Paper Feed (99%)';
       setStatus('Finishing paper feed...');
-      for (let w = 0; w < 12; w++) {
-        if (cancelPrintRequested) break;
+      for (let w = 0; w < 18; w++) {
+        if (cancelPrintRequested) return;
         await sleep(100);
       }
 
@@ -2169,7 +2240,7 @@
       playTone(1046, 220);
 
       if (isFpPipelineRun) {
-        await archivePrintedReceipt();
+        await archivePrintedReceiptToVault();
       }
 
       if (fromFoodpandaMacro || isFpPipelineRun) {
@@ -2190,7 +2261,6 @@
   }
 
   window.addEventListener('load', async () => {
-    // Render hardcoded version & Dhaka update timestamp
     document.getElementById('menuVersionLabel').innerText = `Billu ${APP_VERSION}`;
     document.getElementById('menuUpdatedLabel').innerText = APP_UPDATED_DHAKA;
     document.getElementById('homeVersionBadge').innerText = `Billu ${APP_VERSION} • Updated: ${APP_UPDATED_DHAKA}`;
@@ -2207,21 +2277,17 @@
     document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
     document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
 
-    // Default both Pre-Print and Post-Print prompts to ON ('1')
     document.getElementById('fpAskBeforePrint').checked = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
     document.getElementById('fpAskAfterPrint').checked = (localStorage.getItem('fp_ask_after_print') ?? '1') === '1';
+    document.getElementById('gdriveWebhookInput').value = localStorage.getItem('fp_gdrive_webhook') || '';
 
     document.getElementById('customAppName').value = localStorage.getItem('cat_return_name') || '';
     document.getElementById('customAppIcon').value = localStorage.getItem('cat_return_icon') || '';
     document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
     applyReturnAppUI();
+    await refreshVaultCount();
 
     try {
-      const qDir = await idbGet('fpQueueDir');
-      if (qDir) document.getElementById('queueDirLabel').innerText = `Queue: ${qDir.name}`;
-      const aDir = await idbGet('fpArchiveDir');
-      if (aDir) document.getElementById('archiveDirLabel').innerText = `Archive: ${aDir.name}`;
-
       const savedStamp = await idbGet('stampFile');
       if (savedStamp && savedStamp.buffer) {
         document.getElementById('stampFileName').innerText = savedStamp.name;
@@ -2234,13 +2300,9 @@
     updateMainButtonUI();
     startAutoReconnectLoop();
 
-    // 1. Check if launched with ?fp_b64=... or ?fp_auto=1
+    // Only triggers Foodpanda flow if #fp_b64= is explicitly present in URL!
     const handledByUrl = await checkUrlForFpPayload();
     if (handledByUrl) return;
-
-    // 2. Also check if FP_order.txt is waiting in FP_Queue folder
-    const handledByQueue = await tryLoadFromFpQueueFolder(false);
-    if (handledByQueue) return;
 
     if ('serviceWorker' in navigator) {
       try {
