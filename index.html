@@ -192,6 +192,14 @@
       background: var(--surface); color: #FFFFFF; font-size: 22px;
     }
 
+    /* Blue "Print something else..." button above Fit Screen */
+    #printSomethingElseBtn {
+      bottom: 146px; right: 14px; padding: 10px 14px;
+      background: var(--blue); color: #FFFFFF; font-size: 13px;
+      border: 1px solid rgba(255,255,255,0.28);
+      display: none;
+    }
+
     #fitScreenBtn {
       bottom: 98px; right: 14px; padding: 10px 14px;
       background: var(--surface); color: #FFFFFF; font-size: 13px;
@@ -331,9 +339,6 @@
       <div class="fp-modal-sub" id="fpErrorSub">Could not find or parse a valid Base64 order string.</div>
       <div class="fp-error-box" id="fpErrorDetails"></div>
       <div class="fp-modal-actions" style="flex-direction:column;">
-        <button class="fp-modal-btn fp-btn-yes" onclick="retryLoadFromQueueOnUserTap()">
-          📂 Load from FP_Queue Folder Instead
-        </button>
         <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp()">
           🐼 Open Panda Partner
         </button>
@@ -363,6 +368,11 @@
   <!-- FLOATING BURGER BUTTON -->
   <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
 
+  <!-- FLOATING BLUE "PRINT SOMETHING ELSE..." BUTTON ABOVE FIT SCREEN -->
+  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">
+    📂 Print something else...
+  </button>
+
   <!-- FLOATING FIT SCREEN BUTTON -->
   <button id="fitScreenBtn" class="fab" onclick="fitScreen()">⤢ Fit Screen</button>
 
@@ -377,7 +387,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.3.1</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.4.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px;" onclick="forceUpdatePWA()">
@@ -400,30 +410,36 @@
       </button>
     </div>
 
-    <!-- 2. Foodpanda Pipeline & Internal Vault -->
+    <!-- 2. Master Checkbox + Foodpanda Pipeline Sub-Options -->
     <div class="opt-row" style="border: 1px solid #D70F64;">
-      <div style="font-weight:800; color:#F472B6; font-size:13px;">🐼 Foodpanda Pipeline</div>
-      <button class="opt-btn opt-btn-fp" onclick="openVault()">
-        🗄️ Open Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
-      </button>
-      <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
-        <input type="checkbox" id="fpAskBeforePrint" onchange="saveFpPromptSettings()">
-        Confirm "Print / Don't Print" Before Print
+      <label style="font-weight:800; color:#F472B6; font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="fpMasterEnable" onchange="saveFpMasterToggle()">
+        🐼 Enable Foodpanda Pipeline
       </label>
-      <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
-        <input type="checkbox" id="fpAskAfterPrint" onchange="saveFpPromptSettings()">
-        Prompt "Open Panda Partner" After Print
-      </label>
-      <button class="opt-btn opt-btn-path" onclick="pickFpFolder('fpQueueDir', 'queueDirLabel')">
-        <span id="queueDirLabel">Queue Folder: Not Set</span>
-        <span>📥 Pick</span>
-      </button>
-      <button id="bgWatcherBtn" class="opt-btn" style="background:#374151; color:#FFFFFF;" onclick="toggleBackgroundWatcher()">
-        🛡️ Start Silent Background Mode
-      </button>
-      <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
-        🧪 Load Sample Order (#JQBY History Test)
-      </button>
+
+      <div id="fpPipelineSubOptions" style="display:none; flex-direction:column; gap:8px; margin-top:4px; padding-top:8px; border-top:1px solid #374151;">
+        <button class="opt-btn opt-btn-fp" onclick="openVault()">
+          🗄️ Open Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
+        </button>
+        <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpAskBeforePrint" onchange="saveFpPromptSettings()">
+          Confirm "Print / Don't Print" Before Print
+        </label>
+        <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpAskAfterPrint" onchange="saveFpPromptSettings()">
+          Prompt "Open Panda Partner" After Print
+        </label>
+        <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
+          🛡️ Silent Background Mode (b64 Local)
+        </label>
+        <div style="font-size:11px; color:#9CA3AF; line-height:1.35;">
+          When Silent Mode is checked, Billu stays alive in the background and prints orders silently via 127.0.0.1 without leaving Panda Partner.
+        </div>
+        <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
+          🧪 Load Sample Order (#JQBY History Test)
+        </button>
+      </div>
     </div>
 
     <!-- 3. Separate Before & After Margins -->
@@ -492,7 +508,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.3.1</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.4.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -511,8 +527,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.3.1';
-  const APP_UPDATED_DHAKA = '22 Oct 2026, 03:40 AM (Dhaka)';
+  const APP_VERSION = 'v3.4.0';
+  const APP_UPDATED_DHAKA = '22 Oct 2026, 05:13 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -539,8 +555,8 @@
   let lastParsedFpData = null;
   let currentOrderMeta = { orderNo: '', orderCode: '', isHistory: false };
 
-  let bgWatcherActive = false;
-  let bgWatcherInterval = null;
+  let localLoopbackTimer = null;
+  let isLoopbackPolling = false;
   let audioCtx = null;
   let audioScriptNode = null;
   let lastAudioPollTime = 0;
@@ -831,7 +847,7 @@
   }
 
   // ============================================================================
-  // UNIVERSAL FOODPANDA PARSER (SUPPORTS BOTH LIVE "$n" AND ORDER HISTORY "index:n")
+  // UNIVERSAL FOODPANDA PARSER (SUPPORTS LIVE "$n" AND ORDER HISTORY "index:n")
   // ============================================================================
 
   function validateFoodpandaText(rawText) {
@@ -892,7 +908,7 @@
     };
 
     if (!blockText) return res;
-    const working = blockText.replace(/===FP_AUTO===/g, '').trim();
+    const working = blockText.replace(/===FP_AUTO===|===TS:\d+===/g, '').trim();
     let lines = [];
 
     const kvPairs = extractKeyValuePairsRobust(working);
@@ -909,7 +925,6 @@
           const pm = v.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
           if (pm) res.prepTime = pm[1];
         } else if (!k.startsWith('test_id_')) {
-          // Include BOTH "$n" keys (Live Orders) and "index:n" keys (Order History WebView)!
           const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           lines.push(...splitLines);
         }
@@ -1013,7 +1028,6 @@
         continue;
       }
 
-      // Universal Item Matcher: supports "1x", "1X", "1×" (\u00D7), and "1*"
       const itemStart = line.match(/^(\d+)\s*[xX\u00D7*](?:\s+(.*))?$/);
       if (itemStart) {
         const qty = itemStart[1] + 'x';
@@ -1064,7 +1078,8 @@
   }
 
   function parseFoodpandaMultiScroll(rawText) {
-    const rawBlocks = rawText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
+    const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
+    const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
     const merged = {
       restaurant: 'Tasty Patil',
       orderNo: '',
@@ -1424,6 +1439,134 @@
   }
 
   // ============================================================================
+  // MASTER FOODPANDA PIPELINE TOGGLE & SILENT BACKGROUND B64 POLLER (127.0.0.1)
+  // ============================================================================
+
+  function isFpMasterEnabled() {
+    return (localStorage.getItem('fp_master_enabled') ?? '1') === '1';
+  }
+
+  function isSilentBgEnabled() {
+    return isFpMasterEnabled() && localStorage.getItem('fp_silent_bg_enabled') === '1';
+  }
+
+  function saveFpMasterToggle() {
+    const enabled = document.getElementById('fpMasterEnable').checked;
+    localStorage.setItem('fp_master_enabled', enabled ? '1' : '0');
+    applyFpMasterUI();
+  }
+
+  function applyFpMasterUI() {
+    const enabled = isFpMasterEnabled();
+    document.getElementById('fpMasterEnable').checked = enabled;
+    document.getElementById('fpPipelineSubOptions').style.display = enabled ? 'flex' : 'none';
+    applyReturnAppUI();
+
+    if (isSilentBgEnabled()) {
+      startLocalB64BackgroundPoller();
+    } else {
+      stopLocalB64BackgroundPoller();
+    }
+  }
+
+  function saveSilentBgSetting() {
+    const enabled = document.getElementById('fpSilentBgEnable').checked;
+    localStorage.setItem('fp_silent_bg_enabled', enabled ? '1' : '0');
+    if (enabled && isFpMasterEnabled()) {
+      ensureAudioKeepAliveRunning();
+      startLocalB64BackgroundPoller();
+      setStatus('Silent Background Mode (b64) Active');
+    } else {
+      stopLocalB64BackgroundPoller();
+      setStatus('Silent Background Mode OFF');
+    }
+  }
+
+  function ensureAudioKeepAliveRunning() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      if (!audioScriptNode) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.0001; // Inaudible keep-alive
+
+        audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+        audioScriptNode.onaudioprocess = () => {
+          if (!isSilentBgEnabled() || isPrinting) return;
+          const now = Date.now();
+          if (now - lastAudioPollTime > 450) {
+            lastAudioPollTime = now;
+            pollLocalhostB64Once();
+          }
+        };
+
+        osc.connect(gain);
+        gain.connect(audioScriptNode);
+        audioScriptNode.connect(audioCtx.destination);
+        osc.start();
+      }
+    } catch (e) {}
+  }
+
+  // Resume audio keep-alive on any tap in Billu when Silent Background Mode is enabled
+  document.addEventListener('pointerdown', () => {
+    if (isSilentBgEnabled()) {
+      ensureAudioKeepAliveRunning();
+    }
+  }, { passive: true });
+
+  function startLocalB64BackgroundPoller() {
+    if (localLoopbackTimer) clearInterval(localLoopbackTimer);
+    localLoopbackTimer = setInterval(() => {
+      if (!isSilentBgEnabled() || isPrinting) return;
+      pollLocalhostB64Once();
+    }, 450);
+  }
+
+  function stopLocalB64BackgroundPoller() {
+    if (localLoopbackTimer) {
+      clearInterval(localLoopbackTimer);
+      localLoopbackTimer = null;
+    }
+  }
+
+  // Called directly when <script src="http://127.0.0.1:18999/..."> delivers a b64 payload
+  window.onBilluBgOrder = async function(b64String) {
+    if (!isFpMasterEnabled() || !b64String || isPrinting) return;
+    const fpKey = getB64Fingerprint(b64String);
+    if (fpKey === localStorage.getItem('fp_last_processed_b64')) return;
+    localStorage.setItem('fp_last_processed_b64', fpKey);
+
+    try {
+      const decodedText = decodeBase64Utf8(b64String);
+      if (decodedText && decodedText.trim().length > 8) {
+        await prepareFoodpandaOrderFromText(decodedText, false, true);
+      }
+    } catch (e) {}
+  };
+
+  function pollLocalhostB64Once() {
+    if (isLoopbackPolling || isPrinting || !isSilentBgEnabled()) return;
+    isLoopbackPolling = true;
+
+    const s = document.createElement('script');
+    const done = () => {
+      isLoopbackPolling = false;
+      s.remove();
+    };
+    s.onload = done;
+    s.onerror = done;
+    s.src = `http://127.0.0.1:18999/poll.js?t=${Date.now()}`;
+    document.body.appendChild(s);
+    setTimeout(done, 420);
+  }
+
+  // ============================================================================
   // FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND EXPLICIT B64 ERROR MODAL)
   // ============================================================================
 
@@ -1461,6 +1604,8 @@
 
   async function onFpPrePrintChoice(shouldPrint) {
     hideFpModal();
+    if (isSilentBgEnabled()) ensureAudioKeepAliveRunning();
+
     if (!shouldPrint) {
       setStatus('Print cancelled — stayed in Billu');
       return;
@@ -1477,6 +1622,8 @@
 
   function onFpPostPrintChoice(goBack) {
     hideFpModal();
+    if (isSilentBgEnabled()) ensureAudioKeepAliveRunning();
+
     if (goBack) {
       launchReturnApp();
     } else {
@@ -1491,70 +1638,17 @@
     localStorage.setItem('fp_ask_after_print', askAfter ? '1' : '0');
   }
 
-  // ============================================================================
-  // FP_QUEUE FOLDER & SILENT BACKGROUND WATCHER + BASE64 DECODER
-  // ============================================================================
-
-  async function pickFpFolder(idbKey, labelId) {
-    if (!window.showDirectoryPicker) {
-      alert('Directory Picker requires Chrome on Android.');
-      return;
-    }
-    try {
-      const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      await idbSet(idbKey, dirHandle);
-      document.getElementById(labelId).innerText = `Folder: ${dirHandle.name}`;
-      setStatus(`Folder set: ${dirHandle.name}`);
-    } catch (e) {}
-  }
-
-  async function tryLoadFromFpQueueFolder(hasUserGesture = false, isSilentBgPoll = false) {
-    try {
-      const qHandle = await idbGet('fpQueueDir');
-      if (!qHandle) {
-        return { ok: false, reason: 'Queue Folder (FP_Queue) is not set in Options menu.' };
-      }
-
-      let perm = await qHandle.queryPermission({ mode: 'readwrite' });
-      if (perm !== 'granted' && hasUserGesture) {
-        perm = await qHandle.requestPermission({ mode: 'readwrite' });
-      }
-      if (perm !== 'granted') {
-        return { ok: false, reason: 'FP_Queue folder permission was reset by Android after closing the app. Tap the green button below to unlock & load.' };
-      }
-
-      const fHandle = await qHandle.getFileHandle('FP_order.txt').catch(() => null);
-      if (!fHandle) {
-        return { ok: false, reason: 'No FP_order.txt file found inside FP_Queue folder.' };
-      }
-
-      const file = await fHandle.getFile();
-      const text = await file.text();
-      await qHandle.removeEntry('FP_order.txt').catch(() => {});
-
-      if (!text || text.trim().length < 8) {
-        return { ok: false, reason: 'FP_order.txt was found in FP_Queue, but the file was empty.' };
-      }
-
-      const res = await prepareFoodpandaOrderFromText(text, !isSilentBgPoll, isSilentBgPoll);
-      return res;
-    } catch (e) {
-      return { ok: false, reason: 'FP_Queue read error: ' + e.message };
-    }
-  }
-
-  async function retryLoadFromQueueOnUserTap() {
+  // Opens file picker when user taps the blue "Print something else..." button
+  function triggerPrintSomethingElse() {
     hideFpModal();
-    const qRes = await tryLoadFromFpQueueFolder(true, false);
-    if (!qRes.ok) {
-      showFpErrorModal('FP_Queue Load Failed', qRes.reason, 'Make sure you selected the Documents/FP_Queue folder in Options (☰) and that MacroDroid wrote FP_order.txt.');
-    }
+    isFpPipelineRun = false;
+    document.getElementById('manualFileInput').click();
   }
 
-  async function prepareFoodpandaOrderFromText(rawText, showConfirmIfEnabled = true, isSilentBgPoll = false) {
+  async function prepareFoodpandaOrderFromText(rawText, showConfirmIfEnabled = true, isSilentBgRun = false) {
     const v = validateFoodpandaText(rawText);
     if (!v.valid) {
-      if (!isSilentBgPoll) {
+      if (!isSilentBgRun) {
         showFpErrorModal(
           'Invalid Order Text',
           v.reason,
@@ -1567,7 +1661,7 @@
     const parsed = parseFoodpandaMultiScroll(rawText);
     if (parsed.items.length === 0 && !parsed.total && !parsed.subtotal) {
       const msg = 'Decoded text contained 0 food items and no price total.';
-      if (!isSilentBgPoll) {
+      if (!isSilentBgRun) {
         showFpErrorModal(
           '0 Items Parsed',
           msg,
@@ -1587,7 +1681,7 @@
     setStatus(`Order ${parsed.orderNo || ''}: ${parsed.items.length} item(s) • ${parsed.total || ''}`);
 
     const askBefore = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
-    if (!isSilentBgPoll && showConfirmIfEnabled && askBefore) {
+    if (!isSilentBgRun && showConfirmIfEnabled && askBefore) {
       const title = `Print Order ${parsed.orderNo || ''}?`;
       const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
       showFpPrePrintModal(title, sub);
@@ -1596,76 +1690,11 @@
 
     if (!writeChar) await attemptAutoReconnect();
     if (writeChar) {
-      await printCanvas(!isSilentBgPoll);
-    } else if (!isSilentBgPoll) {
+      await printCanvas(!isSilentBgRun);
+    } else if (!isSilentBgRun) {
       showFpPrePrintModal(`Print Order ${parsed.orderNo || ''}?`, 'Tap Print to connect Bluetooth printer');
     }
     return { ok: true };
-  }
-
-  function startUnthrottledAudioWatcher() {
-    try {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-
-      if (!audioScriptNode) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        gain.gain.value = 0.0001;
-
-        audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
-        audioScriptNode.onaudioprocess = () => {
-          if (!bgWatcherActive || isPrinting) return;
-          const now = Date.now();
-          if (now - lastAudioPollTime > 900) {
-            lastAudioPollTime = now;
-            tryLoadFromFpQueueFolder(false, true).catch(() => {});
-          }
-        };
-
-        osc.connect(gain);
-        gain.connect(audioScriptNode);
-        audioScriptNode.connect(audioCtx.destination);
-        osc.start();
-      }
-    } catch (e) {}
-  }
-
-  async function toggleBackgroundWatcher() {
-    const btn = document.getElementById('bgWatcherBtn');
-    if (bgWatcherActive) {
-      bgWatcherActive = false;
-      if (bgWatcherInterval) clearInterval(bgWatcherInterval);
-      bgWatcherInterval = null;
-      btn.style.background = '#374151';
-      btn.innerText = '🛡️ Start Silent Background Mode';
-      setStatus('Silent Background Mode stopped');
-      return;
-    }
-
-    const qHandle = await idbGet('fpQueueDir');
-    if (!qHandle) {
-      alert('Please tap "Queue Folder: Pick" and select your Documents/FP_Queue folder first.');
-      return;
-    }
-    const perm = await qHandle.requestPermission({ mode: 'readwrite' });
-    if (perm !== 'granted') return;
-
-    bgWatcherActive = true;
-    startUnthrottledAudioWatcher();
-    if (!writeChar) await attemptAutoReconnect();
-
-    btn.style.background = '#10B981';
-    btn.innerText = '🟢 Silent Background Mode Active (Stop)';
-    setStatus('Silent Background Mode Active');
-    closeMenu();
-
-    bgWatcherInterval = setInterval(() => {
-      if (!bgWatcherActive || isPrinting) return;
-      tryLoadFromFpQueueFolder(false, true).catch(() => {});
-    }, 950);
   }
 
   function decodeBase64Utf8(b64Input) {
@@ -1677,7 +1706,14 @@
     return new TextDecoder('utf-8').decode(bytes);
   }
 
+  function getB64Fingerprint(b64) {
+    const clean = String(b64 || '').trim();
+    return `${clean.length}:${clean.slice(0, 64)}:${clean.slice(-64)}`;
+  }
+
   async function checkUrlForFpPayload() {
+    if (!isFpMasterEnabled()) return false;
+
     const rawHref = window.location.href;
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash || '';
@@ -1688,8 +1724,7 @@
     }
 
     const hasB64Key = params.has('fp_b64') || hash.includes('fp_b64=');
-    const hasTextKey = params.has('fp_text') || hash.includes('fp_text=');
-    const isFpAutoTrigger = params.get('fp_auto') === '1' || hash.includes('fp_auto=1') || hasB64Key || hasTextKey;
+    const isFpAutoTrigger = params.get('fp_auto') === '1' || hash.includes('fp_auto=1') || hasB64Key;
 
     if (!isFpAutoTrigger) return false;
 
@@ -1699,28 +1734,27 @@
       if (b64.includes('&')) b64 = b64.split('&')[0];
     }
 
-    let plainTextParam = params.get('fp_text') || '';
-    if (!plainTextParam && hash.includes('fp_text=')) {
-      plainTextParam = decodeURIComponent(hash.split('fp_text=')[1] || '');
-    }
-
     history.replaceState(null, '', window.location.pathname);
+
+    const trimmedB64 = (b64 || '').trim();
+
+    // Prevent re-showing Print/Don't Print when user switches back to Billu after already handling this exact URL!
+    if (trimmedB64 && trimmedB64.length > 20) {
+      const fpKey = getB64Fingerprint(trimmedB64);
+      if (fpKey === localStorage.getItem('fp_last_processed_b64')) {
+        return false;
+      }
+      localStorage.setItem('fp_last_processed_b64', fpKey);
+    }
 
     let b64ErrorReason = '';
     let b64DiagnosticDetail = `Received URL:\n${rawHref.slice(0, 1000)}`;
 
-    if (plainTextParam && plainTextParam.trim().length > 10) {
-      const res = await prepareFoodpandaOrderFromText(plainTextParam, true, false);
-      if (res.ok) return true;
-      b64ErrorReason = 'fp_text parameter failed to parse: ' + res.reason;
-    }
-
     if (hasB64Key) {
-      const trimmedB64 = (b64 || '').trim();
       if (!trimmedB64) {
         b64ErrorReason = 'Base64 string (fp_b64) in URL was EMPTY. MacroDroid shell script returned nothing.';
-      } else if (trimmedB64 === 'GONE') {
-        b64ErrorReason = 'Base64 string in URL was literally "GONE" (Shell script could not find FP_order.txt).';
+      } else if (trimmedB64 === 'GONE' || trimmedB64 === 'PRINTED_IN_BG') {
+        return false;
       } else if (/\{lv=|\[lv=|file_state/i.test(trimmedB64)) {
         b64ErrorReason = `MacroDroid did not expand the variable! Received literal text: "${trimmedB64}"`;
       } else {
@@ -1739,17 +1773,14 @@
           b64DiagnosticDetail = `Raw fp_b64 (${trimmedB64.length} chars):\n${trimmedB64.slice(0, 2000)}`;
         }
       }
-    } else if (!plainTextParam) {
+    } else {
       b64ErrorReason = 'No fp_b64 parameter was found in the URL.';
     }
 
-    const qRes = await tryLoadFromFpQueueFolder(false, false);
-    if (qRes.ok) return true;
-
     showFpErrorModal(
       'Base64 / Order Load Failed',
-      b64ErrorReason || qRes.reason,
-      `${b64DiagnosticDetail}\n\nQueue Folder Fallback:\n${qRes.reason}`
+      b64ErrorReason,
+      b64DiagnosticDetail
     );
     return true;
   }
@@ -1758,7 +1789,6 @@
     checkUrlForFpPayload();
   });
 
-  // Built-in test using your exact Order History capture (cvgi-2643-jqby)
   function loadSampleFpOrder() {
     closeMenu();
     const sampleHistoryOrder = `{"" :"You are closed\\u000aYou are outside of your opening hours.","$2" :"Back","$3" :"Tasty Patil (CVGI)","$4" :"You are closed\\u000aYou are outside of your opening hours.","$5" :"Tasty Patil (CVGI)","index:28" :"","index:29" :"","index:30" :"","index:31" :"COMPLETED PAYABLE cvgi-2643-jqby Order timeline Order received 20:57 Accepted in 13 sec Order accepted 20:58 Committed preparation time: 21:13 Rider near pickup 21:08 Rider at store 21:13 Picked up by rider 21:14 In delivery 21:14 Order delivered","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"cvgi-2643-jqby","index:41" :"Order timeline","index:44" :"Order received","index:45" :"20:57","index:48" :"Order accepted","index:49" :"20:58","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Koftah Bhuna Khichuri Combo - Regular ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Platform delivery","test_id_web_view_collapsible_title" :"Order History"}`;
@@ -1782,6 +1812,7 @@
   const printCanvasEl = document.getElementById('printCanvas');
   const emptyStateEl = document.getElementById('emptyStateContainer');
   const fitScreenBtnEl = document.getElementById('fitScreenBtn');
+  const printSomethingElseBtnEl = document.getElementById('printSomethingElseBtn');
 
   function applyTransform() {
     transformEl.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
@@ -2037,10 +2068,7 @@
     if (document.visibilityState === 'visible') {
       if (!writeChar && !isConnecting) attemptAutoReconnect();
       if (!isPrinting) {
-        const handledUrl = await checkUrlForFpPayload();
-        if (!handledUrl) {
-          await tryLoadFromFpQueueFolder(false, true);
-        }
+        await checkUrlForFpPayload();
       }
     }
   });
@@ -2103,7 +2131,7 @@
     document.getElementById('returnAppSelect').value = mode;
     customBox.style.display = mode === 'custom' ? 'flex' : 'none';
 
-    if (mode === 'none') {
+    if (mode === 'none' || (mode === 'foodpanda' && !isFpMasterEnabled())) {
       btn.style.display = 'none';
     } else if (mode === 'foodpanda') {
       btn.style.display = 'flex';
@@ -2118,11 +2146,8 @@
 
   function launchReturnApp() {
     hideFpModal();
-    window.close();
 
-    setTimeout(() => {
-      if (document.hidden) return;
-
+    const triggerIntent = () => {
       const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
       let pkg = 'com.deliveryhero.pandaportal';
       if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || 'com.deliveryhero.pandaportal';
@@ -2131,6 +2156,20 @@
       const cleanBaseUrl = window.location.href.split('#')[0];
       const stayHereFallback = encodeURIComponent(cleanBaseUrl + '#stay');
       window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
+    };
+
+    // If Silent Background Mode is enabled, do NOT call window.close()!
+    // Switch to Panda Partner via Intent while keeping Billu alive in the background.
+    if (isSilentBgEnabled()) {
+      ensureAudioKeepAliveRunning();
+      triggerIntent();
+      return;
+    }
+
+    window.close();
+    setTimeout(() => {
+      if (document.hidden) return;
+      triggerIntent();
     }, 350);
   }
 
@@ -2138,6 +2177,7 @@
     const file = e.target.files[0];
     if (!file) return;
     closeMenu();
+    hideFpModal();
 
     if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
       const txt = await file.text();
@@ -2250,6 +2290,7 @@
       emptyStateEl.style.display = 'flex';
       transformEl.style.display = 'none';
       fitScreenBtnEl.style.display = 'none';
+      printSomethingElseBtnEl.style.display = 'none';
       updateMainButtonUI();
       return;
     }
@@ -2257,6 +2298,7 @@
     emptyStateEl.style.display = 'none';
     transformEl.style.display = 'block';
     fitScreenBtnEl.style.display = 'flex';
+    printSomethingElseBtnEl.style.display = 'flex';
 
     const threshold = parseInt(document.getElementById('brightnessSlider').value || '155', 10);
     const marginBeforeMm = parseInt(localStorage.getItem('cat_margin_before_mm') ?? '4', 10);
@@ -2512,17 +2554,15 @@
 
     document.getElementById('fpAskBeforePrint').checked = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
     document.getElementById('fpAskAfterPrint').checked = (localStorage.getItem('fp_ask_after_print') ?? '1') === '1';
+    document.getElementById('fpSilentBgEnable').checked = localStorage.getItem('fp_silent_bg_enabled') === '1';
 
     document.getElementById('customAppName').value = localStorage.getItem('cat_return_name') || '';
     document.getElementById('customAppIcon').value = localStorage.getItem('cat_return_icon') || '';
     document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
-    applyReturnAppUI();
+    applyFpMasterUI();
     await refreshVaultCount();
 
     try {
-      const qDir = await idbGet('fpQueueDir');
-      if (qDir) document.getElementById('queueDirLabel').innerText = `Queue: ${qDir.name}`;
-
       const savedStamp = await idbGet('stampFile');
       if (savedStamp && savedStamp.buffer) {
         document.getElementById('stampFileName').innerText = savedStamp.name;
@@ -2538,13 +2578,11 @@
     const handledByUrl = await checkUrlForFpPayload();
     if (handledByUrl) return;
 
-    await tryLoadFromFpQueueFolder(false, true);
-
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('sw.js');
         if (location.search.includes('shared=1')) {
-          const isFpAuto = location.search.includes('fp_auto=1');
+          const isFpAuto = location.search.includes('fp_auto=1') && isFpMasterEnabled();
           const cache = await caches.open('shared-files');
 
           if (!isFpAuto) {
