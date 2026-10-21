@@ -140,7 +140,7 @@
     }
     .fp-btn-no { background: #374151; color: #E5E7EB; }
     .fp-error-box {
-      width: 100%; max-height: 110px; overflow-y: auto;
+      width: 100%; max-height: 140px; overflow-y: auto;
       background: #1F2937; border: 1px solid #374151; border-radius: 10px;
       padding: 8px 10px; font-family: monospace; font-size: 11px;
       color: #FCA5A5; text-align: left; word-break: break-all;
@@ -377,7 +377,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.3.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.3.1</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px;" onclick="forceUpdatePWA()">
@@ -422,7 +422,7 @@
         🛡️ Start Silent Background Mode
       </button>
       <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
-        🧪 Load Sample Order (#110 Test)
+        🧪 Load Sample Order (#JQBY History Test)
       </button>
     </div>
 
@@ -492,7 +492,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.3.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.3.1</div>
     </div>
 
     <div id="canvasTransform">
@@ -511,8 +511,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.3.0';
-  const APP_UPDATED_DHAKA = '22 Oct 2026, 02:35 AM (Dhaka)';
+  const APP_VERSION = 'v3.3.1';
+  const APP_UPDATED_DHAKA = '22 Oct 2026, 03:40 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -619,7 +619,6 @@
     });
   }
 
-  // Unthrottled sleep: uses standard setTimeout in foreground, and unthrottled data-URI I/O in background
   async function sleep(ms) {
     if (!document.hidden) {
       return new Promise(r => setTimeout(r, ms));
@@ -832,7 +831,7 @@
   }
 
   // ============================================================================
-  // UNIVERSAL FOODPANDA PARSER
+  // UNIVERSAL FOODPANDA PARSER (SUPPORTS BOTH LIVE "$n" AND ORDER HISTORY "index:n")
   // ============================================================================
 
   function validateFoodpandaText(rawText) {
@@ -904,10 +903,13 @@
           res.customer = v.trim();
         } else if (k === 'test_id_new_order_id') {
           res.orderCode = v.trim().toLowerCase();
+        } else if (k === 'test_id_web_view_collapsible_title' && /Order History/i.test(v)) {
+          res.isHistory = true;
         } else if (k === 'test_id_prep_time_adjustment_proof_banner') {
           const pm = v.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
           if (pm) res.prepTime = pm[1];
-        } else if (!k.startsWith('test_id_') && !k.startsWith('index:')) {
+        } else if (!k.startsWith('test_id_')) {
+          // Include BOTH "$n" keys (Live Orders) and "index:n" keys (Order History WebView)!
           const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           lines.push(...splitLines);
         }
@@ -941,12 +943,12 @@
       if (prepMatch) res.prepTime = prepMatch[1];
     }
 
-    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|Order timeline|Order details|Order received|Order accepted|Rider|In delivery|Order delivered|Customer|Google|Engineering|Modify|You are closed|Updated Preparation|The order needs)/i;
+    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|help centre|to get support|Order timeline|Order details|Order received|Order accepted|Rider|Picked up|In delivery|Order delivered|Estimated delivery|Accepted in|Committed preparation|Customer|Google|Engineering|Modify|Back|COMPLETED|PAYABLE|Tasty Patil|You are closed|Updated Preparation|The order needs)/i;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$/i.test(line)) {
+      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside/i.test(line)) {
         continue;
       }
       if (/^Tasty Patil/i.test(line)) {
@@ -1011,6 +1013,7 @@
         continue;
       }
 
+      // Universal Item Matcher: supports "1x", "1X", "1×" (\u00D7), and "1*"
       const itemStart = line.match(/^(\d+)\s*[xX\u00D7*](?:\s+(.*))?$/);
       if (itemStart) {
         const qty = itemStart[1] + 'x';
@@ -1505,7 +1508,6 @@
     } catch (e) {}
   }
 
-  // Tries reading FP_order.txt from FP_Queue folder
   async function tryLoadFromFpQueueFolder(hasUserGesture = false, isSilentBgPoll = false) {
     try {
       const qHandle = await idbGet('fpQueueDir');
@@ -1556,7 +1558,7 @@
         showFpErrorModal(
           'Invalid Order Text',
           v.reason,
-          'Raw text preview:\n' + String(rawText || '').slice(0, 320)
+          'Full decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
         );
       }
       return { ok: false, reason: v.reason };
@@ -1569,7 +1571,7 @@
         showFpErrorModal(
           '0 Items Parsed',
           msg,
-          'Raw text preview:\n' + String(rawText || '').slice(0, 320)
+          'Full decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
         );
       }
       return { ok: false, reason: msg };
@@ -1584,7 +1586,6 @@
     updateMainButtonUI();
     setStatus(`Order ${parsed.orderNo || ''}: ${parsed.items.length} item(s) • ${parsed.total || ''}`);
 
-    // If running in Silent Background Mode (or if Pre-Print Confirm is unchecked), print immediately!
     const askBefore = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
     if (!isSilentBgPoll && showConfirmIfEnabled && askBefore) {
       const title = `Print Order ${parsed.orderNo || ''}?`;
@@ -1602,7 +1603,6 @@
     return { ok: true };
   }
 
-  // Unthrottled Silent Background Watcher (uses Web Audio thread + interval)
   function startUnthrottledAudioWatcher() {
     try {
       if (!audioCtx) {
@@ -1613,7 +1613,7 @@
       if (!audioScriptNode) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.0001; // Inaudible keep-alive
+        gain.gain.value = 0.0001;
 
         audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
         audioScriptNode.onaudioprocess = () => {
@@ -1682,7 +1682,6 @@
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash || '';
 
-    // Ignore internal #stay fallback hash
     if (hash === '#stay' || hash === '#return_stay') {
       history.replaceState(null, '', window.location.pathname);
       return false;
@@ -1705,20 +1704,17 @@
       plainTextParam = decodeURIComponent(hash.split('fp_text=')[1] || '');
     }
 
-    // Clean URL in-place without adding to history.length (preserves window.close()!)
     history.replaceState(null, '', window.location.pathname);
 
     let b64ErrorReason = '';
-    let b64DiagnosticDetail = `Received URL:\n${rawHref.slice(0, 300)}`;
+    let b64DiagnosticDetail = `Received URL:\n${rawHref.slice(0, 1000)}`;
 
-    // 1. If plain URL-encoded text was passed via fp_text=
     if (plainTextParam && plainTextParam.trim().length > 10) {
       const res = await prepareFoodpandaOrderFromText(plainTextParam, true, false);
       if (res.ok) return true;
       b64ErrorReason = 'fp_text parameter failed to parse: ' + res.reason;
     }
 
-    // 2. If fp_b64= was passed, validate & decode it with explicit diagnostics
     if (hasB64Key) {
       const trimmedB64 = (b64 || '').trim();
       if (!trimmedB64) {
@@ -1730,7 +1726,7 @@
       } else {
         try {
           const decodedText = decodeBase64Utf8(trimmedB64);
-          b64DiagnosticDetail = `Base64 length: ${trimmedB64.length}\nDecoded preview:\n${decodedText.slice(0, 260)}`;
+          b64DiagnosticDetail = `Base64 length: ${trimmedB64.length} | Decoded length: ${decodedText.length}\nFull Decoded Text:\n${decodedText.slice(0, 4000)}`;
           if (!decodedText || decodedText.trim().length < 8) {
             b64ErrorReason = 'Base64 decoded to an empty or too-short string.';
           } else {
@@ -1740,18 +1736,16 @@
           }
         } catch (err) {
           b64ErrorReason = 'Corrupted Base64 string (atob failed): ' + err.message;
-          b64DiagnosticDetail = `Raw fp_b64 (${trimmedB64.length} chars):\n${trimmedB64.slice(0, 260)}`;
+          b64DiagnosticDetail = `Raw fp_b64 (${trimmedB64.length} chars):\n${trimmedB64.slice(0, 2000)}`;
         }
       }
     } else if (!plainTextParam) {
       b64ErrorReason = 'No fp_b64 parameter was found in the URL.';
     }
 
-    // 3. Fallback: Try FP_Queue folder if Base64 failed or wasn't provided
     const qRes = await tryLoadFromFpQueueFolder(false, false);
     if (qRes.ok) return true;
 
-    // 4. Both Base64 and automatic FP_Queue failed -> Show Explicit Diagnostic Error Modal!
     showFpErrorModal(
       'Base64 / Order Load Failed',
       b64ErrorReason || qRes.reason,
@@ -1764,20 +1758,19 @@
     checkUrlForFpPayload();
   });
 
+  // Built-in test using your exact Order History capture (cvgi-2643-jqby)
   function loadSampleFpOrder() {
     closeMenu();
-    const sampleOrder110 = `{"" :"Modify","$2" :"Tasty Patil","$3" :"#110","$4" :"0, 14\\u000amins","$5" :"Customer","$6" :"1x","$7" :"Chicken Kofta Curry","$8" :"৳100.00","$9" :"1x","$10" :"Special Chicken Tehari - Large","$11" :"৳320.00","$12" :"1x","$13" :"Thai Chili Chicken Rice Bowl - Large","$14" :"৳220.00","test_id_customer_name_text" :"Abidur Rahman","test_id_new_order_id" :"cvgi-2643-fuwd","test_id_order_ready_for_delivery_button" :"Ready for delivery\\u000a5 items","test_id_prep_time_adjustment_proof_banner" :"Updated Preparation Time\\u000aThe order needs to be ready at 20:43 20:51","test_id_rider_section" :"Rider\\u000aRider is on the way"}
-===SCREEN_BREAK===
-{"" :"Modify","$2" :"Thai Chili Chicken Rice Bowl - Large","$3" :"1x","$4" :"Chicken Bhuna Khichuri Combo - Regular","$5" :"৳179.00","$6" :"1x","$7" :"Classic Bhuna Khichuri - Regular","$8" :"৳99.00","$9" :"PLEASE DO NOT PROVIDE CUTLERY","$10" :"Subtotal","$11" :"৳918.00","$12" :"VAT","$13" :"৳45.90","$14" :"Delivery Fee Discount\\u000a-৳25.00","$15" :"Discount/Voucher\\u000a-৳100.00","$16" :"Total","$17" :"৳963.90","$18" :"Online Payment","$19" :"Paid with bKash payment","$20" :"Decline","test_id_order_ready_for_delivery_button" :"Ready for delivery\\u000a5 items"}`;
+    const sampleHistoryOrder = `{"" :"You are closed\\u000aYou are outside of your opening hours.","$2" :"Back","$3" :"Tasty Patil (CVGI)","$4" :"You are closed\\u000aYou are outside of your opening hours.","$5" :"Tasty Patil (CVGI)","index:28" :"","index:29" :"","index:30" :"","index:31" :"COMPLETED PAYABLE cvgi-2643-jqby Order timeline Order received 20:57 Accepted in 13 sec Order accepted 20:58 Committed preparation time: 21:13 Rider near pickup 21:08 Rider at store 21:13 Picked up by rider 21:14 In delivery 21:14 Order delivered","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"cvgi-2643-jqby","index:41" :"Order timeline","index:44" :"Order received","index:45" :"20:57","index:48" :"Order accepted","index:49" :"20:58","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Koftah Bhuna Khichuri Combo - Regular ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Platform delivery","test_id_web_view_collapsible_title" :"Order History"}`;
 
-    const parsed = parseFoodpandaMultiScroll(sampleOrder110);
+    const parsed = parseFoodpandaMultiScroll(sampleHistoryOrder);
     lastParsedFpData = parsed;
     isFpPipelineRun = true;
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
     docSourceCanvas = renderSynthesizedFpReceipt(parsed);
     rebuildCompositePreview(true);
     updateMainButtonUI();
-    setStatus(`Loaded ${parsed.orderNo}: ${parsed.items.length} items (${parsed.total})`);
+    setStatus(`Loaded ${parsed.orderNo}: ${parsed.items.length} item(s) (${parsed.total})`);
   }
 
   // ============================================================================
@@ -2046,7 +2039,6 @@
       if (!isPrinting) {
         const handledUrl = await checkUrlForFpPayload();
         if (!handledUrl) {
-          // Quietly check if FP_Queue already has granted permission and a waiting FP_order.txt
           await tryLoadFromFpQueueFolder(false, true);
         }
       }
@@ -2124,14 +2116,10 @@
     }
   }
 
-  // Restored & hardened return to Foodpanda Partner
   function launchReturnApp() {
     hideFpModal();
-    // 1. Try closing Billu window to drop straight back into Panda Partner underneath
     window.close();
 
-    // 2. Wait 350ms so we never abort window.close() mid-animation;
-    // Use #stay same-page hash fallback so Chrome never reloads index.html or jumps to Play Store!
     setTimeout(() => {
       if (document.hidden) return;
 
@@ -2547,11 +2535,9 @@
     updateMainButtonUI();
     startAutoReconnectLoop();
 
-    // 1. Check if launched with #fp_b64=..., ?fp_b64=..., or ?fp_auto=1
     const handledByUrl = await checkUrlForFpPayload();
     if (handledByUrl) return;
 
-    // 2. If opened normally, only check FP_Queue if permission is ALREADY granted (never prompts on normal open!)
     await tryLoadFromFpQueueFolder(false, true);
 
     if ('serviceWorker' in navigator) {
