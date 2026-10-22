@@ -87,11 +87,37 @@
       text-align: center;
     }
 
+    /* PERSISTENT STATUS BANNER + NON-INTERACTABLE TOOLTIP TOAST STACK */
     #statusBanner {
-      position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
-      background: rgba(17,24,39,0.88); color: #E5E7EB;
-      padding: 5px 12px; border-radius: 99px; font-size: 12px;
+      position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      background: rgba(17,24,39,0.92); color: #E5E7EB;
+      padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 600;
       pointer-events: none; z-index: 25; white-space: nowrap;
+      border: 1px solid rgba(75,85,99,0.6);
+      max-width: calc(100% - 130px); overflow: hidden; text-overflow: ellipsis;
+    }
+
+    #toastStack {
+      position: fixed; top: 92px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      pointer-events: none; z-index: 9999; width: 92%; max-width: 360px;
+    }
+    .toast-pill {
+      pointer-events: none;
+      background: rgba(17, 24, 39, 0.94); color: #F9FAFB;
+      border: 1px solid #4B5563; border-radius: 12px;
+      padding: 7px 13px; font-size: 12px; font-weight: 700;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+      text-align: center; line-height: 1.3;
+      animation: toastIn 0.18s ease-out;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .toast-pill.toast-success { border-color: var(--green); color: #A7F3D0; }
+    .toast-pill.toast-warn { border-color: var(--amber); color: #FDE68A; }
+    .toast-pill.toast-error { border-color: var(--red); color: #FECACA; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     /* FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND B64 ERROR DIAGNOSTIC) */
@@ -158,12 +184,13 @@
     }
     .vault-item {
       background: #1F2937; border: 1px solid #374151; border-radius: 14px;
-      padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
     }
+    .vault-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .vault-info { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
-    .vault-btns { display: flex; gap: 8px; }
+    .vault-btns { display: flex; flex-wrap: wrap; gap: 6px; }
     .vault-pill-btn {
-      padding: 8px 12px; border-radius: 10px; border: none; font-weight: 800;
+      padding: 7px 11px; border-radius: 10px; border: none; font-weight: 800;
       font-size: 12px; cursor: pointer; color: #FFFFFF;
     }
 
@@ -209,12 +236,12 @@
 
     /* 4. FLOATING OPTIONS MENU */
     #optionsOverlay {
-      position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 360px;
+      position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 375px;
       max-height: calc(100% - 160px); overflow-y: auto;
-      background: rgba(17, 24, 39, 0.96); backdrop-filter: blur(8px);
+      background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px);
       border: 1px solid #374151; border-radius: 18px; padding: 14px;
       z-index: 40; display: none; flex-direction: column; gap: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.65);
     }
     #optionsOverlay.open { display: flex; }
 
@@ -236,7 +263,7 @@
     }
     .opt-btn {
       width: 100%; padding: 10px 12px; border-radius: 10px; border: none;
-      font-weight: 700; font-size: 14px; cursor: pointer;
+      font-weight: 700; font-size: 13px; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .opt-btn:active { transform: scale(0.98); }
@@ -250,9 +277,34 @@
     .opt-btn-warn { background: var(--red); color: #FFFFFF; }
     .opt-input, .opt-select {
       background: #111827; color: #FFFFFF; border: 1px solid #4B5563;
-      border-radius: 8px; padding: 6px 10px; font-size: 14px; width: 85px;
+      border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 85px;
     }
     .opt-select { width: auto; flex: 1; }
+
+    /* SAVED PRINTERS LIST CARDS */
+    .printer-card {
+      background: #111827; border: 1px solid #374151; border-radius: 10px;
+      padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .printer-card.active-printer {
+      border-color: var(--green);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .printer-card-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    }
+    .printer-mac-badge {
+      font-family: monospace; font-size: 11px; color: #93C5FD;
+      background: #1E3A8A; padding: 2px 6px; border-radius: 6px; font-weight: 700;
+    }
+    .printer-card-actions {
+      display: flex; gap: 6px;
+    }
+    .printer-mini-btn {
+      flex: 1; padding: 6px 8px; border-radius: 7px; border: none;
+      font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF;
+      background: #374151;
+    }
 
     /* 5. STICKY BOTTOM SINGLE ACTION BUTTON */
     .bottom-bar {
@@ -299,8 +351,9 @@
     <input type="range" id="brightnessSlider" min="40" max="230" value="155" oninput="onBrightnessChange()">
   </div>
 
-  <!-- STATUS BANNER -->
+  <!-- PERSISTENT STATUS BANNER & NON-INTERACTABLE TOOLTIP TOAST STACK -->
   <div id="statusBanner">Ready</div>
+  <div id="toastStack"></div>
 
   <!-- FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND B64 DIAGNOSTIC ERROR) -->
   <div id="fpModalBackdrop">
@@ -350,11 +403,14 @@
   <div id="vaultOverlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeVault()">← Back</button>
-      <span style="font-weight:800; font-size:16px;">🗄️ Saved Receipts Vault</span>
-      <button class="icon-pill" style="background:#EF4444;" onclick="clearVault()">Clear</button>
+      <span style="font-weight:800; font-size:15px;">🗄️ Saved Receipts Vault</span>
+      <div style="display:flex; gap:6px;">
+        <button class="icon-pill" style="background:var(--blue); font-size:12px;" onclick="syncAllUnsyncedToDrive()">☁️ Sync All</button>
+        <button class="icon-pill" style="background:#EF4444; font-size:12px;" onclick="clearVault()">Clear</button>
+      </div>
     </div>
     <div style="font-size:12px; color:#9CA3AF;">
-      Automatically stores both selectable-text <b>.PDF</b> and <b>.PNG</b> receipts inside Billu's internal storage (no Android folder permissions needed).
+      Stores selectable-text <b>.PDF</b> & <b>.PNG</b> receipts locally and syncs one-way to Google Drive without duplicates.
     </div>
     <div id="vaultList"></div>
   </div>
@@ -387,19 +443,29 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.5.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.6.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
-      <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px;" onclick="forceUpdatePWA()">
-        🔄 Force Update App from GitHub
-      </button>
+      <div style="display:flex; gap:6px;">
+        <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="forceUpdatePWA()">
+          🔄 Force Update
+        </button>
+        <button class="opt-btn" style="background:#2563EB; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="enableSystemNotifications()">
+          🔔 System Notifs
+        </button>
+      </div>
     </div>
 
-    <!-- 0. Top of Burger Menu: Feed 5mm Blank Paper -->
+    <!-- 0. Top Quick Actions: Feed 5mm & Reprint Last -->
     <div class="opt-row">
-      <button id="feedPaperBtn" class="opt-btn opt-btn-feed" onclick="feedPaper5mm()">
-        ⏫ Feed Blank 5mm
-      </button>
+      <div style="display:flex; gap:8px;">
+        <button id="feedPaperBtn" class="opt-btn opt-btn-feed" style="flex:1;" onclick="feedPaper5mm()">
+          ⏫ Feed 5mm
+        </button>
+        <button class="opt-btn" style="background:#D97706; color:#FFFFFF; flex:1;" onclick="reprintLastReceipt()">
+          🔁 Reprint Last
+        </button>
+      </div>
     </div>
 
     <!-- 1. Open Doc / Photo / FP_Log.txt -->
@@ -419,30 +485,88 @@
 
       <div id="fpPipelineSubOptions" style="display:none; flex-direction:column; gap:8px; margin-top:4px; padding-top:8px; border-top:1px solid #374151;">
         <button class="opt-btn opt-btn-fp" onclick="openVault()">
-          🗄️ Open Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
+          🗄️ Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
         </button>
-        <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpAskBeforePrint" onchange="saveFpPromptSettings()">
-          Confirm "Print / Don't Print" Before Print
+
+        <!-- Auto-Print when coming from Panda Partner -->
+        <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
+          ⚡ Auto-Print if coming from Panda Partner
         </label>
-        <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpAskAfterPrint" onchange="saveFpPromptSettings()">
-          Prompt "Open Panda Partner" After Print
+
+        <!-- Auto-Return to Panda Partner + Before/After Sub-option -->
+        <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
+          ↩️ Auto-Return to Panda Partner
         </label>
+        <div id="fpAutoReturnTimingBox" class="opt-row-inline" style="padding-left:22px;">
+          <span style="color:#D1D5DB; font-size:12px;">Return Timing:</span>
+          <select id="fpAutoReturnTiming" class="opt-select" onchange="saveFpPromptSettings()">
+            <option value="after">After Print Finishes</option>
+            <option value="before">Before Print Finishes (As Print Starts)</option>
+          </select>
+        </div>
+
+        <!-- Silent Background Mode (127.0.0.1) -->
         <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
           🛡️ Silent Background Mode (b64 Local)
         </label>
-        <div style="font-size:11px; color:#9CA3AF; line-height:1.35;">
-          When Silent Mode is checked, Billu keeps the Bluetooth link awake in the background and prints orders silently via 127.0.0.1 without leaving Panda Partner.
+
+        <!-- Copies & Font Size & Voice QoL -->
+        <div class="opt-row-inline">
+          <span style="font-weight:600;">Print Copies:</span>
+          <select id="fpPrintCopies" class="opt-select" onchange="saveFpPromptSettings()">
+            <option value="1">1 Copy</option>
+            <option value="2">2 Copies (Kitchen + Rider)</option>
+          </select>
         </div>
+        <div class="opt-row-inline">
+          <span style="font-weight:600;">Receipt Text Size:</span>
+          <select id="fpFontSizeMode" class="opt-select" onchange="saveFpPromptSettings()">
+            <option value="normal">Normal</option>
+            <option value="large">Large Bold (Elderly Friendly)</option>
+          </select>
+        </div>
+        <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpVoiceSpeak" onchange="saveFpPromptSettings()">
+          🗣️ Speak Order Status Out Loud
+        </label>
+
+        <!-- Google Drive One-Way Sync Settings -->
+        <div style="border-top:1px solid #374151; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
+          <div style="font-weight:800; color:#93C5FD; font-size:12px;">☁️ Google Drive One-Way Sync (No Repeats)</div>
+          <input type="text" id="gdriveWebhookInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Paste Google Apps Script Web App URL" onchange="saveFpPromptSettings()">
+          <input type="text" id="gdriveFolderIdInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Optional: Specific Google Drive Folder ID" onchange="saveFpPromptSettings()">
+        </div>
+
         <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
-          🧪 Load Sample Order (#JQBY History Test)
+          🧪 Load Sample Order (#JQBY Test)
         </button>
       </div>
     </div>
 
-    <!-- 3. Separate Before & After Margins -->
+    <!-- 3. Multi-Printer Manager (MAC/ID Display, Rename, Manual Connect, Forget All) -->
+    <div class="opt-row" style="border: 1px solid #3B82F6;">
+      <div class="opt-row-inline">
+        <span style="font-weight:800; color:#93C5FD;">🖨️ Printer Manager</span>
+        <span id="savedPrinterLabel" style="color:#10B981; font-size:11px; font-weight:700;">Active: None</span>
+      </div>
+      <div style="font-size:11px; color:#9CA3AF;">
+        Strictly connects to your selected Active Printer (never falls back to old printers).
+      </div>
+      <div id="savedPrintersList" style="display:flex; flex-direction:column; gap:6px;"></div>
+      <div style="display:flex; gap:6px;">
+        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">
+          ➕ Pair New Printer
+        </button>
+        <button class="opt-btn opt-btn-warn" style="flex:1;" onclick="forgetAllPrinters()">
+          🗑️ Forget All
+        </button>
+      </div>
+    </div>
+
+    <!-- 4. Separate Before & After Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginBeforeMmInput" style="font-weight:600;">Before Margin (mm):</label>
@@ -454,7 +578,7 @@
       </div>
     </div>
 
-    <!-- 4. Stamp -->
+    <!-- 5. Stamp -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
@@ -469,16 +593,6 @@
       <button class="opt-btn opt-btn-path" onclick="document.getElementById('stampFileInput').click()">
         <span id="stampFileName">No stamp file chosen</span>
         <span>🏷️ Choose</span>
-      </button>
-    </div>
-
-    <!-- 5. Change Connected Printer -->
-    <div class="opt-row">
-      <div class="opt-row-inline">
-        <span id="savedPrinterLabel" style="color:#9CA3AF; font-size:12px;">Saved: None</span>
-      </div>
-      <button class="opt-btn opt-btn-warn" onclick="changeConnectedPrinter()">
-        🔄 Change Connected Printer
       </button>
     </div>
 
@@ -508,7 +622,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.5.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.6.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -527,8 +641,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.5.0';
-  const APP_UPDATED_DHAKA = '22 Oct 2026, 11:01 PM (Dhaka)';
+  const APP_VERSION = 'v3.6.0';
+  const APP_UPDATED_DHAKA = '23 Oct 2026, 05:45 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -547,6 +661,7 @@
   let cancelPrintRequested = false;
   let isConnecting = false;
   let reconnectTimer = null;
+  let pendingPrintJob = false; // Auto-prints queued receipt as soon as printer turns on!
 
   let docSourceCanvas = null;
   let stampSourceCanvas = null;
@@ -561,6 +676,7 @@
   let audioScriptNode = null;
   let lastAudioPollTime = 0;
   let lastBlePingTime = 0;
+  let wakeLockSentinel = null;
 
   let viewScale = 1;
   let viewPanX = 0;
@@ -569,8 +685,72 @@
   let lastPinchDist = null;
   let lastPinchCenter = null;
 
+  // ============================================================================
+  // TINY NON-INTERACTABLE TOOLTIP TOASTS + ANDROID SYSTEM NOTIFICATIONS
+  // ============================================================================
+
   function setStatus(msg) {
     document.getElementById('statusBanner').innerText = msg;
+  }
+
+  function showToast(msg, type = 'info', sendOsNotif = false) {
+    setStatus(msg);
+    try {
+      const stack = document.getElementById('toastStack');
+      if (stack) {
+        const pill = document.createElement('div');
+        pill.className = `toast-pill toast-${type}`;
+        pill.innerText = msg;
+        stack.appendChild(pill);
+        while (stack.children.length > 3) {
+          stack.removeChild(stack.firstChild);
+        }
+        setTimeout(() => {
+          pill.style.opacity = '0';
+          pill.style.transform = 'translateY(-6px)';
+          setTimeout(() => pill.remove(), 260);
+        }, 3100);
+      }
+    } catch (e) {}
+
+    if ((sendOsNotif || document.hidden) && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification('Billu Printer', {
+            body: msg,
+            tag: 'billu-live-status',
+            renotify: false,
+            silent: true,
+            icon: 'https://cdn-icons-png.flaticon.com/512/616/616430.png'
+          }).catch(() => {});
+        });
+      } catch (e) {}
+    }
+  }
+
+  async function enableSystemNotifications() {
+    if (!('Notification' in window)) {
+      showToast('System notifications not supported on this browser', 'warn');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      showToast('🔔 Android System Notifications enabled!', 'success', true);
+    } else {
+      showToast('Notification permission denied', 'warn');
+    }
+  }
+
+  function speakStatus(text) {
+    if (localStorage.getItem('fp_voice_speak') !== '1') return;
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.05;
+        window.speechSynthesis.speak(u);
+      }
+    } catch (e) {}
   }
 
   function playTone(freq = 920, ms = 180) {
@@ -587,8 +767,26 @@
     } catch (e) {}
   }
 
+  async function acquireWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLockSentinel && !document.hidden) {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+      }
+    } catch (e) {}
+  }
+
+  function releaseWakeLock() {
+    try {
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release();
+        wakeLockSentinel = null;
+      }
+    } catch (e) {}
+  }
+
   async function forceUpdatePWA() {
-    setStatus('Fetching latest update from GitHub...');
+    showToast('🔄 Fetching latest update from GitHub...', 'info');
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -632,7 +830,7 @@
       const tx = db.transaction('kv', 'readwrite');
       tx.objectStore('kv').put(val, key);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(req.error);
     });
   }
 
@@ -643,6 +841,245 @@
     const target = performance.now() + ms;
     while (performance.now() < target) {
       await fetch('data:text/plain,0');
+    }
+  }
+
+  // ============================================================================
+  // MULTI-PRINTER REGISTRY (MAC TAGS, CUSTOM RENAMING, STRICT ACTIVE LOCK)
+  // ============================================================================
+
+  // Generates a deterministic, readable MAC-style hex tag (e.g., "A4:C1:38") from Web Bluetooth device.id
+  function computeMacTag(deviceId, hwName = '') {
+    const macInName = String(hwName || '').match(/([0-9A-Fa-f]{2}[:-]){2,5}[0-9A-Fa-f]{2}/);
+    if (macInName) return macInName[0].toUpperCase();
+
+    const str = String(deviceId || '000000');
+    let h1 = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h1 ^= str.charCodeAt(i);
+      h1 = Math.imul(h1, 0x01000193) >>> 0;
+    }
+    const b1 = ((h1 >>> 16) & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    const b2 = ((h1 >>> 8) & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    const b3 = (h1 & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    return `${b1}:${b2}:${b3}`;
+  }
+
+  function getPrinterRegistry() {
+    try {
+      const raw = localStorage.getItem('cat_printer_registry');
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function savePrinterRegistry(list) {
+    localStorage.setItem('cat_printer_registry', JSON.stringify(list));
+  }
+
+  function registerOrUpdatePrinter(device) {
+    if (!device || !device.id) return null;
+    const list = getPrinterRegistry();
+    const macTag = computeMacTag(device.id, device.name);
+    let entry = list.find(p => p.id === device.id);
+    if (!entry) {
+      entry = {
+        id: device.id,
+        hwName: device.name || 'Thermal Printer',
+        customName: '',
+        macTag,
+        lastConnected: Date.now()
+      };
+      list.push(entry);
+    } else {
+      if (device.name) entry.hwName = device.name;
+      entry.macTag = macTag;
+      entry.lastConnected = Date.now();
+    }
+    savePrinterRegistry(list);
+    localStorage.setItem('cat_printer_id', entry.id);
+    localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    renderPrinterManagerList();
+    return entry;
+  }
+
+  function getPrinterDisplayLabel(deviceOrId) {
+    const id = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId && deviceOrId.id);
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === id);
+    if (entry) {
+      const title = entry.customName ? `${entry.customName} (${entry.hwName})` : entry.hwName;
+      return `${title} [${entry.macTag}]`;
+    }
+    if (deviceOrId && typeof deviceOrId === 'object') {
+      const mac = computeMacTag(deviceOrId.id, deviceOrId.name);
+      return `${deviceOrId.name || 'Printer'} [${mac}]`;
+    }
+    return 'None';
+  }
+
+  function renameSavedPrinter(printerId) {
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    if (!entry) return;
+    const nextName = prompt(
+      `Enter a nickname for ${entry.hwName} [${entry.macTag}]:`,
+      entry.customName || entry.hwName
+    );
+    if (nextName === null) return;
+    entry.customName = nextName.trim();
+    savePrinterRegistry(list);
+    if (getSavedPrinterId() === printerId) {
+      localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    }
+    renderPrinterManagerList();
+    updateMainButtonUI();
+    showToast(`✏️ Renamed printer to ${ getPrinterDisplayLabel(printerId) }`, 'success');
+  }
+
+  async function selectAndConnectPrinterFromList(printerId) {
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    if (!entry) return;
+
+    if (activeBleDevice && activeBleDevice.id !== printerId && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
+      activeBleDevice.gatt.disconnect();
+    }
+    writeChar = null;
+    activeBleDevice = null;
+    isConnecting = false;
+
+    localStorage.setItem('cat_printer_id', entry.id);
+    localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    renderPrinterManagerList();
+    updateMainButtonUI();
+
+    showToast(`🔍 Switching to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
+    const ok = await attemptAutoReconnect(3);
+    if (!ok) {
+      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)} — make sure it is turned ON`, 'warn');
+    }
+  }
+
+  async function removeSingleSavedPrinter(printerId) {
+    let list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    list = list.filter(p => p.id !== printerId);
+    savePrinterRegistry(list);
+
+    try {
+      if (navigator.bluetooth && navigator.bluetooth.getDevices) {
+        const devs = await navigator.bluetooth.getDevices();
+        const match = devs.find(d => d.id === printerId);
+        if (match) {
+          if (match.gatt && match.gatt.connected) match.gatt.disconnect();
+          if (typeof match.forget === 'function') await match.forget().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    if (getSavedPrinterId() === printerId) {
+      writeChar = null;
+      activeBleDevice = null;
+      if (list.length > 0) {
+        const next = list[list.length - 1];
+        localStorage.setItem('cat_printer_id', next.id);
+        localStorage.setItem('cat_printer_name', next.customName || next.hwName);
+      } else {
+        localStorage.removeItem('cat_printer_id');
+        localStorage.removeItem('cat_printer_name');
+      }
+    }
+
+    renderPrinterManagerList();
+    updateMainButtonUI();
+    showToast(`🗑️ Removed printer ${entry ? entry.hwName : ''}`, 'info');
+  }
+
+  async function forgetAllPrinters() {
+    if (!confirm('Forget all saved Bluetooth printers? You will need to pair again next time.')) return;
+    try {
+      if (activeBleDevice && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
+        activeBleDevice.gatt.disconnect();
+      }
+      if (navigator.bluetooth && navigator.bluetooth.getDevices) {
+        const devs = await navigator.bluetooth.getDevices();
+        for (const d of devs) {
+          if (d.gatt && d.gatt.connected) d.gatt.disconnect();
+          if (typeof d.forget === 'function') await d.forget().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    writeChar = null;
+    activeBleDevice = null;
+    isConnecting = false;
+    localStorage.removeItem('cat_printer_id');
+    localStorage.removeItem('cat_printer_name');
+    savePrinterRegistry([]);
+    renderPrinterManagerList();
+    updateMainButtonUI();
+    showToast('🗑️ All saved printers forgotten', 'warn');
+  }
+
+  function renderPrinterManagerList() {
+    const container = document.getElementById('savedPrintersList');
+    if (!container) return;
+    const list = getPrinterRegistry();
+    const activeId = getSavedPrinterId();
+
+    if (list.length === 0) {
+      container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:6px;">No printers saved yet. Tap "Pair New Printer" below.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    for (const p of list) {
+      const isAct = p.id === activeId;
+      const isConn = isAct && Boolean(writeChar);
+      const card = document.createElement('div');
+      card.className = 'printer-card' + (isAct ? ' active-printer' : '');
+
+      const top = document.createElement('div');
+      top.className = 'printer-card-top';
+      const displayTitle = p.customName ? `${p.customName} (${p.hwName})` : p.hwName;
+      top.innerHTML = `
+        <div style="font-weight:800; font-size:12px; color:#FFFFFF; word-break:break-word;">
+          ${isConn ? '🟢 ' : (isAct ? '🟡 ' : '⚪ ')}${displayTitle}
+        </div>
+        <span class="printer-mac-badge">MAC/ID ${p.macTag}</span>
+      `;
+
+      const actions = document.createElement('div');
+      actions.className = 'printer-card-actions';
+
+      const connBtn = document.createElement('button');
+      connBtn.className = 'printer-mini-btn';
+      connBtn.style.background = isConn ? '#059669' : '#2563EB';
+      connBtn.innerText = isConn ? '✓ Connected' : (isAct ? '🔌 Reconnect' : '👉 Select & Connect');
+      connBtn.onclick = () => selectAndConnectPrinterFromList(p.id);
+
+      const renBtn = document.createElement('button');
+      renBtn.className = 'printer-mini-btn';
+      renBtn.innerText = '✏️ Rename';
+      renBtn.onclick = () => renameSavedPrinter(p.id);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'printer-mini-btn';
+      delBtn.style.background = '#7F1D1D';
+      delBtn.style.flex = '0 0 34px';
+      delBtn.innerText = '✕';
+      delBtn.onclick = () => removeSingleSavedPrinter(p.id);
+
+      actions.appendChild(connBtn);
+      actions.appendChild(renBtn);
+      actions.appendChild(delBtn);
+
+      card.appendChild(top);
+      card.appendChild(actions);
+      container.appendChild(card);
     }
   }
 
@@ -1158,9 +1595,10 @@
   }
 
   function renderSynthesizedFpReceipt(data) {
+    const isLargeFont = localStorage.getItem('fp_font_size_mode') === 'large';
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = PRINTER_WIDTH;
-    tempCanvas.height = 2400;
+    tempCanvas.height = 2600;
     const ctx = tempCanvas.getContext('2d');
 
     ctx.fillStyle = '#FFFFFF';
@@ -1219,10 +1657,10 @@
     drawLine(true);
 
     if (data.orderNo) {
-      ctx.font = '900 44px system-ui, sans-serif';
+      ctx.font = '900 46px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(data.orderNo, PRINTER_WIDTH / 2, y);
-      y += 48;
+      y += 50;
     }
     if (data.orderCode) {
       ctx.font = 'bold 20px monospace';
@@ -1252,6 +1690,9 @@
 
     drawLine(false);
 
+    const itemFont = isLargeFont ? '900 24px system-ui, sans-serif' : 'bold 21px system-ui, sans-serif';
+    const itemLineH = isLargeFont ? 28 : 25;
+
     for (const item of data.items) {
       ctx.font = '900 22px system-ui, sans-serif';
       ctx.textAlign = 'left';
@@ -1261,7 +1702,7 @@
         ctx.textAlign = 'right';
         ctx.fillText(item.price, PRINTER_WIDTH - 4, y);
       }
-      drawWrapped(item.name, 46, PRINTER_WIDTH - 145, 'bold 21px system-ui, sans-serif', 25, 'left');
+      drawWrapped(item.name, 48, PRINTER_WIDTH - 148, itemFont, itemLineH, 'left');
       y += 6;
     }
 
@@ -1316,8 +1757,107 @@
   }
 
   // ============================================================================
-  // BUILT-IN INTERNAL RECEIPT VAULT (SAVES PDF + PNG AUTOMATICALLY)
+  // BUILT-IN INTERNAL RECEIPT VAULT + ONE-WAY GOOGLE DRIVE SYNC (NO DUPLICATES)
   // ============================================================================
+
+  function getSyncedDriveKeys() {
+    try {
+      const raw = localStorage.getItem('fp_gdrive_synced_keys');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function markDriveKeySynced(dedupeKey) {
+    if (!dedupeKey) return;
+    const set = getSyncedDriveKeys();
+    set.add(dedupeKey);
+    const arr = Array.from(set).slice(-500);
+    localStorage.setItem('fp_gdrive_synced_keys', JSON.stringify(arr));
+  }
+
+  async function arrayBufferToBase64(buffer) {
+    const blob = new Blob([buffer]);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || '').split(',')[1] || '');
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function syncVaultEntryToGoogleDrive(entry, silentIfNoUrl = true) {
+    const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
+    const folderId = (localStorage.getItem('fp_gdrive_folder_id') || '').trim();
+    if (!webhookUrl || !webhookUrl.startsWith('https://')) {
+      if (!silentIfNoUrl) showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
+      return false;
+    }
+
+    const dedupeKey = entry.dedupeKey || entry.baseName;
+    if (entry.driveSynced || getSyncedDriveKeys().has(dedupeKey)) {
+      entry.driveSynced = true;
+      if (!silentIfNoUrl) showToast(`☁️ ${entry.orderNo} already synced (skipped duplicate)`, 'info');
+      return true;
+    }
+
+    try {
+      showToast(`☁️ Uploading ${entry.orderNo} to Google Drive...`, 'info');
+      const payload = {
+        folderId,
+        dedupeKey,
+        baseName: entry.baseName,
+        orderNo: entry.orderNo,
+        orderCode: entry.orderCode,
+        pngBase64: entry.pngBuffer ? await arrayBufferToBase64(entry.pngBuffer) : '',
+        pdfBase64: entry.pdfBuffer ? await arrayBufferToBase64(entry.pdfBuffer) : ''
+      };
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      markDriveKeySynced(dedupeKey);
+      entry.driveSynced = true;
+
+      const vault = (await idbGet('fpInternalVault')) || [];
+      const target = vault.find(v => v.id === entry.id || v.dedupeKey === dedupeKey);
+      if (target) {
+        target.driveSynced = true;
+        await idbSet('fpInternalVault', vault);
+      }
+
+      showToast(`☁️ Uploaded ${entry.orderNo} to Google Drive!`, 'success', true);
+      return true;
+    } catch (err) {
+      showToast(`⚠️ Google Drive sync failed for ${entry.orderNo} (will retry)`, 'warn');
+      return false;
+    }
+  }
+
+  async function syncAllUnsyncedToDrive() {
+    const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
+    if (!webhookUrl) {
+      showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
+      return;
+    }
+    const vault = (await idbGet('fpInternalVault')) || [];
+    const unsynced = vault.filter(v => !v.driveSynced && !getSyncedDriveKeys().has(v.dedupeKey || v.baseName));
+    if (unsynced.length === 0) {
+      showToast('☁️ All saved receipts are already synced to Google Drive!', 'success');
+      return;
+    }
+    showToast(`☁️ Syncing ${unsynced.length} receipt(s) to Google Drive...`, 'info');
+    for (const item of unsynced) {
+      await syncVaultEntryToGoogleDrive(item, false);
+    }
+    if (document.getElementById('vaultOverlay').classList.contains('open')) {
+      await openVault();
+    }
+  }
 
   async function refreshVaultCount() {
     try {
@@ -1330,14 +1870,18 @@
   async function archivePrintedReceiptToVault() {
     try {
       const now = new Date();
+      const dhakaDateKey = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
       const dhakaTime = now.toLocaleString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true,
         timeZone: 'Asia/Dhaka'
       });
+
+      const orderTag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || `Order_${Date.now()}`;
+      // Unique deterministic key per order so reprints on the same day never duplicate in Vault or Google Drive
+      const dedupeKey = `FP_${orderTag}_${dhakaDateKey}`;
       const tsFile = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const tag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || 'Order';
-      const baseName = `FP_${tag}_${tsFile}`;
+      const baseName = `FP_${orderTag}_${tsFile}`;
 
       const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
       const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData) : null;
@@ -1345,23 +1889,73 @@
       const pngBuffer = await pngBlob.arrayBuffer();
       const pdfBuffer = pdfBlob ? await pdfBlob.arrayBuffer() : null;
 
-      const entry = {
-        id: Date.now(),
-        orderNo: currentOrderMeta.orderNo || '#Order',
-        orderCode: currentOrderMeta.orderCode || '',
-        customer: (lastParsedFpData && lastParsedFpData.customer) || '',
-        total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
-        dhakaTime,
-        baseName,
-        pngBuffer,
-        pdfBuffer
-      };
-
       const vault = (await idbGet('fpInternalVault')) || [];
-      vault.unshift(entry);
-      await idbSet('fpInternalVault', vault.slice(0, 150));
-      await refreshVaultCount();
+      let entry = vault.find(v => v.dedupeKey === dedupeKey);
+
+      if (!entry) {
+        entry = {
+          id: Date.now(),
+          dedupeKey,
+          orderNo: currentOrderMeta.orderNo || '#Order',
+          orderCode: currentOrderMeta.orderCode || '',
+          customer: (lastParsedFpData && lastParsedFpData.customer) || '',
+          total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
+          dhakaTime,
+          baseName,
+          pngBuffer,
+          pdfBuffer,
+          parsedData: lastParsedFpData,
+          driveSynced: getSyncedDriveKeys().has(dedupeKey)
+        };
+        vault.unshift(entry);
+        await idbSet('fpInternalVault', vault.slice(0, 150));
+        await refreshVaultCount();
+      }
+
+      await syncVaultEntryToGoogleDrive(entry, true);
     } catch (e) {}
+  }
+
+  async function reprintLastReceipt() {
+    closeMenu();
+    if (docSourceCanvas) {
+      showToast('🖨️ Reprinting current receipt...', 'info');
+      await handleMainButtonClick();
+      return;
+    }
+    const vault = (await idbGet('fpInternalVault')) || [];
+    if (vault.length === 0) {
+      showToast('⚠️ No saved receipt in Vault to reprint', 'warn');
+      return;
+    }
+    await reprintVaultItem(vault[0].id);
+  }
+
+  async function reprintVaultItem(entryId) {
+    closeVault();
+    const vault = (await idbGet('fpInternalVault')) || [];
+    const item = vault.find(v => v.id === entryId);
+    if (!item) return;
+
+    if (item.parsedData) {
+      lastParsedFpData = item.parsedData;
+      isFpPipelineRun = true;
+      currentOrderMeta = { orderNo: item.orderNo, orderCode: item.orderCode, isHistory: true };
+      docSourceCanvas = renderSynthesizedFpReceipt(item.parsedData);
+      rebuildCompositePreview(true);
+      updateMainButtonUI();
+    } else if (item.pngBuffer) {
+      const f = new File([item.pngBuffer], `${item.baseName}.png`, { type: 'image/png' });
+      await loadMainDocumentFile(f);
+    }
+
+    showToast(`🖨️ Reprinting ${item.orderNo}...`, 'info');
+    if (!writeChar) await attemptAutoReconnect(3);
+    if (writeChar) {
+      await printCanvas(false);
+    } else {
+      showToast('⚠️ Connect printer to complete reprint', 'warn');
+    }
   }
 
   async function openVault() {
@@ -1376,10 +1970,16 @@
       return;
     }
 
+    const syncedSet = getSyncedDriveKeys();
     listEl.innerHTML = '';
+
     for (const item of vault) {
+      const isSynced = item.driveSynced || syncedSet.has(item.dedupeKey || item.baseName);
       const row = document.createElement('div');
       row.className = 'vault-item';
+
+      const top = document.createElement('div');
+      top.className = 'vault-top';
 
       const info = document.createElement('div');
       info.className = 'vault-info';
@@ -1389,8 +1989,22 @@
         <div style="color:#9CA3AF; font-size:11px;">${item.dhakaTime}</div>
       `;
 
+      const syncBadge = document.createElement('span');
+      syncBadge.style.cssText = `font-size:11px; font-weight:800; padding:3px 8px; border-radius:99px; ${isSynced ? 'background:#065F46; color:#A7F3D0;' : 'background:#374151; color:#FDE68A;'}`;
+      syncBadge.innerText = isSynced ? '☁️ Drive Synced' : '⏳ Local Only';
+
+      top.appendChild(info);
+      top.appendChild(syncBadge);
+
       const btns = document.createElement('div');
       btns.className = 'vault-btns';
+
+      const repBtn = document.createElement('button');
+      repBtn.className = 'vault-pill-btn';
+      repBtn.style.background = '#D97706';
+      repBtn.innerText = '🖨️ Reprint';
+      repBtn.onclick = () => reprintVaultItem(item.id);
+      btns.appendChild(repBtn);
 
       if (item.pdfBuffer) {
         const pdfBtn = document.createElement('button');
@@ -1410,7 +2024,19 @@
         btns.appendChild(pngBtn);
       }
 
-      row.appendChild(info);
+      if (!isSynced) {
+        const upBtn = document.createElement('button');
+        upBtn.className = 'vault-pill-btn';
+        upBtn.style.background = '#4F46E5';
+        upBtn.innerText = '☁️ Upload';
+        upBtn.onclick = async () => {
+          await syncVaultEntryToGoogleDrive(item, false);
+          await openVault();
+        };
+        btns.appendChild(upBtn);
+      }
+
+      row.appendChild(top);
       row.appendChild(btns);
       listEl.appendChild(row);
     }
@@ -1421,10 +2047,11 @@
   }
 
   async function clearVault() {
-    if (!confirm('Delete all saved receipts from Billu Vault?')) return;
+    if (!confirm('Delete all local receipts from Billu Vault? (Files already on Google Drive will remain untouched)')) return;
     await idbSet('fpInternalVault', []);
     await refreshVaultCount();
     await openVault();
+    showToast('🗑️ Local Vault cleared', 'info');
   }
 
   function downloadVaultFile(buffer, fileName, mimeType) {
@@ -1455,6 +2082,7 @@
     const enabled = document.getElementById('fpMasterEnable').checked;
     localStorage.setItem('fp_master_enabled', enabled ? '1' : '0');
     applyFpMasterUI();
+    showToast(enabled ? '🐼 Foodpanda Pipeline Enabled' : '🐼 Foodpanda Pipeline Hidden', 'info');
   }
 
   function applyFpMasterUI() {
@@ -1476,10 +2104,10 @@
     if (enabled && isFpMasterEnabled()) {
       ensureAudioKeepAliveRunning();
       startLocalB64BackgroundPoller();
-      setStatus('Silent Background Mode (b64) Active');
+      showToast('🛡️ Silent Background Mode Active', 'success');
     } else {
       stopLocalB64BackgroundPoller();
-      setStatus('Silent Background Mode OFF');
+      showToast('Silent Background Mode OFF', 'info');
     }
   }
 
@@ -1498,22 +2126,19 @@
 
         audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
         audioScriptNode.onaudioprocess = () => {
-          if (!isSilentBgEnabled()) return;
           const now = Date.now();
 
-          // 1. Poll 127.0.0.1:18999 every 450ms on unthrottled audio thread
-          if (!isPrinting && now - lastAudioPollTime > 450) {
+          if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 450) {
             lastAudioPollTime = now;
             pollLocalhostB64Once();
           }
 
-          // 2. Send harmless 0xA3 BLE status ping every 3.5s so MediaTek/Helio 80 BLE never sleeps
           if (!isPrinting && !isConnecting && now - lastBlePingTime > 3500) {
             lastBlePingTime = now;
-            if (writeChar) {
+            if (writeChar && (isSilentBgEnabled() || document.hidden)) {
               writeBle(makePacket(0xA3, [0x00])).catch(() => {});
-            } else if (getSavedPrinterId()) {
-              attemptAutoReconnect(2);
+            } else if (!writeChar && getSavedPrinterId()) {
+              attemptAutoReconnect(2, true);
             }
           }
         };
@@ -1526,7 +2151,6 @@
     } catch (e) {}
   }
 
-  // Resume audio keep-alive on any tap in Billu when Silent Background Mode is enabled
   document.addEventListener('pointerdown', () => {
     if (isSilentBgEnabled()) {
       ensureAudioKeepAliveRunning();
@@ -1548,7 +2172,6 @@
     }
   }
 
-  // Called directly when <script src="http://127.0.0.1:18999/..."> delivers a b64 payload
   window.onBilluBgOrder = async function(b64String) {
     if (!isFpMasterEnabled() || !b64String || isPrinting) return;
     const fpKey = getB64Fingerprint(b64String);
@@ -1558,7 +2181,7 @@
     try {
       const decodedText = decodeBase64Utf8(b64String);
       if (decodedText && decodedText.trim().length > 8) {
-        await prepareFoodpandaOrderFromText(decodedText, false, true);
+        await prepareFoodpandaOrderFromText(decodedText, true);
       }
     } catch (e) {}
   };
@@ -1580,7 +2203,7 @@
   }
 
   // ============================================================================
-  // FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND EXPLICIT B64 ERROR MODAL)
+  // FOODPANDA MODALS & AUTO-PRINT / AUTO-RETURN WORKFLOW
   // ============================================================================
 
   function showFpPrePrintModal(title, sub) {
@@ -1607,7 +2230,7 @@
     document.getElementById('fpPostPrintCard').style.display = 'none';
     document.getElementById('fpErrorCard').style.display = 'flex';
     document.getElementById('fpModalBackdrop').classList.add('active');
-    setStatus('Error: ' + (title || 'Base64 parse failed'));
+    showToast(`⚠️ ${title || 'Order load error'}`, 'error', true);
     playTone(240, 350);
   }
 
@@ -1620,16 +2243,20 @@
     if (isSilentBgEnabled()) ensureAudioKeepAliveRunning();
 
     if (!shouldPrint) {
-      setStatus('Print cancelled — stayed in Billu');
+      pendingPrintJob = false;
+      showToast('🛑 Print cancelled by user', 'warn');
       return;
     }
 
     if (!writeChar) {
-      const ok = await attemptAutoReconnect(4);
+      const ok = await attemptAutoReconnect(4, false);
       if (!ok && !writeChar) await pairNewPrinter();
     }
     if (writeChar) {
       await printCanvas(true);
+    } else {
+      pendingPrintJob = true;
+      showToast(`⚠️ Could not print ${currentOrderMeta.orderNo} — queued for when printer turns on`, 'warn', true);
     }
   }
 
@@ -1638,26 +2265,47 @@
     if (isSilentBgEnabled()) ensureAudioKeepAliveRunning();
 
     if (goBack) {
-      launchReturnApp();
+      launchReturnApp(false);
     } else {
-      setStatus('Stayed in Billu');
+      showToast('Stayed in Billu', 'info');
     }
   }
 
   function saveFpPromptSettings() {
-    const askBefore = document.getElementById('fpAskBeforePrint').checked;
-    const askAfter = document.getElementById('fpAskAfterPrint').checked;
-    localStorage.setItem('fp_ask_before_print', askBefore ? '1' : '0');
-    localStorage.setItem('fp_ask_after_print', askAfter ? '1' : '0');
+    const autoPrint = document.getElementById('fpAutoPrintOnOpen').checked;
+    const autoReturn = document.getElementById('fpAutoReturn').checked;
+    const returnTiming = document.getElementById('fpAutoReturnTiming').value;
+    const copies = document.getElementById('fpPrintCopies').value;
+    const fontMode = document.getElementById('fpFontSizeMode').value;
+    const voice = document.getElementById('fpVoiceSpeak').checked;
+    const gdriveUrl = document.getElementById('gdriveWebhookInput').value.trim();
+    const gdriveFolder = document.getElementById('gdriveFolderIdInput').value.trim();
+
+    localStorage.setItem('fp_auto_print_on_open', autoPrint ? '1' : '0');
+    localStorage.setItem('fp_auto_return', autoReturn ? '1' : '0');
+    localStorage.setItem('fp_auto_return_timing', returnTiming);
+    localStorage.setItem('fp_print_copies', copies);
+    localStorage.setItem('fp_font_size_mode', fontMode);
+    localStorage.setItem('fp_voice_speak', voice ? '1' : '0');
+    localStorage.setItem('fp_gdrive_webhook', gdriveUrl);
+    localStorage.setItem('fp_gdrive_folder_id', gdriveFolder);
+
+    document.getElementById('fpAutoReturnTimingBox').style.display = autoReturn ? 'flex' : 'none';
+
+    if (lastParsedFpData && isFpPipelineRun) {
+      docSourceCanvas = renderSynthesizedFpReceipt(lastParsedFpData);
+      rebuildCompositePreview(false);
+    }
   }
 
   function triggerPrintSomethingElse() {
     hideFpModal();
     isFpPipelineRun = false;
+    pendingPrintJob = false;
     document.getElementById('manualFileInput').click();
   }
 
-  async function prepareFoodpandaOrderFromText(rawText, showConfirmIfEnabled = true, isSilentBgRun = false) {
+  async function prepareFoodpandaOrderFromText(rawText, isSilentBgRun = false) {
     const v = validateFoodpandaText(rawText);
     if (!v.valid) {
       if (!isSilentBgRun) {
@@ -1690,22 +2338,36 @@
     docSourceCanvas = renderSynthesizedFpReceipt(parsed);
     rebuildCompositePreview(true);
     updateMainButtonUI();
-    setStatus(`Order ${parsed.orderNo || ''}: ${parsed.items.length} item(s) • ${parsed.total || ''}`);
+    showToast(`🧾 Order ${parsed.orderNo || ''} loaded (${parsed.items.length} item(s) • ${parsed.total || ''})`, 'info', isSilentBgRun);
 
-    const askBefore = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
-    if (!isSilentBgRun && showConfirmIfEnabled && askBefore) {
+    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '0') === '1';
+
+    // If NOT silent background AND "Auto-Print if coming from Panda Partner" is unchecked -> Ask Print / Don't Print
+    if (!isSilentBgRun && !autoPrintOnOpen) {
       const title = `Print Order ${parsed.orderNo || ''}?`;
       const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
       showFpPrePrintModal(title, sub);
       return { ok: true };
     }
 
-    // Retry up to 4 times with backoff so Helio 80 reconnects cleanly before printing
-    if (!writeChar) await attemptAutoReconnect(4);
+    // Auto-Print path (either Silent Background OR Auto-Print on Open is checked)
+    if (!writeChar) await attemptAutoReconnect(4, false);
     if (writeChar) {
+      pendingPrintJob = false;
       await printCanvas(!isSilentBgRun);
-    } else if (!isSilentBgRun) {
-      showFpPrePrintModal(`Print Order ${parsed.orderNo || ''}?`, 'Tap Print to connect Bluetooth printer');
+    } else {
+      pendingPrintJob = true;
+      showToast(
+        `⚠️ Printer offline — Order ${parsed.orderNo || ''} queued to auto-print when printer turns on!`,
+        'warn',
+        true
+      );
+      if (!isSilentBgRun) {
+        showFpPrePrintModal(
+          `Printer Offline (${parsed.orderNo || ''})`,
+          'Turn on printer to auto-print, or tap Print below to connect manually.'
+        );
+      }
     }
     return { ok: true };
   }
@@ -1776,7 +2438,7 @@
           if (!decodedText || decodedText.trim().length < 8) {
             b64ErrorReason = 'Base64 decoded to an empty or too-short string.';
           } else {
-            const res = await prepareFoodpandaOrderFromText(decodedText, true, false);
+            const res = await prepareFoodpandaOrderFromText(decodedText, false);
             if (res.ok) return true;
             b64ErrorReason = res.reason;
           }
@@ -1812,7 +2474,7 @@
     docSourceCanvas = renderSynthesizedFpReceipt(parsed);
     rebuildCompositePreview(true);
     updateMainButtonUI();
-    setStatus(`Loaded ${parsed.orderNo}: ${parsed.items.length} item(s) (${parsed.total})`);
+    showToast(`🧪 Loaded sample Order ${parsed.orderNo} (${parsed.total})`, 'info');
   }
 
   // ============================================================================
@@ -1906,8 +2568,9 @@
   function updateMainButtonUI() {
     const btn = document.getElementById('mainActionBtn');
     const savedId = getSavedPrinterId();
-    const savedName = localStorage.getItem('cat_printer_name') || 'Billu';
-    document.getElementById('savedPrinterLabel').innerText = `Saved: ${savedId ? savedName : 'None'}`;
+    const labelStr = savedId ? getPrinterDisplayLabel(savedId) : 'None';
+    document.getElementById('savedPrinterLabel').innerText = `Active: ${labelStr}`;
+    renderPrinterManagerList();
 
     btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-stop', 'state-disabled');
 
@@ -1928,20 +2591,20 @@
 
     if (writeChar) {
       btn.classList.add('state-print');
-      btn.innerHTML = 'Print';
+      btn.innerHTML = `Print (${labelStr})`;
     } else if (!savedId) {
       btn.classList.add('state-connect');
-      btn.innerHTML = 'Connect';
+      btn.innerHTML = 'Connect Printer';
     } else {
       btn.classList.add('state-searching');
-      btn.innerHTML = '<span>Looking for Printer<span class="dots"></span> (Tap to Pair)</span>';
+      btn.innerHTML = `<span>Looking for ${labelStr}<span class="dots"></span> (Tap to Pair)</span>`;
     }
   }
 
   async function handleMainButtonClick() {
     if (isPrinting) {
       cancelPrintRequested = true;
-      setStatus('Stopping printer immediately...');
+      showToast('🛑 Stopping printer immediately...', 'warn');
       document.getElementById('mainActionBtn').innerText = '🛑 Stopping...';
       return;
     }
@@ -1952,7 +2615,7 @@
       await printCanvas(isFpPipelineRun);
       return;
     }
-    const ok = await attemptAutoReconnect(3);
+    const ok = await attemptAutoReconnect(3, false);
     if (!ok && !writeChar) {
       await pairNewPrinter();
     }
@@ -1960,44 +2623,37 @@
 
   async function pairNewPrinter() {
     try {
-      setStatus('Select printer from Bluetooth list...');
+      showToast('🔍 Select printer from Bluetooth list...', 'info');
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: BLE_SERVICES
       });
-      localStorage.setItem('cat_printer_id', device.id);
-      localStorage.setItem('cat_printer_name', device.name || 'Billu');
+
+      if (activeBleDevice && activeBleDevice.id !== device.id && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
+        activeBleDevice.gatt.disconnect();
+      }
+      writeChar = null;
+      isConnecting = false;
+
+      registerOrUpdatePrinter(device);
       updateMainButtonUI();
       await connectToBleDevice(device);
     } catch (err) {
-      setStatus('Pairing cancelled.');
+      showToast('Pairing cancelled', 'info');
       updateMainButtonUI();
     }
-  }
-
-  async function changeConnectedPrinter() {
-    if (activeBleDevice && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
-      activeBleDevice.gatt.disconnect();
-    }
-    writeChar = null;
-    activeBleDevice = null;
-    isConnecting = false;
-    localStorage.removeItem('cat_printer_id');
-    localStorage.removeItem('cat_printer_name');
-    updateMainButtonUI();
-    closeMenu();
-    await pairNewPrinter();
   }
 
   async function connectToBleDevice(device) {
     if (isConnecting || writeChar) return Boolean(writeChar);
     isConnecting = true;
+    const dispLabel = getPrinterDisplayLabel(device);
     try {
       activeBleDevice = device;
       device.removeEventListener('gattserverdisconnected', onBleDisconnected);
       device.addEventListener('gattserverdisconnected', onBleDisconnected);
 
-      setStatus(`Connecting to ${device.name || 'Billu'}...`);
+      setStatus(`Connecting to ${dispLabel}...`);
       const server = await device.gatt.connect();
       const services = await server.getPrimaryServices();
       let foundChar = null;
@@ -2014,8 +2670,18 @@
       if (!foundChar) throw new Error('Write characteristic not found');
 
       writeChar = foundChar;
-      setStatus(`Connected to ${device.name || 'Billu'}`);
+      registerOrUpdatePrinter(device);
+      showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
       updateMainButtonUI();
+
+      // If an order was queued while the printer was off, print it automatically right now!
+      if (pendingPrintJob && docSourceCanvas && !isPrinting) {
+        pendingPrintJob = false;
+        hideFpModal();
+        showToast(`🖨️ Auto-printing queued receipt ${currentOrderMeta.orderNo || ''}...`, 'info', true);
+        setTimeout(() => printCanvas(!document.hidden && isFpPipelineRun), 350);
+      }
+
       return true;
     } catch (err) {
       writeChar = null;
@@ -2026,26 +2692,34 @@
     }
   }
 
-  // Wait 700ms after a disconnect before reconnecting so MediaTek/Helio 80 BLE releases the GATT handle
   function onBleDisconnected() {
+    const dispLabel = activeBleDevice ? getPrinterDisplayLabel(activeBleDevice) : 'Printer';
     writeChar = null;
     isConnecting = false;
     if (!isPrinting) {
-      setStatus('Printer offline. Reconnecting...');
+      showToast(`🔴 Disconnected from ${dispLabel} — looking for printer...`, 'warn');
       updateMainButtonUI();
     }
     setTimeout(() => {
       if (!writeChar && !isConnecting && !isPrinting) {
-        attemptAutoReconnect(3);
+        attemptAutoReconnect(3, true);
       }
     }, 700);
   }
 
-  // Multi-attempt reconnect with 650ms backoff to bypass MediaTek GATT Error 133
-  async function attemptAutoReconnect(maxAttempts = 2) {
+  // Strictly connects ONLY to the selected Active Printer (never falls back to devices[0]!)
+  async function attemptAutoReconnect(maxAttempts = 2, silentToast = true) {
     const savedId = getSavedPrinterId();
     if (!savedId || writeChar || isPrinting || isConnecting) return Boolean(writeChar);
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
+
+    const list = getPrinterRegistry();
+    const activeEntry = list.find(p => p.id === savedId);
+    const targetLabel = getPrinterDisplayLabel(savedId);
+
+    if (!silentToast) {
+      showToast(`🔍 Looking for ${targetLabel}...`, 'info');
+    }
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (writeChar) return true;
@@ -2053,13 +2727,24 @@
         const devices = await navigator.bluetooth.getDevices();
         if (!devices || devices.length === 0) return false;
 
-        const target = devices.find(d => d.id === savedId) || devices[0];
+        // STRICT MATCH: Match by exact saved ID first, or exact hardware name if Android rotated the BLE hash.
+        // NEVER fall back to devices[0] (which is the oldest first printer ever paired)!
+        let target = devices.find(d => d.id === savedId);
+        if (!target && activeEntry && activeEntry.hwName) {
+          target = devices.filter(d => d.name === activeEntry.hwName).pop();
+          if (target && target.id !== savedId) {
+            activeEntry.id = target.id;
+            savePrinterRegistry(list);
+            localStorage.setItem('cat_printer_id', target.id);
+          }
+        }
+
         if (!target) return false;
 
         if (target.watchAdvertisements && !target._watchingAds) {
           target._watchingAds = true;
           target.addEventListener('advertisementreceived', () => {
-            if (!writeChar && !isConnecting) {
+            if (!writeChar && !isConnecting && getSavedPrinterId() === target.id) {
               connectToBleDevice(target);
             }
           });
@@ -2079,14 +2764,13 @@
     return Boolean(writeChar);
   }
 
-  // Sends a harmless 0xA3 status ping every 3.5s so MediaTek BLE controllers never idle out
   function startAutoReconnectLoop() {
     if (reconnectTimer) clearInterval(reconnectTimer);
-    attemptAutoReconnect(2);
+    attemptAutoReconnect(2, false);
     reconnectTimer = setInterval(async () => {
       if (isPrinting || isConnecting) return;
       if (!writeChar && getSavedPrinterId()) {
-        await attemptAutoReconnect(2);
+        await attemptAutoReconnect(2, true);
       } else if (writeChar && (isSilentBgEnabled() || document.hidden)) {
         lastBlePingTime = Date.now();
         writeBle(makePacket(0xA3, [0x00])).catch(() => {});
@@ -2096,7 +2780,7 @@
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
-      if (!writeChar && !isConnecting) attemptAutoReconnect(3);
+      if (!writeChar && !isConnecting) attemptAutoReconnect(3, true);
       if (!isPrinting) {
         await checkUrlForFpPayload();
       }
@@ -2106,6 +2790,9 @@
   function toggleMenu() {
     const overlay = document.getElementById('optionsOverlay');
     overlay.classList.toggle('open');
+    if (overlay.classList.contains('open')) {
+      renderPrinterManagerList();
+    }
   }
 
   function closeMenu() {
@@ -2118,6 +2805,7 @@
     localStorage.setItem('cat_margin_before_mm', beforeVal);
     localStorage.setItem('cat_margin_after_mm', afterVal);
     rebuildCompositePreview(false);
+    showToast(`📏 Margins set: ${beforeVal}mm before, ${afterVal}mm after`, 'info');
   }
 
   function saveStampSettings() {
@@ -2126,6 +2814,7 @@
     localStorage.setItem('cat_stamp_enabled', enabled ? '1' : '0');
     localStorage.setItem('cat_stamp_pos', pos);
     rebuildCompositePreview(true);
+    showToast(enabled ? `🏷️ Stamp enabled (${pos} doc)` : '🏷️ Stamp disabled', 'info');
   }
 
   async function handleStampFileSelect(e) {
@@ -2139,6 +2828,7 @@
 
     stampSourceCanvas = await renderFileToTrimmedCanvas(new File([buf], file.name, { type: file.type }));
     rebuildCompositePreview(true);
+    showToast(`🏷️ Loaded stamp: ${file.name}`, 'success');
   }
 
   function saveReturnAppSetting() {
@@ -2174,7 +2864,9 @@
     }
   }
 
-  function launchReturnApp() {
+  // Launches Panda Partner; if keepAliveForPrint is true (used by "Return Before Print Finishes"),
+  // it NEVER calls window.close() so the active print job continues in the background!
+  function launchReturnApp(keepAliveForPrint = false) {
     hideFpModal();
 
     const triggerIntent = () => {
@@ -2188,7 +2880,7 @@
       window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
     };
 
-    if (isSilentBgEnabled()) {
+    if (keepAliveForPrint || isSilentBgEnabled() || isPrinting) {
       ensureAudioKeepAliveRunning();
       triggerIntent();
       return;
@@ -2209,7 +2901,7 @@
 
     if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
       const txt = await file.text();
-      await prepareFoodpandaOrderFromText(txt, false, true);
+      await prepareFoodpandaOrderFromText(txt, false);
       e.target.value = '';
       return;
     }
@@ -2221,11 +2913,11 @@
   }
 
   async function loadMainDocumentFile(file) {
-    setStatus(`Loading ${file.name}...`);
+    showToast(`📂 Loading ${file.name}...`, 'info');
     docSourceCanvas = await renderFileToTrimmedCanvas(file);
     rebuildCompositePreview(true);
     updateMainButtonUI();
-    setStatus(`Loaded: ${file.name}`);
+    showToast(`✅ Loaded: ${file.name}`, 'success');
   }
 
   async function renderFileToTrimmedCanvas(file) {
@@ -2421,7 +3113,7 @@
   async function feedPaper5mm() {
     if (isPrinting) return;
     if (!writeChar) {
-      const ok = await attemptAutoReconnect(3);
+      const ok = await attemptAutoReconnect(3, false);
       if (!ok && !writeChar) {
         await pairNewPrinter();
         if (!writeChar) return;
@@ -2436,7 +3128,7 @@
       const blankRows = 5 * PX_PER_MM;
       const emptyRow = new Uint8Array(48);
 
-      setStatus('Feeding 5mm...');
+      showToast('⏫ Feeding 5mm blank paper...', 'info');
       await writeBle(makePacket(0xA4, [0x33]));
       await sleep(20);
       await writeBle(makePacket(0xBE, [0x00]));
@@ -2450,9 +3142,9 @@
       }
 
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
-      setStatus('Fed 5mm paper');
+      showToast('✅ Fed 5mm paper', 'success');
     } catch (err) {
-      setStatus('Feed error: ' + err.message);
+      showToast('⚠️ Feed error: ' + err.message, 'error');
     } finally {
       isPrinting = false;
       if (feedBtn) feedBtn.disabled = false;
@@ -2460,63 +3152,109 @@
     }
   }
 
-  async function printCanvas(showPostPrintPromptIfEnabled = false) {
+  async function printCanvas(fromFpMacroFlow = false) {
     if (!writeChar || isPrinting || !docSourceCanvas) return;
     isPrinting = true;
     cancelPrintRequested = false;
+    await acquireWakeLock();
 
     const btn = document.getElementById('mainActionBtn');
     updateMainButtonUI();
     btn.innerText = '🛑 Stop Print (0%)';
+
+    const jobTitle = isFpPipelineRun && currentOrderMeta.orderNo
+      ? `Order ${currentOrderMeta.orderNo}`
+      : 'Document';
+    const copies = isFpPipelineRun
+      ? Math.max(1, parseInt(localStorage.getItem('fp_print_copies') || '1', 10))
+      : 1;
+
+    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '0') === '1';
+    const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
 
     try {
       const ctx = printCanvasEl.getContext('2d');
       const totalRows = printCanvasEl.height;
       const imgData = ctx.getImageData(0, 0, PRINTER_WIDTH, totalRows).data;
 
-      setStatus('Initializing printer...');
-      await writeBle(makePacket(0xA4, [0x33]));
-      await sleep(30);
-      await writeBle(makePacket(0xAF, [0xFF, 0xFF]));
-      await sleep(30);
-      await writeBle(makePacket(0xBE, [0x00]));
-      await sleep(30);
-      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
-      await sleep(30);
+      showToast(`🖨️ Printing receipt for ${jobTitle}...`, 'info', true);
+      speakStatus(`Printing ${jobTitle.replace('#', 'number ')}`);
 
-      let batchHasDarkPixels = false;
+      // If "Auto-Return Before Print Finishes (As Print Starts)" is selected,
+      // start keep-alive audio and jump back to Panda Partner right as printing starts!
+      if ((fromFpMacroFlow || isFpPipelineRun) && autoReturnEnabled && autoReturnTiming === 'before' && !document.hidden) {
+        ensureAudioKeepAliveRunning();
+        setTimeout(() => launchReturnApp(true), 250);
+      }
 
-      for (let y = 0; y < totalRows; y++) {
+      for (let copyIdx = 1; copyIdx <= copies; copyIdx++) {
+        if (cancelPrintRequested) break;
+        if (copies > 1) {
+          showToast(`🖨️ Printing ${jobTitle} (Copy ${copyIdx} of ${copies})...`, 'info', true);
+        }
+
+        await writeBle(makePacket(0xA4, [0x33]));
+        await sleep(30);
+        await writeBle(makePacket(0xAF, [0xFF, 0xFF]));
+        await sleep(30);
+        await writeBle(makePacket(0xBE, [0x00]));
+        await sleep(30);
+        await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
+        await sleep(30);
+
+        let batchHasDarkPixels = false;
+
+        for (let y = 0; y < totalRows; y++) {
+          if (cancelPrintRequested) break;
+
+          const rowBytes = new Uint8Array(48);
+          let rowHasInk = false;
+
+          for (let byteIdx = 0; byteIdx < 48; byteIdx++) {
+            let b = 0;
+            for (let bit = 0; bit < 8; bit++) {
+              const x = byteIdx * 8 + bit;
+              const pixelIdx = (y * PRINTER_WIDTH + x) * 4;
+              if (imgData[pixelIdx] === 0) {
+                b |= (1 << bit);
+                rowHasInk = true;
+              }
+            }
+            rowBytes[byteIdx] = b;
+          }
+
+          if (rowHasInk) batchHasDarkPixels = true;
+          await writeBle(makePacket(0xA2, rowBytes));
+
+          if (y % 4 === 3) {
+            await sleep(batchHasDarkPixels ? 48 : 18);
+            batchHasDarkPixels = false;
+          }
+
+          if (y % 25 === 0) {
+            const pct = Math.min(99, Math.round((y / totalRows) * 100));
+            btn.innerText = `🛑 Stop Print (${pct}%)`;
+            setStatus(`Printing ${jobTitle}: ${pct}%`);
+          }
+        }
+
         if (cancelPrintRequested) break;
 
-        const rowBytes = new Uint8Array(48);
-        let rowHasInk = false;
+        await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
 
-        for (let byteIdx = 0; byteIdx < 48; byteIdx++) {
-          let b = 0;
-          for (let bit = 0; bit < 8; bit++) {
-            const x = byteIdx * 8 + bit;
-            const pixelIdx = (y * PRINTER_WIDTH + x) * 4;
-            if (imgData[pixelIdx] === 0) {
-              b |= (1 << bit);
-              rowHasInk = true;
-            }
+        btn.innerText = '🛑 Finishing Paper Feed (99%)';
+        setStatus(`Finishing paper feed for ${jobTitle}...`);
+        for (let w = 0; w < 16; w++) {
+          if (cancelPrintRequested) break;
+          await sleep(100);
+        }
+
+        if (copyIdx < copies && !cancelPrintRequested) {
+          showToast('⏸️ Tear pause before Copy 2...', 'info');
+          for (let p = 0; p < 20; p++) {
+            if (cancelPrintRequested) break;
+            await sleep(100);
           }
-          rowBytes[byteIdx] = b;
-        }
-
-        if (rowHasInk) batchHasDarkPixels = true;
-        await writeBle(makePacket(0xA2, rowBytes));
-
-        if (y % 4 === 3) {
-          await sleep(batchHasDarkPixels ? 48 : 18);
-          batchHasDarkPixels = false;
-        }
-
-        if (y % 20 === 0) {
-          const pct = Math.min(99, Math.round((y / totalRows) * 100));
-          btn.innerText = `🛑 Stop Print (${pct}%)`;
-          setStatus(`Printing ${pct}%`);
         }
       }
 
@@ -2525,40 +3263,32 @@
         if (activeBleDevice && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
           activeBleDevice.gatt.disconnect();
         }
-        setStatus('Print stopped immediately');
+        showToast(`🛑 Print cancelled for ${jobTitle}`, 'warn', true);
         playTone(300, 250);
         return;
       }
 
-      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
-
-      btn.innerText = '🛑 Finishing Paper Feed (99%)';
-      setStatus('Finishing paper feed...');
-      for (let w = 0; w < 16; w++) {
-        if (cancelPrintRequested) return;
-        await sleep(100);
-      }
-
-      setStatus('Receipt printing complete!');
+      showToast(`✅ Print done for ${jobTitle}!`, 'success', true);
+      speakStatus('Print complete');
       playTone(1046, 220);
 
       if (isFpPipelineRun) {
         await archivePrintedReceiptToVault();
       }
 
-      if (showPostPrintPromptIfEnabled && !document.hidden) {
-        const askAfter = (localStorage.getItem('fp_ask_after_print') ?? '1') === '1';
-        if (askAfter) {
+      if ((fromFpMacroFlow || isFpPipelineRun) && !document.hidden) {
+        if (autoReturnEnabled && autoReturnTiming === 'after') {
+          setTimeout(() => launchReturnApp(false), 350);
+        } else if (!autoReturnEnabled) {
           showFpPostPrintModal();
-        } else {
-          setTimeout(() => launchReturnApp(), 400);
         }
       }
     } catch (err) {
-      setStatus('Print error: ' + err.message);
+      showToast(`⚠️ Could not print ${jobTitle}: ${err.message}`, 'error', true);
     } finally {
       isPrinting = false;
       cancelPrintRequested = false;
+      releaseWakeLock();
       updateMainButtonUI();
     }
   }
@@ -2567,6 +3297,19 @@
     document.getElementById('menuVersionLabel').innerText = `Billu ${APP_VERSION}`;
     document.getElementById('menuUpdatedLabel').innerText = APP_UPDATED_DHAKA;
     document.getElementById('homeVersionBadge').innerText = `Billu ${APP_VERSION} • Updated: ${APP_UPDATED_DHAKA}`;
+
+    // Migrate legacy single saved printer into the new Multi-Printer Registry if needed
+    const legacyId = localStorage.getItem('cat_printer_id');
+    const legacyName = localStorage.getItem('cat_printer_name');
+    if (legacyId && getPrinterRegistry().length === 0) {
+      savePrinterRegistry([{
+        id: legacyId,
+        hwName: legacyName || 'Thermal Printer',
+        customName: '',
+        macTag: computeMacTag(legacyId, legacyName),
+        lastConnected: Date.now()
+      }]);
+    }
 
     const savedBrightness = localStorage.getItem('cat_brightness');
     if (savedBrightness) document.getElementById('brightnessSlider').value = savedBrightness;
@@ -2580,14 +3323,25 @@
     document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
     document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
 
-    document.getElementById('fpAskBeforePrint').checked = (localStorage.getItem('fp_ask_before_print') ?? '1') === '1';
-    document.getElementById('fpAskAfterPrint').checked = (localStorage.getItem('fp_ask_after_print') ?? '1') === '1';
+    document.getElementById('fpAutoPrintOnOpen').checked = (localStorage.getItem('fp_auto_print_on_open') ?? '0') === '1';
+    document.getElementById('fpAutoReturn').checked = (localStorage.getItem('fp_auto_return') ?? '0') === '1';
+    document.getElementById('fpAutoReturnTiming').value = localStorage.getItem('fp_auto_return_timing') || 'after';
+    document.getElementById('fpAutoReturnTimingBox').style.display = document.getElementById('fpAutoReturn').checked ? 'flex' : 'none';
+
     document.getElementById('fpSilentBgEnable').checked = localStorage.getItem('fp_silent_bg_enabled') === '1';
+    document.getElementById('fpPrintCopies').value = localStorage.getItem('fp_print_copies') || '1';
+    document.getElementById('fpFontSizeMode').value = localStorage.getItem('fp_font_size_mode') || 'normal';
+    document.getElementById('fpVoiceSpeak').checked = localStorage.getItem('fp_voice_speak') === '1';
+
+    document.getElementById('gdriveWebhookInput').value = localStorage.getItem('fp_gdrive_webhook') || '';
+    document.getElementById('gdriveFolderIdInput').value = localStorage.getItem('fp_gdrive_folder_id') || '';
 
     document.getElementById('customAppName').value = localStorage.getItem('cat_return_name') || '';
     document.getElementById('customAppIcon').value = localStorage.getItem('cat_return_icon') || '';
     document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
+
     applyFpMasterUI();
+    renderPrinterManagerList();
     await refreshVaultCount();
 
     try {
@@ -2646,7 +3400,7 @@
 
           history.replaceState(null, '', window.location.pathname);
           if (combinedText.trim()) {
-            await prepareFoodpandaOrderFromText(combinedText, true, false);
+            await prepareFoodpandaOrderFromText(combinedText, false);
           }
         }
       } catch (e) {}
