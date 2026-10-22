@@ -387,7 +387,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.4.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.5.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px;" onclick="forceUpdatePWA()">
@@ -434,7 +434,7 @@
           🛡️ Silent Background Mode (b64 Local)
         </label>
         <div style="font-size:11px; color:#9CA3AF; line-height:1.35;">
-          When Silent Mode is checked, Billu stays alive in the background and prints orders silently via 127.0.0.1 without leaving Panda Partner.
+          When Silent Mode is checked, Billu keeps the Bluetooth link awake in the background and prints orders silently via 127.0.0.1 without leaving Panda Partner.
         </div>
         <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
           🧪 Load Sample Order (#JQBY History Test)
@@ -508,7 +508,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.4.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.5.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -527,8 +527,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.4.0';
-  const APP_UPDATED_DHAKA = '22 Oct 2026, 05:13 AM (Dhaka)';
+  const APP_VERSION = 'v3.5.0';
+  const APP_UPDATED_DHAKA = '22 Oct 2026, 11:01 PM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -560,6 +560,7 @@
   let audioCtx = null;
   let audioScriptNode = null;
   let lastAudioPollTime = 0;
+  let lastBlePingTime = 0;
 
   let viewScale = 1;
   let viewPanX = 0;
@@ -1497,11 +1498,23 @@
 
         audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
         audioScriptNode.onaudioprocess = () => {
-          if (!isSilentBgEnabled() || isPrinting) return;
+          if (!isSilentBgEnabled()) return;
           const now = Date.now();
-          if (now - lastAudioPollTime > 450) {
+
+          // 1. Poll 127.0.0.1:18999 every 450ms on unthrottled audio thread
+          if (!isPrinting && now - lastAudioPollTime > 450) {
             lastAudioPollTime = now;
             pollLocalhostB64Once();
+          }
+
+          // 2. Send harmless 0xA3 BLE status ping every 3.5s so MediaTek/Helio 80 BLE never sleeps
+          if (!isPrinting && !isConnecting && now - lastBlePingTime > 3500) {
+            lastBlePingTime = now;
+            if (writeChar) {
+              writeBle(makePacket(0xA3, [0x00])).catch(() => {});
+            } else if (getSavedPrinterId()) {
+              attemptAutoReconnect(2);
+            }
           }
         };
 
@@ -1612,7 +1625,7 @@
     }
 
     if (!writeChar) {
-      const ok = await attemptAutoReconnect();
+      const ok = await attemptAutoReconnect(4);
       if (!ok && !writeChar) await pairNewPrinter();
     }
     if (writeChar) {
@@ -1638,7 +1651,6 @@
     localStorage.setItem('fp_ask_after_print', askAfter ? '1' : '0');
   }
 
-  // Opens file picker when user taps the blue "Print something else..." button
   function triggerPrintSomethingElse() {
     hideFpModal();
     isFpPipelineRun = false;
@@ -1688,7 +1700,8 @@
       return { ok: true };
     }
 
-    if (!writeChar) await attemptAutoReconnect();
+    // Retry up to 4 times with backoff so Helio 80 reconnects cleanly before printing
+    if (!writeChar) await attemptAutoReconnect(4);
     if (writeChar) {
       await printCanvas(!isSilentBgRun);
     } else if (!isSilentBgRun) {
@@ -1738,7 +1751,6 @@
 
     const trimmedB64 = (b64 || '').trim();
 
-    // Prevent re-showing Print/Don't Print when user switches back to Billu after already handling this exact URL!
     if (trimmedB64 && trimmedB64.length > 20) {
       const fpKey = getB64Fingerprint(trimmedB64);
       if (fpKey === localStorage.getItem('fp_last_processed_b64')) {
@@ -1940,7 +1952,7 @@
       await printCanvas(isFpPipelineRun);
       return;
     }
-    const ok = await attemptAutoReconnect();
+    const ok = await attemptAutoReconnect(3);
     if (!ok && !writeChar) {
       await pairNewPrinter();
     }
@@ -2014,59 +2026,77 @@
     }
   }
 
+  // Wait 700ms after a disconnect before reconnecting so MediaTek/Helio 80 BLE releases the GATT handle
   function onBleDisconnected() {
     writeChar = null;
     isConnecting = false;
     if (!isPrinting) {
-      setStatus('Printer offline. Waiting for printer...');
+      setStatus('Printer offline. Reconnecting...');
       updateMainButtonUI();
     }
-    startAutoReconnectLoop();
+    setTimeout(() => {
+      if (!writeChar && !isConnecting && !isPrinting) {
+        attemptAutoReconnect(3);
+      }
+    }, 700);
   }
 
-  async function attemptAutoReconnect() {
+  // Multi-attempt reconnect with 650ms backoff to bypass MediaTek GATT Error 133
+  async function attemptAutoReconnect(maxAttempts = 2) {
     const savedId = getSavedPrinterId();
     if (!savedId || writeChar || isPrinting || isConnecting) return Boolean(writeChar);
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
 
-    try {
-      const devices = await navigator.bluetooth.getDevices();
-      if (!devices || devices.length === 0) return false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (writeChar) return true;
+      try {
+        const devices = await navigator.bluetooth.getDevices();
+        if (!devices || devices.length === 0) return false;
 
-      const target = devices.find(d => d.id === savedId) || devices[0];
-      if (!target) return false;
+        const target = devices.find(d => d.id === savedId) || devices[0];
+        if (!target) return false;
 
-      if (target.watchAdvertisements && !target._watchingAds) {
-        target._watchingAds = true;
-        target.addEventListener('advertisementreceived', () => {
-          if (!writeChar && !isConnecting) {
-            connectToBleDevice(target);
-          }
-        });
-        target.watchAdvertisements().catch(() => {
-          target._watchingAds = false;
-        });
+        if (target.watchAdvertisements && !target._watchingAds) {
+          target._watchingAds = true;
+          target.addEventListener('advertisementreceived', () => {
+            if (!writeChar && !isConnecting) {
+              connectToBleDevice(target);
+            }
+          });
+          target.watchAdvertisements().catch(() => {
+            target._watchingAds = false;
+          });
+        }
+
+        const ok = await connectToBleDevice(target);
+        if (ok && writeChar) return true;
+      } catch (e) {}
+
+      if (attempt < maxAttempts) {
+        await sleep(650);
       }
-
-      return await connectToBleDevice(target);
-    } catch (e) {
-      return false;
     }
+    return Boolean(writeChar);
   }
 
+  // Sends a harmless 0xA3 status ping every 3.5s so MediaTek BLE controllers never idle out
   function startAutoReconnectLoop() {
     if (reconnectTimer) clearInterval(reconnectTimer);
-    attemptAutoReconnect();
-    reconnectTimer = setInterval(() => {
-      if (!writeChar && !isConnecting && !isPrinting && getSavedPrinterId()) {
-        attemptAutoReconnect();
+    attemptAutoReconnect(2);
+    reconnectTimer = setInterval(async () => {
+      if (isPrinting || isConnecting) return;
+      if (!writeChar && getSavedPrinterId()) {
+        await attemptAutoReconnect(2);
+      } else if (writeChar && (isSilentBgEnabled() || document.hidden)) {
+        lastBlePingTime = Date.now();
+        writeBle(makePacket(0xA3, [0x00])).catch(() => {});
       }
-    }, 4500);
+    }, 3500);
   }
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
-      if (!writeChar && !isConnecting) attemptAutoReconnect();
+      if (!writeChar && !isConnecting) attemptAutoReconnect(3);
       if (!isPrinting) {
         await checkUrlForFpPayload();
       }
@@ -2158,8 +2188,6 @@
       window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
     };
 
-    // If Silent Background Mode is enabled, do NOT call window.close()!
-    // Switch to Panda Partner via Intent while keeping Billu alive in the background.
     if (isSilentBgEnabled()) {
       ensureAudioKeepAliveRunning();
       triggerIntent();
@@ -2393,7 +2421,7 @@
   async function feedPaper5mm() {
     if (isPrinting) return;
     if (!writeChar) {
-      const ok = await attemptAutoReconnect();
+      const ok = await attemptAutoReconnect(3);
       if (!ok && !writeChar) {
         await pairNewPrinter();
         if (!writeChar) return;
