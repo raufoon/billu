@@ -11,104 +11,355 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     :root {
-      --bg: #1F2937; --surface: #111827; --card: #FFFFFF;
-      --blue: #2563EB; --amber: #D97706; --green: #10B981;
-      --red: #EF4444; --gray-btn: #4B5563; --fp-pink: #D70F64;
+      --bg: #1F2937;
+      --surface: #111827;
+      --card: #FFFFFF;
+      --blue: #2563EB;
+      --amber: #D97706;
+      --green: #10B981;
+      --red: #EF4444;
+      --gray-btn: #4B5563;
+      --fp-pink: #D70F64;
     }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-user-select: none; }
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #F9FAFB; }
-    .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 54px; background: var(--surface); display: flex; align-items: center; gap: 12px; padding: 0 16px; z-index: 30; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: var(--bg); color: #F9FAFB;
+    }
+
+    /* 1. STICKY TOP BRIGHTNESS SLIDER */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 54px;
+      background: var(--surface); display: flex; align-items: center;
+      gap: 12px; padding: 0 16px; z-index: 30;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
     .top-bar span { font-size: 14px; font-weight: 600; white-space: nowrap; }
     .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; }
-    #viewport { position: fixed; top: 54px; bottom: 84px; left: 0; right: 0; overflow: hidden; touch-action: none; display: flex; align-items: flex-start; justify-content: flex-start; background: #374151; }
-    #canvasTransform { transform-origin: 0 0; will-change: transform; display: none; }
-    #printCanvas { display: block; background: #FFFFFF; box-shadow: 0 4px 20px rgba(0,0,0,0.45); }
-    #emptyStateContainer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; z-index: 20; gap: 14px; }
-    #bigChooseFileBtn { width: 100%; max-width: 340px; min-height: 170px; background: var(--blue); color: #FFFFFF; border: 2px dashed rgba(255,255,255,0.45); border-radius: 24px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,0.45); transition: transform 0.1s ease; text-align: center; }
+
+    /* 2. INTERACTIVE VIEWPORT */
+    #viewport {
+      position: fixed; top: 54px; bottom: 84px; left: 0; right: 0;
+      overflow: hidden; touch-action: none;
+      display: flex; align-items: flex-start; justify-content: flex-start;
+      background: #374151;
+    }
+    #canvasTransform {
+      transform-origin: 0 0;
+      will-change: transform;
+      display: none;
+    }
+    #printCanvas {
+      display: block; background: #FFFFFF;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+    }
+
+    /* CENTER BIG BUTTON WHEN NO FILE IS OPEN */
+    #emptyStateContainer {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; z-index: 20; gap: 14px;
+    }
+    #bigChooseFileBtn {
+      width: 100%; max-width: 340px; min-height: 170px;
+      background: var(--blue); color: #FFFFFF;
+      border: 2px dashed rgba(255,255,255,0.45);
+      border-radius: 24px; padding: 24px 20px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; cursor: pointer;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+      transition: transform 0.1s ease, background 0.15s ease;
+      text-align: center;
+    }
     #bigChooseFileBtn:active { transform: scale(0.97); }
     #bigChooseFileBtn .big-icon { font-size: 42px; line-height: 1; }
     #bigChooseFileBtn .big-title { font-size: 20px; font-weight: 800; line-height: 1.25; }
     #bigChooseFileBtn .big-sub { font-size: 13px; color: #DBEAFE; font-weight: 500; }
-    .version-pill { font-size: 11px; color: #9CA3AF; background: rgba(17,24,39,0.75); padding: 5px 12px; border-radius: 99px; border: 1px solid #374151; text-align: center; }
-    #statusBanner { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.92); color: #E5E7EB; padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 600; pointer-events: none; z-index: 25; white-space: nowrap; border: 1px solid rgba(75,85,99,0.6); max-width: calc(100% - 130px); overflow: hidden; text-overflow: ellipsis; }
-    #toastStack { position: fixed; top: 92px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 9999; width: 92%; max-width: 360px; }
-    .toast-pill { pointer-events: none; background: rgba(17, 24, 39, 0.94); color: #F9FAFB; border: 1px solid #4B5563; border-radius: 12px; padding: 7px 13px; font-size: 12px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.55); text-align: center; line-height: 1.3; animation: toastIn 0.18s ease-out; transition: opacity 0.25s ease, transform 0.25s ease; }
+
+    .version-pill {
+      font-size: 11px; color: #9CA3AF; background: rgba(17,24,39,0.75);
+      padding: 5px 12px; border-radius: 99px; border: 1px solid #374151;
+      text-align: center;
+    }
+
+    /* PERSISTENT STATUS BANNER + NON-INTERACTABLE TOOLTIP TOAST STACK */
+    #statusBanner {
+      position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      background: rgba(17,24,39,0.92); color: #E5E7EB;
+      padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 600;
+      pointer-events: none; z-index: 25; white-space: nowrap;
+      border: 1px solid rgba(75,85,99,0.6);
+      max-width: calc(100% - 130px); overflow: hidden; text-overflow: ellipsis;
+    }
+
+    #toastStack {
+      position: fixed; top: 92px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      pointer-events: none; z-index: 9999; width: 92%; max-width: 360px;
+    }
+    .toast-pill {
+      pointer-events: none;
+      background: rgba(17, 24, 39, 0.94); color: #F9FAFB;
+      border: 1px solid #4B5563; border-radius: 12px;
+      padding: 7px 13px; font-size: 12px; font-weight: 700;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+      text-align: center; line-height: 1.3;
+      animation: toastIn 0.18s ease-out;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
     .toast-pill.toast-success { border-color: var(--green); color: #A7F3D0; }
     .toast-pill.toast-warn { border-color: var(--amber); color: #FDE68A; }
     .toast-pill.toast-error { border-color: var(--red); color: #FECACA; }
-    @keyframes toastIn { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    #fpModalBackdrop { position: fixed; top: 54px; bottom: 84px; left: 0; right: 0; z-index: 80; background: rgba(17, 24, 39, 0.82); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 18px; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND B64 ERROR DIAGNOSTIC) */
+    #fpModalBackdrop {
+      position: fixed; top: 54px; bottom: 84px; left: 0; right: 0; z-index: 80;
+      background: rgba(17, 24, 39, 0.82); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      padding: 18px;
+    }
     #fpModalBackdrop.active { display: flex; }
-    .fp-modal-card { position: relative; width: 100%; max-width: 360px; background: #111827; border: 2px solid var(--fp-pink); border-radius: 24px; padding: 24px 18px 20px 18px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.75); }
-    .fp-modal-close-x { position: absolute; top: 12px; left: 12px; width: 38px; height: 38px; border-radius: 99px; border: 1px solid #4B5563; background: #1F2937; color: #F9FAFB; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .fp-modal-card {
+      position: relative;
+      width: 100%; max-width: 360px;
+      background: #111827; border: 2px solid var(--fp-pink);
+      border-radius: 24px; padding: 24px 18px 20px 18px;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; gap: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.75);
+    }
+    .fp-modal-close-x {
+      position: absolute; top: 12px; left: 12px;
+      width: 38px; height: 38px; border-radius: 99px;
+      border: 1px solid #4B5563; background: #1F2937; color: #F9FAFB;
+      font-size: 18px; font-weight: 900; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fp-modal-close-x:active { transform: scale(0.92); }
     .fp-modal-icon { font-size: 44px; line-height: 1; }
     .fp-modal-title { font-size: 21px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
     .fp-modal-sub { font-size: 14px; color: #D1D5DB; font-weight: 600; line-height: 1.4; }
-    .fp-modal-actions { display: flex; width: 100%; gap: 12px; margin-top: 4px; }
-    .fp-modal-btn { flex: 1; padding: 16px 12px; border-radius: 16px; border: none; font-size: 18px; font-weight: 900; cursor: pointer; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .fp-modal-actions {
+      display: flex; width: 100%; gap: 12px; margin-top: 4px;
+    }
+    .fp-modal-btn {
+      flex: 1; padding: 16px 12px; border-radius: 16px; border: none;
+      font-size: 18px; font-weight: 900; cursor: pointer; color: #FFFFFF;
+      transition: transform 0.1s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .fp-modal-btn:active { transform: scale(0.96); }
     .fp-btn-yes { background: var(--green); }
-    .fp-btn-pink-big { width: 100%; padding: 18px 16px; font-size: 20px; background: var(--fp-pink); color: #FFFFFF; box-shadow: 0 6px 20px rgba(215, 15, 100, 0.45); }
+    .fp-btn-pink-big {
+      width: 100%; padding: 18px 16px; font-size: 20px;
+      background: var(--fp-pink); color: #FFFFFF;
+      box-shadow: 0 6px 20px rgba(215, 15, 100, 0.45);
+    }
     .fp-btn-no { background: #374151; color: #E5E7EB; }
-    .fp-error-box { width: 100%; max-height: 140px; overflow-y: auto; background: #1F2937; border: 1px solid #374151; border-radius: 10px; padding: 8px 10px; font-family: monospace; font-size: 11px; color: #FCA5A5; text-align: left; word-break: break-all; }
-    #vaultOverlay { position: fixed; inset: 0; z-index: 95; background: #111827; display: none; flex-direction: column; padding: 16px; gap: 12px; }
+    .fp-error-box {
+      width: 100%; max-height: 140px; overflow-y: auto;
+      background: #1F2937; border: 1px solid #374151; border-radius: 10px;
+      padding: 8px 10px; font-family: monospace; font-size: 11px;
+      color: #FCA5A5; text-align: left; word-break: break-all;
+    }
+
+    /* INTERNAL RECEIPT VAULT OVERLAY */
+    #vaultOverlay {
+      position: fixed; inset: 0; z-index: 95;
+      background: #111827; display: none; flex-direction: column;
+      padding: 16px; gap: 12px;
+    }
     #vaultOverlay.open { display: flex; }
-    #vaultList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .vault-item { background: #1F2937; border: 1px solid #374151; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    #vaultList {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+    }
+    .vault-item {
+      background: #1F2937; border: 1px solid #374151; border-radius: 14px;
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
     .vault-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .vault-info { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
     .vault-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-    .vault-pill-btn { padding: 7px 11px; border-radius: 10px; border: none; font-weight: 800; font-size: 12px; cursor: pointer; color: #FFFFFF; }
-    .fab { position: fixed; z-index: 35; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 99px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
-    #returnAppBtn { top: 66px; left: 14px; padding: 10px 14px; background: var(--fp-pink); color: #FFFFFF; font-size: 14px; display: none; }
-    #returnAppBtn .app-icon { width: 24px; height: 24px; background: #FFFFFF; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-    #burgerBtn { top: 66px; right: 14px; width: 46px; height: 46px; background: var(--surface); color: #FFFFFF; font-size: 22px; }
-    #printSomethingElseBtn { bottom: 146px; right: 14px; padding: 10px 14px; background: var(--blue); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
-    #fitScreenBtn { bottom: 98px; right: 14px; padding: 10px 14px; background: var(--surface); color: #FFFFFF; font-size: 13px; border: 1px solid #4B5563; display: none; }
-    #optionsOverlay { position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 375px; max-height: calc(100% - 160px); overflow-y: auto; background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px); border: 1px solid #374151; border-radius: 18px; padding: 14px; z-index: 40; display: none; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.65); }
+    .vault-pill-btn {
+      padding: 7px 11px; border-radius: 10px; border: none; font-weight: 800;
+      font-size: 12px; cursor: pointer; color: #FFFFFF;
+    }
+
+    /* 3. FLOATING BUTTONS */
+    .fab {
+      position: fixed; z-index: 35; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 99px; font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      transition: transform 0.1s ease;
+    }
+    .fab:active { transform: scale(0.95); }
+
+    #returnAppBtn {
+      top: 66px; left: 14px; padding: 10px 14px;
+      background: var(--fp-pink); color: #FFFFFF; font-size: 14px;
+      display: none;
+    }
+    #returnAppBtn .app-icon {
+      width: 24px; height: 24px; background: #FFFFFF; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+
+    #burgerBtn {
+      top: 66px; right: 14px; width: 46px; height: 46px;
+      background: var(--surface); color: #FFFFFF; font-size: 22px;
+    }
+
+    /* Blue "Print something else..." button above Fit Screen */
+    #printSomethingElseBtn {
+      bottom: 146px; right: 14px; padding: 10px 14px;
+      background: var(--blue); color: #FFFFFF; font-size: 13px;
+      border: 1px solid rgba(255,255,255,0.28);
+      display: none;
+    }
+
+    #fitScreenBtn {
+      bottom: 98px; right: 14px; padding: 10px 14px;
+      background: var(--surface); color: #FFFFFF; font-size: 13px;
+      border: 1px solid #4B5563;
+      display: none;
+    }
+
+    /* 4. FLOATING OPTIONS MENU */
+    #optionsOverlay {
+      position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 375px;
+      max-height: calc(100% - 160px); overflow-y: auto;
+      background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px);
+      border: 1px solid #374151; border-radius: 18px; padding: 14px;
+      z-index: 40; display: none; flex-direction: column; gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+    }
     #optionsOverlay.open { display: flex; }
-    .opt-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #374151; }
-    .icon-pill { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 99px; border: none; background: #374151; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer; }
-    .opt-row { background: #1F2937; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
-    .opt-row-inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .opt-btn { width: 100%; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    .opt-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 8px; border-bottom: 1px solid #374151;
+    }
+    .icon-pill {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 14px; border-radius: 99px; border: none;
+      background: #374151; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .opt-row {
+      background: #1F2937; border-radius: 12px; padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 8px; font-size: 13px;
+    }
+    .opt-row-inline {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .opt-btn {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: none;
+      font-weight: 700; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .opt-btn:active { transform: scale(0.98); }
     .opt-btn-feed { background: var(--green); color: #FFFFFF; }
     .opt-btn-upload { background: #3B82F6; color: #FFFFFF; }
     .opt-btn-fp { background: var(--fp-pink); color: #FFFFFF; }
-    .opt-btn-path { background: #374151; color: #F3F4F6; text-align: left; justify-content: space-between; font-weight: 600; word-break: break-all; }
+    .opt-btn-path {
+      background: #374151; color: #F3F4F6; text-align: left;
+      justify-content: space-between; font-weight: 600; word-break: break-all;
+    }
     .opt-btn-warn { background: var(--red); color: #FFFFFF; }
-    .opt-input, .opt-select { background: #111827; color: #FFFFFF; border: 1px solid #4B5563; border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 85px; }
+    .opt-input, .opt-select {
+      background: #111827; color: #FFFFFF; border: 1px solid #4B5563;
+      border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 85px;
+    }
     .opt-select { width: auto; flex: 1; }
-    .printer-card { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-    .printer-card.active-printer { border-color: var(--green); background: rgba(16, 185, 129, 0.08); }
-    .printer-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .printer-mac-badge { font-family: monospace; font-size: 11px; color: #93C5FD; background: #1E3A8A; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
-    .printer-card-actions { display: flex; gap: 6px; }
-    .printer-mini-btn { flex: 1; padding: 6px 8px; border-radius: 7px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF; background: #374151; }
-    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 84px; background: var(--surface); padding: 12px 16px; z-index: 90; box-shadow: 0 -2px 10px rgba(0,0,0,0.35); }
-    #mainActionBtn { width: 100%; height: 100%; border: none; border-radius: 16px; font-size: 20px; font-weight: 800; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    /* SAVED PRINTERS LIST CARDS */
+    .printer-card {
+      background: #111827; border: 1px solid #374151; border-radius: 10px;
+      padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .printer-card.active-printer {
+      border-color: var(--green);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .printer-card-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    }
+    .printer-mac-badge {
+      font-family: monospace; font-size: 11px; color: #93C5FD;
+      background: #1E3A8A; padding: 2px 6px; border-radius: 6px; font-weight: 700;
+    }
+    .printer-card-actions {
+      display: flex; gap: 6px;
+    }
+    .printer-mini-btn {
+      flex: 1; padding: 6px 8px; border-radius: 7px; border: none;
+      font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF;
+      background: #374151;
+    }
+
+    /* 5. STICKY BOTTOM SINGLE ACTION BUTTON */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 84px;
+      background: var(--surface); padding: 12px 16px; z-index: 90;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.35);
+    }
+    #mainActionBtn {
+      width: 100%; height: 100%; border: none; border-radius: 16px;
+      font-size: 20px; font-weight: 800; color: #FFFFFF; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
     #mainActionBtn.state-connect { background: var(--blue); }
     #mainActionBtn.state-searching { background: var(--amber); }
     #mainActionBtn.state-print { background: var(--green); }
     #mainActionBtn.state-stop { background: var(--red); }
-    #mainActionBtn.state-disabled { background: var(--gray-btn); color: #9CA3AF; }
+    #mainActionBtn.state-disabled {
+      background: var(--gray-btn);
+      color: #9CA3AF;
+    }
     #mainActionBtn:disabled { opacity: 0.75; cursor: not-allowed; }
-    .dots::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: dotAnim 1.4s infinite steps(4, end); }
-    @keyframes dotAnim { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+    .dots::after {
+      content: '';
+      display: inline-block;
+      width: 1.2em;
+      text-align: left;
+      animation: dotAnim 1.4s infinite steps(4, end);
+    }
+    @keyframes dotAnim {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
   </style>
 </head>
 <body>
 
+  <!-- TOP STICKY BRIGHTNESS SLIDER -->
   <div class="top-bar">
     <span>☀️ Brightness</span>
     <input type="range" id="brightnessSlider" min="40" max="230" value="155" oninput="onBrightnessChange()">
   </div>
 
+  <!-- PERSISTENT STATUS BANNER & NON-INTERACTABLE TOOLTIP TOAST STACK -->
   <div id="statusBanner">Ready</div>
   <div id="toastStack"></div>
 
+  <!-- FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND B64 DIAGNOSTIC ERROR) -->
   <div id="fpModalBackdrop">
+    <!-- Mode 1: Pre-Print Confirmation (Print / Don't Print) -->
     <div class="fp-modal-card" id="fpPrePrintCard" style="display:none;">
-      <button class="fp-modal-close-x" onclick="onFpPrePrintChoice(false)">✕</button>
+      <button class="fp-modal-close-x" onclick="onFpPrePrintChoice(false)" aria-label="Close">✕</button>
       <div class="fp-modal-icon">🐼</div>
       <div class="fp-modal-title" id="fpPrePrintTitle">Print Foodpanda Order?</div>
       <div class="fp-modal-sub" id="fpPrePrintSub">Ready to send receipt to thermal printer</div>
@@ -118,30 +369,37 @@
       </div>
     </div>
 
+    <!-- Mode 2: Post-Print Confirmation (Big Pink Open Panda Partner + Top-Left X) -->
     <div class="fp-modal-card" id="fpPostPrintCard" style="display:none;">
-      <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)">✕</button>
+      <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)" aria-label="Dismiss and stay">✕</button>
       <div class="fp-modal-icon">✅</div>
       <div class="fp-modal-title">Receipt printing complete!</div>
       <div class="fp-modal-sub">
         Click the button to open to Panda Partner or click the cross (X) on the top-left to dismiss this and stay in the Billu app.
       </div>
       <div class="fp-modal-actions">
-        <button class="fp-modal-btn fp-btn-pink-big" onclick="onFpPostPrintChoice(true)">🐼 Open Panda Partner</button>
+        <button class="fp-modal-btn fp-btn-pink-big" onclick="onFpPostPrintChoice(true)">
+          🐼 Open Panda Partner
+        </button>
       </div>
     </div>
 
+    <!-- Mode 3: Explicit Error Modal when Base64 / Order Parsing Fails -->
     <div class="fp-modal-card" id="fpErrorCard" style="display:none; border-color: var(--red);">
-      <button class="fp-modal-close-x" onclick="hideFpModal()">✕</button>
+      <button class="fp-modal-close-x" onclick="hideFpModal()" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">⚠️</div>
       <div class="fp-modal-title" id="fpErrorTitle">Order Data Error</div>
       <div class="fp-modal-sub" id="fpErrorSub">Could not find or parse a valid Base64 order string.</div>
       <div class="fp-error-box" id="fpErrorDetails"></div>
       <div class="fp-modal-actions" style="flex-direction:column;">
-        <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp()">🐼 Open Panda Partner</button>
+        <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp()">
+          🐼 Open Panda Partner
+        </button>
       </div>
     </div>
   </div>
 
+  <!-- BUILT-IN RECEIPT VAULT OVERLAY -->
   <div id="vaultOverlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeVault()">← Back</button>
@@ -157,15 +415,24 @@
     <div id="vaultList"></div>
   </div>
 
+  <!-- FLOATING RETURN TO APP BUTTON -->
   <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
     <span class="app-icon" id="returnAppIcon">🐼</span>
     <span id="returnAppLabel">Foodpanda</span>
   </button>
 
+  <!-- FLOATING BURGER BUTTON -->
   <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
-  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">📂 Print something else...</button>
+
+  <!-- FLOATING BLUE "PRINT SOMETHING ELSE..." BUTTON ABOVE FIT SCREEN -->
+  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">
+    📂 Print something else...
+  </button>
+
+  <!-- FLOATING FIT SCREEN BUTTON -->
   <button id="fitScreenBtn" class="fab" onclick="fitScreen()">⤢ Fit Screen</button>
 
+  <!-- FLOATING OPTIONS MENU -->
   <div id="optionsOverlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeMenu()">← Back</button>
@@ -173,29 +440,43 @@
       <button class="icon-pill" onclick="closeMenu()">☰</button>
     </div>
 
+    <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.7.1</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.7.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <div style="display:flex; gap:6px;">
-        <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="forceUpdatePWA()">🔄 Force Update</button>
-        <button class="opt-btn" style="background:#2563EB; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="enableSystemNotifications()">🔔 System Notifs</button>
+        <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="forceUpdatePWA()">
+          🔄 Force Update
+        </button>
+        <button class="opt-btn" style="background:#2563EB; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="enableSystemNotifications()">
+          🔔 System Notifs
+        </button>
       </div>
     </div>
 
+    <!-- 0. Top Quick Actions: Feed 5mm & Reprint Last -->
     <div class="opt-row">
       <div style="display:flex; gap:8px;">
-        <button id="feedPaperBtn" class="opt-btn opt-btn-feed" style="flex:1;" onclick="feedPaper5mm()">⏫ Feed 5mm</button>
-        <button class="opt-btn" style="background:#D97706; color:#FFFFFF; flex:1;" onclick="reprintLastReceipt()">🔁 Reprint Last</button>
+        <button id="feedPaperBtn" class="opt-btn opt-btn-feed" style="flex:1;" onclick="feedPaper5mm()">
+          ⏫ Feed 5mm
+        </button>
+        <button class="opt-btn" style="background:#D97706; color:#FFFFFF; flex:1;" onclick="reprintLastReceipt()">
+          🔁 Reprint Last
+        </button>
       </div>
     </div>
 
+    <!-- 1. Open Doc / Photo / FP_Log.txt -->
     <div class="opt-row">
       <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf,.txt,text/plain" style="display:none" onchange="handleManualFile(event)">
-      <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">📂 Open Doc / Photo / Log</button>
+      <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
+        📂 Open Doc / Photo / Log
+      </button>
     </div>
 
+    <!-- 2. Master Checkbox + Foodpanda Pipeline Sub-Options -->
     <div class="opt-row" style="border: 1px solid #D70F64;">
       <label style="font-weight:800; color:#F472B6; font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input type="checkbox" id="fpMasterEnable" onchange="saveFpMasterToggle()">
@@ -203,11 +484,17 @@
       </label>
 
       <div id="fpPipelineSubOptions" style="display:none; flex-direction:column; gap:8px; margin-top:4px; padding-top:8px; border-top:1px solid #374151;">
-        <button class="opt-btn opt-btn-fp" onclick="openVault()">🗄️ Saved Receipts Vault (<span id="vaultCountBadge">0</span>)</button>
+        <button class="opt-btn opt-btn-fp" onclick="openVault()">
+          🗄️ Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
+        </button>
+
+        <!-- Auto-Print when coming from Panda Partner -->
         <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
           ⚡ Auto-Print if coming from Panda Partner
         </label>
+
+        <!-- Auto-Return to Panda Partner + Before/After Sub-option -->
         <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
           ↩️ Auto-Return to Panda Partner
@@ -219,10 +506,14 @@
             <option value="before">Before Print Finishes (As Print Starts)</option>
           </select>
         </div>
+
+        <!-- Silent Background Mode (127.0.0.1) -->
         <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
           🛡️ Silent Background Mode (b64 Local)
         </label>
+
+        <!-- Copies & Font Size & Voice QoL -->
         <div class="opt-row-inline">
           <span style="font-weight:600;">Print Copies:</span>
           <select id="fpPrintCopies" class="opt-select" onchange="saveFpPromptSettings()">
@@ -241,27 +532,41 @@
           <input type="checkbox" id="fpVoiceSpeak" onchange="saveFpPromptSettings()">
           🗣️ Speak Order Status Out Loud
         </label>
+
+        <!-- Google Drive One-Way Sync Settings -->
         <div style="border-top:1px solid #374151; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
           <div style="font-weight:800; color:#93C5FD; font-size:12px;">☁️ Google Drive One-Way Sync (No Repeats)</div>
           <input type="text" id="gdriveWebhookInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Paste Google Apps Script Web App URL" onchange="saveFpPromptSettings()">
           <input type="text" id="gdriveFolderIdInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Optional: Specific Google Drive Folder ID" onchange="saveFpPromptSettings()">
         </div>
-        <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">🧪 Load Sample Order (#JQBY Test)</button>
+
+        <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
+          🧪 Load Sample Order (#JQBY Test)
+        </button>
       </div>
     </div>
 
+    <!-- 3. Multi-Printer Manager (MAC/ID Display, Rename, Manual Connect, Forget All) -->
     <div class="opt-row" style="border: 1px solid #3B82F6;">
       <div class="opt-row-inline">
         <span style="font-weight:800; color:#93C5FD;">🖨️ Printer Manager</span>
         <span id="savedPrinterLabel" style="color:#10B981; font-size:11px; font-weight:700;">Active: None</span>
       </div>
+      <div style="font-size:11px; color:#9CA3AF;">
+        Strictly connects to your selected Active Printer (never falls back to old printers).
+      </div>
       <div id="savedPrintersList" style="display:flex; flex-direction:column; gap:6px;"></div>
       <div style="display:flex; gap:6px;">
-        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">➕ Pair New Printer</button>
-        <button class="opt-btn opt-btn-warn" style="flex:1;" onclick="forgetAllPrinters()">🗑️ Forget All</button>
+        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">
+          ➕ Pair New Printer
+        </button>
+        <button class="opt-btn opt-btn-warn" style="flex:1;" onclick="forgetAllPrinters()">
+          🗑️ Forget All
+        </button>
       </div>
     </div>
 
+    <!-- 4. Separate Before & After Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginBeforeMmInput" style="font-weight:600;">Before Margin (mm):</label>
@@ -273,6 +578,7 @@
       </div>
     </div>
 
+    <!-- 5. Stamp -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
@@ -290,6 +596,7 @@
       </button>
     </div>
 
+    <!-- 6. Return App Button Option -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="returnAppSelect" style="font-weight:600;">Return Button:</label>
@@ -307,6 +614,7 @@
     </div>
   </div>
 
+  <!-- INTERACTIVE PREVIEW VIEWPORT -->
   <div id="viewport">
     <div id="emptyStateContainer">
       <button id="bigChooseFileBtn" onclick="document.getElementById('manualFileInput').click()">
@@ -314,20 +622,27 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.7.1</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.7.0</div>
     </div>
+
     <div id="canvasTransform">
       <canvas id="printCanvas" width="384" height="300"></canvas>
     </div>
   </div>
 
+  <!-- STICKY BOTTOM SINGLE BUTTON -->
   <div class="bottom-bar">
-    <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>Print</button>
+    <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>
+      Print
+    </button>
   </div>
 
 <script>
-  const APP_VERSION = 'v3.7.1';
-  const APP_UPDATED_DHAKA = '23 Oct 2026, 09:15 AM (Dhaka)';
+  // ============================================================================
+  // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
+  // ============================================================================
+  const APP_VERSION = 'v3.7.0';
+  const APP_UPDATED_DHAKA = '23 Oct 2026, 08:10 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -342,12 +657,13 @@
 
   let writeChar = null;
   let activeBleDevice = null;
-  let cachedBleDeviceMap = new Map();
+  let cachedBleDeviceMap = new Map(); // Pre-cached BluetoothDevice handles for instant background access
   let isPrinting = false;
   let cancelPrintRequested = false;
   let isConnecting = false;
-  let connectStartTime = 0;
-  let bleLoopRunning = false;
+  let connectGeneration = 0;
+  let lastConnectEndTime = 0;
+  let adAbortController = null;
   let reconnectTimer = null;
   let pendingPrintJob = false;
 
@@ -369,9 +685,16 @@
   let lastBlePingTime = 0;
   let wakeLockSentinel = null;
 
-  let viewScale = 1, viewPanX = 0, viewPanY = 0;
+  let viewScale = 1;
+  let viewPanX = 0;
+  let viewPanY = 0;
   let activeTouches = new Map();
-  let lastPinchDist = null, lastPinchCenter = null;
+  let lastPinchDist = null;
+  let lastPinchCenter = null;
+
+  // ============================================================================
+  // TINY NON-INTERACTABLE TOOLTIP TOASTS + ANDROID SYSTEM NOTIFICATIONS
+  // ============================================================================
 
   function setStatus(msg) {
     document.getElementById('statusBanner').innerText = msg;
@@ -386,7 +709,9 @@
         pill.className = `toast-pill toast-${type}`;
         pill.innerText = msg;
         stack.appendChild(pill);
-        while (stack.children.length > 3) stack.removeChild(stack.firstChild);
+        while (stack.children.length > 3) {
+          stack.removeChild(stack.firstChild);
+        }
         setTimeout(() => {
           pill.style.opacity = '0';
           pill.style.transform = 'translateY(-6px)';
@@ -411,9 +736,16 @@
   }
 
   async function enableSystemNotifications() {
-    if (!('Notification' in window)) return showToast('System notifications not supported', 'warn');
+    if (!('Notification' in window)) {
+      showToast('System notifications not supported on this browser', 'warn');
+      return;
+    }
     const perm = await Notification.requestPermission();
-    showToast(perm === 'granted' ? '🔔 Android System Notifications enabled!' : 'Notification permission denied', perm === 'granted' ? 'success' : 'warn', true);
+    if (perm === 'granted') {
+      showToast('🔔 Android System Notifications enabled!', 'success', true);
+    } else {
+      showToast('Notification permission denied', 'warn');
+    }
   }
 
   function speakStatus(text) {
@@ -453,7 +785,10 @@
 
   function releaseWakeLock() {
     try {
-      if (wakeLockSentinel) { wakeLockSentinel.release(); wakeLockSentinel = null; }
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release();
+        wakeLockSentinel = null;
+      }
     } catch (e) {}
   }
 
@@ -468,7 +803,11 @@
         const keys = await caches.keys();
         for (const k of keys) await caches.delete(k);
       }
-      await fetch(window.location.pathname, { cache: 'reload' });
+      const fresh = await fetch(window.location.pathname, { cache: 'reload' });
+      if (fresh.ok) {
+        window.location.reload();
+        return;
+      }
     } catch (e) {}
     window.location.reload();
   }
@@ -502,8 +841,9 @@
     });
   }
 
-  // Unthrottled sleep: uses setTimeout in foreground, and unthrottled fetch('data:...') in background
-  async function sleep(ms) {
+  const delayMs = (ms) => new Promise(r => setTimeout(r, ms));
+
+  async function printRowSleep(ms) {
     if (!document.hidden) {
       return new Promise(r => setTimeout(r, ms));
     }
@@ -520,21 +860,27 @@
   function computeMacTag(deviceId, hwName = '') {
     const macInName = String(hwName || '').match(/([0-9A-Fa-f]{2}[:-]){2,5}[0-9A-Fa-f]{2}/);
     if (macInName) return macInName[0].toUpperCase();
+
     const str = String(deviceId || '000000');
     let h1 = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
       h1 ^= str.charCodeAt(i);
       h1 = Math.imul(h1, 0x01000193) >>> 0;
     }
-    return [((h1 >>> 16) & 0xFF), ((h1 >>> 8) & 0xFF), (h1 & 0xFF)]
-      .map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
+    const b1 = ((h1 >>> 16) & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    const b2 = ((h1 >>> 8) & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    const b3 = (h1 & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    return `${b1}:${b2}:${b3}`;
   }
 
   function getPrinterRegistry() {
     try {
-      const list = JSON.parse(localStorage.getItem('cat_printer_registry') || '[]');
+      const raw = localStorage.getItem('cat_printer_registry');
+      const list = raw ? JSON.parse(raw) : [];
       return Array.isArray(list) ? list : [];
-    } catch (e) { return []; }
+    } catch (e) {
+      return [];
+    }
   }
 
   function savePrinterRegistry(list) {
@@ -548,7 +894,13 @@
     const macTag = computeMacTag(device.id, device.name);
     let entry = list.find(p => p.id === device.id);
     if (!entry) {
-      entry = { id: device.id, hwName: device.name || 'Thermal Printer', customName: '', macTag, lastConnected: Date.now() };
+      entry = {
+        id: device.id,
+        hwName: device.name || 'Thermal Printer',
+        customName: '',
+        macTag,
+        lastConnected: Date.now()
+      };
       list.push(entry);
     } else {
       if (device.name) entry.hwName = device.name;
@@ -564,13 +916,15 @@
 
   function getPrinterDisplayLabel(deviceOrId) {
     const id = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId && deviceOrId.id);
-    const entry = getPrinterRegistry().find(p => p.id === id);
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === id);
     if (entry) {
       const title = entry.customName ? `${entry.customName} (${entry.hwName})` : entry.hwName;
       return `${title} [${entry.macTag}]`;
     }
     if (deviceOrId && typeof deviceOrId === 'object') {
-      return `${deviceOrId.name || 'Printer'} [${computeMacTag(deviceOrId.id, deviceOrId.name)}]`;
+      const mac = computeMacTag(deviceOrId.id, deviceOrId.name);
+      return `${deviceOrId.name || 'Printer'} [${mac}]`;
     }
     return 'None';
   }
@@ -579,43 +933,53 @@
     const list = getPrinterRegistry();
     const entry = list.find(p => p.id === printerId);
     if (!entry) return;
-    const nextName = prompt(`Enter a nickname for ${entry.hwName} [${entry.macTag}]:`, entry.customName || entry.hwName);
+    const nextName = prompt(
+      `Enter a nickname for ${entry.hwName} [${entry.macTag}]:`,
+      entry.customName || entry.hwName
+    );
     if (nextName === null) return;
     entry.customName = nextName.trim();
     savePrinterRegistry(list);
-    if (getSavedPrinterId() === printerId) localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    if (getSavedPrinterId() === printerId) {
+      localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    }
     renderPrinterManagerList();
     updateMainButtonUI();
     showToast(`✏️ Renamed printer to ${getPrinterDisplayLabel(printerId)}`, 'success');
   }
 
   async function selectAndConnectPrinterFromList(printerId) {
-    const entry = getPrinterRegistry().find(p => p.id === printerId);
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
     if (!entry) return;
-    if (activeBleDevice && activeBleDevice.id !== printerId && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
-      activeBleDevice.gatt.disconnect();
-    }
-    writeChar = null;
-    activeBleDevice = null;
-    isConnecting = false;
+
+    hardAbortPendingBle();
+
     localStorage.setItem('cat_printer_id', entry.id);
     localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
     renderPrinterManagerList();
     updateMainButtonUI();
+
     showToast(`🔍 Switching to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
-    await attemptAutoReconnect(2, false);
+    const ok = await attemptAutoReconnect(false);
+    if (!ok) {
+      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)} — make sure it is turned ON`, 'warn');
+    }
   }
 
   async function removeSingleSavedPrinter(printerId) {
-    let list = getPrinterRegistry().filter(p => p.id !== printerId);
+    let list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    list = list.filter(p => p.id !== printerId);
     savePrinterRegistry(list);
     cachedBleDeviceMap.delete(printerId);
+
     try {
       if (navigator.bluetooth && navigator.bluetooth.getDevices) {
         const devs = await navigator.bluetooth.getDevices();
         const match = devs.find(d => d.id === printerId);
         if (match) {
-          if (match.gatt && match.gatt.connected) match.gatt.disconnect();
+          if (match.gatt) match.gatt.disconnect();
           if (typeof match.forget === 'function') await match.forget().catch(() => {});
         }
       }
@@ -633,25 +997,26 @@
         localStorage.removeItem('cat_printer_name');
       }
     }
+
     renderPrinterManagerList();
     updateMainButtonUI();
+    showToast(`🗑️ Removed printer ${entry ? entry.hwName : ''}`, 'info');
   }
 
   async function forgetAllPrinters() {
     if (!confirm('Forget all saved Bluetooth printers? You will need to pair again next time.')) return;
+    hardAbortPendingBle();
     cachedBleDeviceMap.clear();
     try {
       if (navigator.bluetooth && navigator.bluetooth.getDevices) {
         const devs = await navigator.bluetooth.getDevices();
         for (const d of devs) {
-          if (d.gatt && d.gatt.connected) d.gatt.disconnect();
+          if (d.gatt) d.gatt.disconnect();
           if (typeof d.forget === 'function') await d.forget().catch(() => {});
         }
       }
     } catch (e) {}
-    writeChar = null;
-    activeBleDevice = null;
-    isConnecting = false;
+
     localStorage.removeItem('cat_printer_id');
     localStorage.removeItem('cat_printer_name');
     savePrinterRegistry([]);
@@ -665,25 +1030,29 @@
     if (!container) return;
     const list = getPrinterRegistry();
     const activeId = getSavedPrinterId();
+
     if (list.length === 0) {
       container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:6px;">No printers saved yet. Tap "Pair New Printer" below.</div>';
       return;
     }
+
     container.innerHTML = '';
     for (const p of list) {
       const isAct = p.id === activeId;
       const isConn = isAct && Boolean(writeChar);
       const card = document.createElement('div');
       card.className = 'printer-card' + (isAct ? ' active-printer' : '');
+
+      const top = document.createElement('div');
+      top.className = 'printer-card-top';
       const displayTitle = p.customName ? `${p.customName} (${p.hwName})` : p.hwName;
-      card.innerHTML = `
-        <div class="printer-card-top">
-          <div style="font-weight:800; font-size:12px; color:#FFFFFF; word-break:break-word;">
-            ${isConn ? '🟢 ' : (isAct ? '🟡 ' : '⚪ ')}${displayTitle}
-          </div>
-          <span class="printer-mac-badge">MAC/ID ${p.macTag}</span>
+      top.innerHTML = `
+        <div style="font-weight:800; font-size:12px; color:#FFFFFF; word-break:break-word;">
+          ${isConn ? '🟢 ' : (isAct ? '🟡 ' : '⚪ ')}${displayTitle}
         </div>
+        <span class="printer-mac-badge">MAC/ID ${p.macTag}</span>
       `;
+
       const actions = document.createElement('div');
       actions.className = 'printer-card-actions';
 
@@ -705,7 +1074,11 @@
       delBtn.innerText = '✕';
       delBtn.onclick = () => removeSingleSavedPrinter(p.id);
 
-      actions.append(connBtn, renBtn, delBtn);
+      actions.appendChild(connBtn);
+      actions.appendChild(renBtn);
+      actions.appendChild(delBtn);
+
+      card.appendChild(top);
       card.appendChild(actions);
       container.appendChild(card);
     }
@@ -716,7 +1089,14 @@
   // ============================================================================
 
   function pdfCleanStr(str) {
-    return String(str || '').replace(/৳/g, 'Tk ').replace(/[\u2022•]/g, '-').replace(/[^\x20-\x7E]/g, '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    if (!str) return '';
+    return String(str)
+      .replace(/৳/g, 'Tk ')
+      .replace(/[\u2022•]/g, '-')
+      .replace(/[^\x20-\x7E]/g, '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
   }
 
   function wrapPdfLine(text, maxChars) {
@@ -724,8 +1104,12 @@
     const out = [];
     let cur = '';
     for (const w of words) {
-      if ((cur + ' ' + w).trim().length > maxChars && cur) { out.push(cur.trim()); cur = w; }
-      else { cur = (cur + ' ' + w).trim(); }
+      if ((cur + ' ' + w).trim().length > maxChars && cur) {
+        out.push(cur.trim());
+        cur = w;
+      } else {
+        cur = (cur + ' ' + w).trim();
+      }
     }
     if (cur) out.push(cur.trim());
     return out.length ? out : [''];
@@ -735,64 +1119,146 @@
     const pageW = 164;
     const ops = [];
     let yCursor = 16;
-    const addText = (txt, x, yTop, size = 9, bold = false) => ops.push({ type: 'text', txt: pdfCleanStr(txt), x, yTop, size, bold });
+
+    const addText = (txt, x, yTop, size = 9, bold = false) => {
+      ops.push({ type: 'text', txt: pdfCleanStr(txt), x, yTop, size, bold });
+    };
     const addCenterText = (txt, yTop, size = 9, bold = false) => {
       const clean = pdfCleanStr(txt);
       const estW = clean.length * size * (bold ? 0.56 : 0.52);
-      ops.push({ type: 'text', txt: clean, x: Math.max(6, (pageW - estW) / 2), yTop, size, bold });
+      const x = Math.max(6, (pageW - estW) / 2);
+      ops.push({ type: 'text', txt: clean, x, yTop, size, bold });
     };
     const addRightText = (txt, yTop, size = 9, bold = false) => {
       const clean = pdfCleanStr(txt);
       const estW = clean.length * size * (bold ? 0.56 : 0.52);
-      ops.push({ type: 'text', txt: clean, x: Math.max(6, pageW - 6 - estW), yTop, size, bold });
+      const x = Math.max(6, pageW - 6 - estW);
+      ops.push({ type: 'text', txt: clean, x, yTop, size, bold });
     };
-    const addRule = (yTop, thick = false) => ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
+    const addRule = (yTop, thick = false) => {
+      ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
+    };
 
-    addCenterText((data.restaurant || 'TASTY PATIL').toUpperCase(), yCursor, 12, true); yCursor += 14;
-    const dtStr = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dhaka' });
-    addCenterText(dtStr, yCursor, 7.5, false); yCursor += 10;
-    if (data.isHistory) { addCenterText('[ ORDER HISTORY / REPRINT ]', yCursor, 7, true); yCursor += 10; }
-    addRule(yCursor, true); yCursor += 18;
-    if (data.orderNo) { addCenterText(data.orderNo, yCursor, 20, true); yCursor += 16; }
-    if (data.orderCode) { addCenterText(data.orderCode, yCursor, 9.5, true); yCursor += 10; }
+    addCenterText((data.restaurant || 'TASTY PATIL').toUpperCase(), yCursor, 12, true);
+    yCursor += 14;
+
+    const dtStr = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: 'Asia/Dhaka'
+    });
+    addCenterText(dtStr, yCursor, 7.5, false);
+    yCursor += 10;
+
+    if (data.isHistory) {
+      addCenterText('[ ORDER HISTORY / REPRINT ]', yCursor, 7, true);
+      yCursor += 10;
+    }
+
+    addRule(yCursor, true);
+    yCursor += 18;
+
+    if (data.orderNo) {
+      addCenterText(data.orderNo, yCursor, 20, true);
+      yCursor += 16;
+    }
+    if (data.orderCode) {
+      addCenterText(data.orderCode, yCursor, 9.5, true);
+      yCursor += 10;
+    }
 
     if (data.customer || data.prepTime || data.orderReceivedTime) {
-      addRule(yCursor, false); yCursor += 12;
-      if (data.customer) { for (const l of wrapPdfLine('Customer: ' + data.customer, 26)) { addText(l, 6, yCursor, 8.5, true); yCursor += 11; } }
-      if (data.prepTime) { addText('Ready By: ' + data.prepTime, 6, yCursor, 8.5, true); yCursor += 11; }
-      else if (data.orderReceivedTime) { addText('Ordered At: ' + data.orderReceivedTime, 6, yCursor, 8, false); yCursor += 11; }
+      addRule(yCursor, false);
+      yCursor += 12;
+      if (data.customer) {
+        for (const l of wrapPdfLine('Customer: ' + data.customer, 26)) {
+          addText(l, 6, yCursor, 8.5, true);
+          yCursor += 11;
+        }
+      }
+      if (data.prepTime) {
+        addText('Ready By: ' + data.prepTime, 6, yCursor, 8.5, true);
+        yCursor += 11;
+      } else if (data.orderReceivedTime) {
+        addText('Ordered At: ' + data.orderReceivedTime, 6, yCursor, 8, false);
+        yCursor += 11;
+      }
     }
-    addRule(yCursor, false); yCursor += 13;
+
+    addRule(yCursor, false);
+    yCursor += 13;
 
     for (const item of (data.items || [])) {
       addText(item.qty || '1x', 6, yCursor, 9, true);
-      if (item.price) addRightText(item.price, yCursor, 9, true);
-      for (const nl of wrapPdfLine(item.name || '', 17)) { addText(nl, 24, yCursor, 8.5, false); yCursor += 11; }
+      if (item.price) {
+        addRightText(item.price, yCursor, 9, true);
+      }
+      const wrappedName = wrapPdfLine(item.name || '', 17);
+      for (const nl of wrappedName) {
+        addText(nl, 24, yCursor, 8.5, false);
+        yCursor += 11;
+      }
       yCursor += 3;
     }
+
     for (const note of (data.notes || [])) {
       yCursor += 2;
-      for (const nl of wrapPdfLine('! ' + note + ' !', 24)) { addCenterText(nl, yCursor, 8, true); yCursor += 11; }
+      for (const nl of wrapPdfLine('! ' + note + ' !', 24)) {
+        addCenterText(nl, yCursor, 8, true);
+        yCursor += 11;
+      }
     }
-    addRule(yCursor, false); yCursor += 13;
 
-    if (data.subtotal && data.subtotal !== data.total) { addText('Subtotal', 6, yCursor, 8.5, false); addRightText(data.subtotal, yCursor, 8.5, false); yCursor += 12; }
-    if (data.vat) { addText('VAT', 6, yCursor, 8.5, false); addRightText(data.vat, yCursor, 8.5, false); yCursor += 12; }
-    for (const d of (data.discounts || [])) { addText(d.label, 6, yCursor, 8, false); addRightText(d.amount, yCursor, 8, false); yCursor += 11; }
-    const finalTotal = data.total || data.subtotal || '';
-    if (finalTotal) { addText('TOTAL', 6, yCursor, 11, true); addRightText(finalTotal, yCursor, 11, true); yCursor += 14; }
-    if (data.payment || data.deliveryType) {
-      addRule(yCursor, false); yCursor += 12;
-      for (const pl of wrapPdfLine([data.payment, data.deliveryType].filter(Boolean).join(' - '), 26)) { addCenterText(pl, yCursor, 8, true); yCursor += 10; }
+    addRule(yCursor, false);
+    yCursor += 13;
+
+    if (data.subtotal && data.subtotal !== data.total) {
+      addText('Subtotal', 6, yCursor, 8.5, false);
+      addRightText(data.subtotal, yCursor, 8.5, false);
+      yCursor += 12;
     }
+    if (data.vat) {
+      addText('VAT', 6, yCursor, 8.5, false);
+      addRightText(data.vat, yCursor, 8.5, false);
+      yCursor += 12;
+    }
+    for (const d of (data.discounts || [])) {
+      addText(d.label, 6, yCursor, 8, false);
+      addRightText(d.amount, yCursor, 8, false);
+      yCursor += 11;
+    }
+
+    const finalTotal = data.total || data.subtotal || '';
+    if (finalTotal) {
+      addText('TOTAL', 6, yCursor, 11, true);
+      addRightText(finalTotal, yCursor, 11, true);
+      yCursor += 14;
+    }
+
+    if (data.payment || data.deliveryType) {
+      addRule(yCursor, false);
+      yCursor += 12;
+      const payStr = [data.payment, data.deliveryType].filter(Boolean).join(' - ');
+      for (const pl of wrapPdfLine(payStr, 26)) {
+        addCenterText(pl, yCursor, 8, true);
+        yCursor += 10;
+      }
+    }
+
     addRule(yCursor, true);
     const pageH = Math.max(200, yCursor + 20);
-    const streamLines = ops.map(op => {
+
+    const streamLines = [];
+    for (const op of ops) {
       const pdfY = (pageH - op.yTop).toFixed(1);
-      return op.type === 'text'
-        ? `BT ${op.bold ? '/F2' : '/F1'} ${op.size} Tf ${op.x.toFixed(1)} ${pdfY} Td (${op.txt}) Tj ET`
-        : `${op.w} w 6 ${pdfY} m ${(pageW - 6).toFixed(1)} ${pdfY} l S`;
-    });
+      if (op.type === 'text') {
+        const fontRef = op.bold ? '/F2' : '/F1';
+        streamLines.push(`BT ${fontRef} ${op.size} Tf ${op.x.toFixed(1)} ${pdfY} Td (${op.txt}) Tj ET`);
+      } else if (op.type === 'line') {
+        streamLines.push(`${op.w} w 6 ${pdfY} m ${(pageW - 6).toFixed(1)} ${pdfY} l S`);
+      }
+    }
+
     const contentStream = streamLines.join('\n');
     const objects = [
       `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
@@ -802,33 +1268,48 @@
       `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n`,
       `6 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream\nendobj\n`
     ];
+
     let pdf = `%PDF-1.4\n`;
     const offsets = [0];
-    for (const obj of objects) { offsets.push(pdf.length); pdf += obj; }
+    for (const obj of objects) {
+      offsets.push(pdf.length);
+      pdf += obj;
+    }
     const xrefOffset = pdf.length;
     pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-    for (let i = 1; i <= objects.length; i++) pdf += String(offsets[i]).padStart(10, '0') + ` 00000 n \n`;
+    for (let i = 1; i <= objects.length; i++) {
+      pdf += String(offsets[i]).padStart(10, '0') + ` 00000 n \n`;
+    }
     pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
     return new Blob([pdf], { type: 'application/pdf' });
   }
 
   // ============================================================================
-  // UNIVERSAL FOODPANDA PARSER
+  // UNIVERSAL FOODPANDA PARSER (SUPPORTS LIVE "$n" AND ORDER HISTORY "index:n")
   // ============================================================================
 
   function validateFoodpandaText(rawText) {
-    if (!rawText || rawText.trim().length < 8) return { valid: false, reason: 'Empty screen capture text' };
-    if (/Failed to generate|Select printer settings|Was the test print successful/i.test(rawText)) return { valid: false, reason: 'Blocked printer settings error screen' };
+    if (!rawText || rawText.trim().length < 8) {
+      return { valid: false, reason: 'Empty screen capture text' };
+    }
+    if (/Failed to generate|Select printer settings|Was the test print successful/i.test(rawText)) {
+      return { valid: false, reason: 'Blocked printer settings error screen' };
+    }
     const hasOrderNo = /#\d{1,5}\b/.test(rawText);
     const hasCode = /[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/i.test(rawText);
     const hasItems = /(?:^|["\s])\d+\s*[xX\u00D7*](?:["\s]|$)/m.test(rawText);
     const hasPrices = /(?:Subtotal|Total|Order details|৳\s*\d+|\d+\.\d{2})/i.test(rawText);
-    if (!hasOrderNo && !hasCode && !hasItems && !hasPrices) return { valid: false, reason: 'No order ID, food items, or price breakdown found in text' };
+
+    if (!hasOrderNo && !hasCode && !hasItems && !hasPrices) {
+      return { valid: false, reason: 'No order ID, food items, or price breakdown found in text' };
+    }
     return { valid: true };
   }
 
   function extractKeyValuePairsRobust(text) {
-    const firstBrace = text.indexOf('{'), lastBrace = text.lastIndexOf('}');
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace > firstBrace) {
       try {
         const obj = JSON.parse(text.slice(firstBrace, lastBrace + 1));
@@ -839,44 +1320,80 @@
     const kvRegex = /"([^"]*)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
     let m;
     while ((m = kvRegex.exec(text)) !== null) {
-      pairs.push([m[1], m[2].replace(/\\u000a|\\n/gi, '\n').replace(/\\"/g, '"')]);
+      const k = m[1];
+      const v = m[2].replace(/\\u000a|\\n/gi, '\n').replace(/\\"/g, '"');
+      pairs.push([k, v]);
     }
     return pairs;
   }
 
   function parseSingleScreenBlock(blockText) {
-    const res = { restaurant: '', orderNo: '', orderCode: '', prepTime: '', orderReceivedTime: '', customer: '', isHistory: false, items: [], notes: [], discounts: [], subtotal: '', vat: '', total: '', payment: '', deliveryType: '' };
+    const res = {
+      restaurant: '',
+      orderNo: '',
+      orderCode: '',
+      prepTime: '',
+      orderReceivedTime: '',
+      customer: '',
+      isHistory: false,
+      items: [],
+      notes: [],
+      discounts: [],
+      subtotal: '',
+      vat: '',
+      total: '',
+      payment: '',
+      deliveryType: ''
+    };
+
     if (!blockText) return res;
     const working = blockText.replace(/===FP_AUTO===|===TS:\d+===/g, '').trim();
     let lines = [];
+
     const kvPairs = extractKeyValuePairsRobust(working);
     if (kvPairs.length > 0) {
       for (const [k, v] of kvPairs) {
         if (typeof v !== 'string') continue;
-        if (k === 'test_id_customer_name_text') res.customer = v.trim();
-        else if (k === 'test_id_new_order_id') res.orderCode = v.trim().toLowerCase();
-        else if (k === 'test_id_web_view_collapsible_title' && /Order History/i.test(v)) res.isHistory = true;
-        else if (k === 'test_id_prep_time_adjustment_proof_banner') {
+        if (k === 'test_id_customer_name_text') {
+          res.customer = v.trim();
+        } else if (k === 'test_id_new_order_id') {
+          res.orderCode = v.trim().toLowerCase();
+        } else if (k === 'test_id_web_view_collapsible_title' && /Order History/i.test(v)) {
+          res.isHistory = true;
+        } else if (k === 'test_id_prep_time_adjustment_proof_banner') {
           const pm = v.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
           if (pm) res.prepTime = pm[1];
         } else if (!k.startsWith('test_id_')) {
-          lines.push(...v.split(/\r?\n/).map(s => s.trim()).filter(Boolean));
+          const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          lines.push(...splitLines);
         }
       }
     }
+
     if (lines.length === 0) {
-      lines = working.split(/\r?\n/).map(l => l.replace(/^\s*(?:\[\d+\]|\d+|[a-zA-Z0-9_.\/:-]+)\s*[:=]\s*/, '').trim()).filter(Boolean);
+      lines = working
+        .split(/\r?\n/)
+        .map(l => l.replace(/^\s*(?:\[\d+\]|\d+|[a-zA-Z0-9_.\/:-]+)\s*[:=]\s*/, '').trim())
+        .filter(Boolean);
     }
+
     const fullBlock = lines.join('\n');
-    if (/Order History|COMPLETED|Order timeline/i.test(fullBlock)) res.isHistory = true;
+    if (/Order History|COMPLETED|Order timeline/i.test(fullBlock)) {
+      res.isHistory = true;
+    }
+
     const noMatch = fullBlock.match(/#(\d{1,5})\b/);
     if (noMatch) res.orderNo = '#' + noMatch[1];
+
     if (!res.orderCode) {
       const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
       if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
     }
+
     if (!res.prepTime) {
-      const prepMatch = fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i) || fullBlock.match(/Committed preparation time:\s*([0-2]?\d:[0-5]\d)/i);
+      const prepMatch =
+        fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i) ||
+        fullBlock.match(/Committed preparation time:\s*([0-2]?\d:[0-5]\d)/i);
       if (prepMatch) res.prepTime = prepMatch[1];
     }
 
@@ -884,65 +1401,147 @@
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside/i.test(line)) continue;
-      if (/^Tasty Patil/i.test(line)) { if (!res.restaurant) res.restaurant = line.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim(); continue; }
-      if (/^Customer$/i.test(line)) { if (!res.customer && lines[i + 1] && !stopWordsRe.test(lines[i + 1])) res.customer = lines[i + 1]; continue; }
-      if (/^Order received$/i.test(line) && lines[i + 1] && /^[0-2]?\d:[0-5]\d$/.test(lines[i + 1])) { res.orderReceivedTime = lines[i + 1]; continue; }
-      if (/DO NOT PROVIDE CUTLERY|PROVIDE CUTLERY/i.test(line)) { if (!res.notes.includes(line.toUpperCase())) res.notes.push(line.toUpperCase()); continue; }
-      if (/^(?:Delivery Fee Discount|Discount\/Voucher)/i.test(line)) {
-        const nextLine = lines[i + 1] || '';
-        if (/^-?[৳tE5]?\s*\d+(?:\.\d{2})?$/.test(nextLine)) { res.discounts.push({ label: line, amount: nextLine.replace(/[tE5]/, '৳') }); i++; }
+
+      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside/i.test(line)) {
         continue;
       }
-      if (/^Subtotal\b/i.test(line)) { const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/)); if (p) res.subtotal = '৳' + p[1]; continue; }
-      if (/^VAT\b/i.test(line)) { const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/)); if (p) res.vat = '৳' + p[1]; continue; }
-      if (/^Total\b/i.test(line)) { const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/)); if (p) res.total = '৳' + p[1]; continue; }
+      if (/^Tasty Patil/i.test(line)) {
+        if (!res.restaurant) res.restaurant = line.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
+        continue;
+      }
+      if (/^Customer$/i.test(line)) {
+        if (!res.customer && lines[i + 1] && !stopWordsRe.test(lines[i + 1])) {
+          res.customer = lines[i + 1];
+        }
+        continue;
+      }
+      if (/^Order received$/i.test(line) && lines[i + 1] && /^[0-2]?\d:[0-5]\d$/.test(lines[i + 1])) {
+        res.orderReceivedTime = lines[i + 1];
+        continue;
+      }
+      if (/DO NOT PROVIDE CUTLERY|PROVIDE CUTLERY/i.test(line)) {
+        if (!res.notes.includes(line.toUpperCase())) res.notes.push(line.toUpperCase());
+        continue;
+      }
+      if (/^(?:Delivery Fee Discount|Discount\/Voucher)/i.test(line)) {
+        const nextLine = lines[i + 1] || '';
+        if (/^-?[৳tE5]?\s*\d+(?:\.\d{2})?$/.test(nextLine)) {
+          res.discounts.push({ label: line, amount: nextLine.replace(/[tE5]/, '৳') });
+          i++;
+        }
+        continue;
+      }
+      if (/^Subtotal\b/i.test(line)) {
+        const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
+        if (p) res.subtotal = '৳' + p[1];
+        continue;
+      }
+      if (/^VAT\b/i.test(line)) {
+        const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
+        if (p) res.vat = '৳' + p[1];
+        continue;
+      }
+      if (/^Total\b/i.test(line)) {
+        const p = line.match(/(\d+(?:\.\d{2}))/) || (lines[i + 1] && lines[i + 1].match(/(\d+(?:\.\d{2}))/));
+        if (p) res.total = '৳' + p[1];
+        continue;
+      }
       if (/^Payment method$/i.test(line) && lines[i + 1]) {
-        if (!/^(Delivery type|Need help)/i.test(lines[i + 1])) res.payment = lines[i + 1];
-        else if (lines[i + 2]) res.payment = lines[i + 2];
+        if (!/^(Delivery type|Need help)/i.test(lines[i + 1])) {
+          res.payment = lines[i + 1];
+        } else if (lines[i + 2]) {
+          res.payment = lines[i + 2];
+        }
         continue;
       }
       if (/^Delivery type$/i.test(line) && lines[i + 1]) {
-        if (!/^(Online|Cash|Need help)/i.test(lines[i + 1])) res.deliveryType = lines[i + 1];
-        else if (lines[i + 2] && !/^Need help/i.test(lines[i + 2])) res.deliveryType = lines[i + 2];
+        if (!/^(Online|Cash|Need help)/i.test(lines[i + 1])) {
+          res.deliveryType = lines[i + 1];
+        } else if (lines[i + 2] && !/^Need help/i.test(lines[i + 2])) {
+          res.deliveryType = lines[i + 2];
+        }
         continue;
       }
-      if (/Paid with|Online Payment|Cash On Delivery|Cash on/i.test(line)) { if (line.length > res.payment.length) res.payment = line; continue; }
+      if (/Paid with|Online Payment|Cash On Delivery|Cash on/i.test(line)) {
+        if (line.length > res.payment.length) res.payment = line;
+        continue;
+      }
 
       const itemStart = line.match(/^(\d+)\s*[xX\u00D7*](?:\s+(.*))?$/);
       if (itemStart) {
         const qty = itemStart[1] + 'x';
-        let remainder = (itemStart[2] || '').trim(), price = '';
+        let remainder = (itemStart[2] || '').trim();
+        let price = '';
         const nameParts = [];
+
         const inlinePrice = remainder.match(/[৳tE5]?\s*(\d+(?:\.\d{2}))$/);
-        if (inlinePrice) { price = '৳' + inlinePrice[1]; remainder = remainder.replace(/[৳tE5]?\s*\d+(?:\.\d{2})$/, '').trim(); }
+        if (inlinePrice) {
+          price = '৳' + inlinePrice[1];
+          remainder = remainder.replace(/[৳tE5]?\s*\d+(?:\.\d{2})$/, '').trim();
+        }
         if (remainder) nameParts.push(remainder);
 
         while (!price && i + 1 < lines.length) {
           const next = lines[i + 1];
           if (stopWordsRe.test(next)) break;
+
           const pOnly = next.match(/^[৳tE5]?\s*(\d+\.\d{2})$/);
-          if (pOnly) { price = '৳' + pOnly[1]; i++; break; }
+          if (pOnly) {
+            price = '৳' + pOnly[1];
+            i++;
+            break;
+          }
+
           const trailingP = next.match(/^(.+?)\s+[৳tE5]?\s*(\d+\.\d{2})$/);
-          if (trailingP) { nameParts.push(trailingP[1].trim()); price = '৳' + trailingP[2]; i++; break; }
-          if (!/^(?:pro|COMPLETED|PAYABLE|￼)$/i.test(next)) nameParts.push(next);
+          if (trailingP) {
+            nameParts.push(trailingP[1].trim());
+            price = '৳' + trailingP[2];
+            i++;
+            break;
+          }
+
+          if (!/^(?:pro|COMPLETED|PAYABLE|￼)$/i.test(next)) {
+            nameParts.push(next);
+          }
           i++;
         }
+
         const itemName = nameParts.join(' ').trim();
-        if (itemName) res.items.push({ qty, name: itemName, price });
+        if (itemName) {
+          res.items.push({ qty, name: itemName, price });
+        }
       }
     }
+
     return res;
   }
 
   function parseFoodpandaMultiScroll(rawText) {
     const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
     const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
-    const merged = { restaurant: 'Tasty Patil', orderNo: '', orderCode: '', prepTime: '', orderReceivedTime: '', customer: '', isHistory: false, items: [], notes: [], discounts: [], subtotal: '', vat: '', total: '', payment: '', deliveryType: '' };
-    const seenItems = new Set(), seenDiscounts = new Set();
+    const merged = {
+      restaurant: 'Tasty Patil',
+      orderNo: '',
+      orderCode: '',
+      prepTime: '',
+      orderReceivedTime: '',
+      customer: '',
+      isHistory: false,
+      items: [],
+      notes: [],
+      discounts: [],
+      subtotal: '',
+      vat: '',
+      total: '',
+      payment: '',
+      deliveryType: ''
+    };
+    const seenItems = new Set();
+    const seenDiscounts = new Set();
 
     for (const block of rawBlocks) {
       const p = parseSingleScreenBlock(block);
+
       if (p.restaurant) merged.restaurant = p.restaurant;
       if (p.isHistory) merged.isHistory = true;
       if (!merged.orderNo && p.orderNo) merged.orderNo = p.orderNo;
@@ -955,17 +1554,44 @@
       if (!merged.total && p.total) merged.total = p.total;
       if (p.payment && p.payment.length > merged.payment.length) merged.payment = p.payment;
       if (!merged.deliveryType && p.deliveryType) merged.deliveryType = p.deliveryType;
-      for (const n of p.notes) if (!merged.notes.includes(n)) merged.notes.push(n);
-      for (const d of p.discounts) { const dKey = d.label + '|' + d.amount; if (!seenDiscounts.has(dKey)) { seenDiscounts.add(dKey); merged.discounts.push(d); } }
-      for (const it of p.items) { const sig = `${it.qty}|${it.name.toLowerCase()}|${it.price}`; if (!seenItems.has(sig)) { seenItems.add(sig); merged.items.push(it); } }
+
+      for (const n of p.notes) {
+        if (!merged.notes.includes(n)) merged.notes.push(n);
+      }
+      for (const d of p.discounts) {
+        const dKey = d.label + '|' + d.amount;
+        if (!seenDiscounts.has(dKey)) {
+          seenDiscounts.add(dKey);
+          merged.discounts.push(d);
+        }
+      }
+      for (const it of p.items) {
+        const sig = `${it.qty}|${it.name.toLowerCase()}|${it.price}`;
+        if (!seenItems.has(sig)) {
+          seenItems.add(sig);
+          merged.items.push(it);
+        }
+      }
     }
-    if (!merged.orderNo && merged.orderCode) { const parts = merged.orderCode.split('-'); merged.orderNo = '#' + parts[parts.length - 1].toUpperCase(); }
+
+    if (!merged.orderNo && merged.orderCode) {
+      const parts = merged.orderCode.split('-');
+      merged.orderNo = '#' + parts[parts.length - 1].toUpperCase();
+    }
+
     if (!merged.subtotal && !merged.total && merged.items.length > 0) {
       let sum = 0;
-      for (const it of merged.items) { const num = parseFloat((it.price || '').replace(/[^\d.]/g, '')); if (!isNaN(num)) sum += num; }
+      for (const it of merged.items) {
+        const num = parseFloat((it.price || '').replace(/[^\d.]/g, ''));
+        if (!isNaN(num)) sum += num;
+      }
       if (sum > 0) merged.subtotal = '৳' + sum.toFixed(2);
     }
-    if (!merged.total && merged.subtotal) merged.total = merged.subtotal;
+
+    if (!merged.total && merged.subtotal) {
+      merged.total = merged.subtotal;
+    }
+
     return merged;
   }
 
@@ -975,95 +1601,181 @@
     tempCanvas.width = PRINTER_WIDTH;
     tempCanvas.height = 2600;
     const ctx = tempCanvas.getContext('2d');
+
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, PRINTER_WIDTH, tempCanvas.height);
     ctx.fillStyle = '#000000';
     ctx.textBaseline = 'top';
 
     let y = 10;
-    const drawLine = (thick = false) => { y += 6; ctx.fillRect(0, y, PRINTER_WIDTH, thick ? 4 : 2); y += thick ? 10 : 8; };
+    const drawLine = (thick = false) => {
+      y += 6;
+      ctx.fillRect(0, y, PRINTER_WIDTH, thick ? 4 : 2);
+      y += thick ? 10 : 8;
+    };
+
     const drawWrapped = (text, x, maxW, font, lineH, align = 'left') => {
-      ctx.font = font; ctx.textAlign = align;
+      ctx.font = font;
+      ctx.textAlign = align;
       const words = text.split(/\s+/);
       let line = '';
       for (let i = 0; i < words.length; i++) {
         const test = line + words[i] + ' ';
-        if (ctx.measureText(test).width > maxW && i > 0) { ctx.fillText(line.trim(), x, y); line = words[i] + ' '; y += lineH; }
-        else { line = test; }
+        if (ctx.measureText(test).width > maxW && i > 0) {
+          ctx.fillText(line.trim(), x, y);
+          line = words[i] + ' ';
+          y += lineH;
+        } else {
+          line = test;
+        }
       }
-      if (line.trim()) { ctx.fillText(line.trim(), x, y); y += lineH; }
+      if (line.trim()) {
+        ctx.fillText(line.trim(), x, y);
+        y += lineH;
+      }
     };
 
-    ctx.font = '900 26px system-ui, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText((data.restaurant || 'Tasty Patil').toUpperCase(), PRINTER_WIDTH / 2, y); y += 32;
+    ctx.font = '900 26px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((data.restaurant || 'Tasty Patil').toUpperCase(), PRINTER_WIDTH / 2, y);
+    y += 32;
+
     ctx.font = '600 15px system-ui, sans-serif';
-    ctx.fillText(new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dhaka' }), PRINTER_WIDTH / 2, y); y += 20;
-    if (data.isHistory) { ctx.font = 'bold 14px system-ui, sans-serif'; ctx.fillText('[ ORDER HISTORY / REPRINT ]', PRINTER_WIDTH / 2, y); y += 18; }
+    const dt = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: 'Asia/Dhaka'
+    });
+    ctx.fillText(dt, PRINTER_WIDTH / 2, y);
+    y += 20;
+
+    if (data.isHistory) {
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.fillText('[ ORDER HISTORY / REPRINT ]', PRINTER_WIDTH / 2, y);
+      y += 18;
+    }
+
     drawLine(true);
 
-    if (data.orderNo) { ctx.font = '900 46px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(data.orderNo, PRINTER_WIDTH / 2, y); y += 50; }
-    if (data.orderCode) { ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center'; ctx.fillText(data.orderCode, PRINTER_WIDTH / 2, y); y += 26; }
+    if (data.orderNo) {
+      ctx.font = '900 46px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.orderNo, PRINTER_WIDTH / 2, y);
+      y += 50;
+    }
+    if (data.orderCode) {
+      ctx.font = 'bold 20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.orderCode, PRINTER_WIDTH / 2, y);
+      y += 26;
+    }
+
     if (data.customer || data.prepTime || data.orderReceivedTime) {
       drawLine(false);
-      if (data.customer) { drawWrapped('Customer: ' + data.customer, 4, PRINTER_WIDTH - 8, 'bold 20px system-ui, sans-serif', 25, 'left'); y += 2; }
-      if (data.prepTime) { ctx.font = 'bold 19px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('Ready By: ' + data.prepTime, 4, y); y += 24; }
-      else if (data.orderReceivedTime) { ctx.font = 'bold 18px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('Ordered At: ' + data.orderReceivedTime, 4, y); y += 24; }
+      if (data.customer) {
+        drawWrapped('Customer: ' + data.customer, 4, PRINTER_WIDTH - 8, 'bold 20px system-ui, sans-serif', 25, 'left');
+        y += 2;
+      }
+      if (data.prepTime) {
+        ctx.font = 'bold 19px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Ready By: ' + data.prepTime, 4, y);
+        y += 24;
+      } else if (data.orderReceivedTime) {
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Ordered At: ' + data.orderReceivedTime, 4, y);
+        y += 24;
+      }
     }
+
     drawLine(false);
 
     const itemFont = isLargeFont ? '900 24px system-ui, sans-serif' : 'bold 21px system-ui, sans-serif';
     const itemLineH = isLargeFont ? 28 : 25;
+
     for (const item of data.items) {
-      ctx.font = '900 22px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(item.qty, 4, y);
-      if (item.price) { ctx.textAlign = 'right'; ctx.fillText(item.price, PRINTER_WIDTH - 4, y); }
+      ctx.font = '900 22px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.qty, 4, y);
+
+      if (item.price) {
+        ctx.textAlign = 'right';
+        ctx.fillText(item.price, PRINTER_WIDTH - 4, y);
+      }
       drawWrapped(item.name, 48, PRINTER_WIDTH - 148, itemFont, itemLineH, 'left');
       y += 6;
     }
+
     for (const note of data.notes) {
-      y += 4; ctx.fillRect(4, y, PRINTER_WIDTH - 8, 34);
-      ctx.fillStyle = '#FFFFFF'; ctx.font = '900 17px system-ui, sans-serif'; ctx.textAlign = 'center';
+      y += 4;
+      ctx.fillRect(4, y, PRINTER_WIDTH - 8, 34);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 17px system-ui, sans-serif';
+      ctx.textAlign = 'center';
       ctx.fillText('! ' + note + ' !', PRINTER_WIDTH / 2, y + 8);
-      ctx.fillStyle = '#000000'; y += 40;
+      ctx.fillStyle = '#000000';
+      y += 40;
     }
+
     drawLine(false);
 
     const drawTotalRow = (label, val, isGrand = false) => {
       if (!val) return;
       ctx.font = isGrand ? '900 26px system-ui, sans-serif' : 'bold 20px system-ui, sans-serif';
-      ctx.textAlign = 'left'; ctx.fillText(label, 4, y);
-      ctx.textAlign = 'right'; ctx.fillText(val, PRINTER_WIDTH - 4, y);
+      ctx.textAlign = 'left';
+      ctx.fillText(label, 4, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(val, PRINTER_WIDTH - 4, y);
       y += isGrand ? 32 : 26;
     };
-    if (data.subtotal && data.subtotal !== data.total) drawTotalRow('Subtotal', data.subtotal, false);
-    if (data.vat) drawTotalRow('VAT', data.vat, false);
+
+    if (data.subtotal && data.subtotal !== data.total) {
+      drawTotalRow('Subtotal', data.subtotal, false);
+    }
+    if (data.vat) {
+      drawTotalRow('VAT', data.vat, false);
+    }
     drawTotalRow('Total', data.total || data.subtotal, true);
+
     if (data.payment || data.deliveryType) {
       drawLine(false);
-      drawWrapped([data.payment, data.deliveryType].filter(Boolean).join(' • '), PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, 'bold 17px system-ui, sans-serif', 22, 'center');
+      const footerLine = [
+        data.payment ? `${data.payment}` : '',
+        data.deliveryType ? `${data.deliveryType}` : ''
+      ].filter(Boolean).join(' • ');
+      drawWrapped(footerLine, PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, 'bold 17px system-ui, sans-serif', 22, 'center');
     }
+
     drawLine(true);
 
     const exactH = Math.max(80, Math.min(tempCanvas.height, Math.ceil(y + 10)));
     const sliced = document.createElement('canvas');
-    sliced.width = PRINTER_WIDTH; sliced.height = exactH;
+    sliced.width = PRINTER_WIDTH;
+    sliced.height = exactH;
     sliced.getContext('2d').drawImage(tempCanvas, 0, 0, PRINTER_WIDTH, exactH, 0, 0, PRINTER_WIDTH, exactH);
     return cropWhiteTopBottom(sliced);
   }
 
   // ============================================================================
-  // VAULT + ONE-WAY GOOGLE DRIVE SYNC
+  // BUILT-IN INTERNAL RECEIPT VAULT + ONE-WAY GOOGLE DRIVE SYNC (NO DUPLICATES)
   // ============================================================================
 
   function getSyncedDriveKeys() {
-    try { return new Set(JSON.parse(localStorage.getItem('fp_gdrive_synced_keys') || '[]')); }
-    catch (e) { return new Set(); }
+    try {
+      const raw = localStorage.getItem('fp_gdrive_synced_keys');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+      return new Set();
+    }
   }
 
   function markDriveKeySynced(dedupeKey) {
     if (!dedupeKey) return;
     const set = getSyncedDriveKeys();
     set.add(dedupeKey);
-    localStorage.setItem('fp_gdrive_synced_keys', JSON.stringify(Array.from(set).slice(-500)));
+    const arr = Array.from(set).slice(-500);
+    localStorage.setItem('fp_gdrive_synced_keys', JSON.stringify(arr));
   }
 
   async function arrayBufferToBase64(buffer) {
@@ -1082,25 +1794,43 @@
       if (!silentIfNoUrl) showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
       return false;
     }
+
     const dedupeKey = entry.dedupeKey || entry.baseName;
     if (entry.driveSynced || getSyncedDriveKeys().has(dedupeKey)) {
       entry.driveSynced = true;
       if (!silentIfNoUrl) showToast(`☁️ ${entry.orderNo} already synced (skipped duplicate)`, 'info');
       return true;
     }
+
     try {
       showToast(`☁️ Uploading ${entry.orderNo} to Google Drive...`, 'info');
       const payload = {
-        folderId, dedupeKey, baseName: entry.baseName, orderNo: entry.orderNo, orderCode: entry.orderCode,
+        folderId,
+        dedupeKey,
+        baseName: entry.baseName,
+        orderNo: entry.orderNo,
+        orderCode: entry.orderCode,
         pngBase64: entry.pngBuffer ? await arrayBufferToBase64(entry.pngBuffer) : '',
         pdfBase64: entry.pdfBuffer ? await arrayBufferToBase64(entry.pdfBuffer) : ''
       };
-      await fetch(webhookUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
       markDriveKeySynced(dedupeKey);
       entry.driveSynced = true;
+
       const vault = (await idbGet('fpInternalVault')) || [];
       const target = vault.find(v => v.id === entry.id || v.dedupeKey === dedupeKey);
-      if (target) { target.driveSynced = true; await idbSet('fpInternalVault', vault); }
+      if (target) {
+        target.driveSynced = true;
+        await idbSet('fpInternalVault', vault);
+      }
+
       showToast(`☁️ Uploaded ${entry.orderNo} to Google Drive!`, 'success', true);
       return true;
     } catch (err) {
@@ -1111,13 +1841,23 @@
 
   async function syncAllUnsyncedToDrive() {
     const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
-    if (!webhookUrl) return showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
+    if (!webhookUrl) {
+      showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
+      return;
+    }
     const vault = (await idbGet('fpInternalVault')) || [];
     const unsynced = vault.filter(v => !v.driveSynced && !getSyncedDriveKeys().has(v.dedupeKey || v.baseName));
-    if (unsynced.length === 0) return showToast('☁️ All saved receipts are already synced to Google Drive!', 'success');
+    if (unsynced.length === 0) {
+      showToast('☁️ All saved receipts are already synced to Google Drive!', 'success');
+      return;
+    }
     showToast(`☁️ Syncing ${unsynced.length} receipt(s) to Google Drive...`, 'info');
-    for (const item of unsynced) await syncVaultEntryToGoogleDrive(item, false);
-    if (document.getElementById('vaultOverlay').classList.contains('open')) await openVault();
+    for (const item of unsynced) {
+      await syncVaultEntryToGoogleDrive(item, false);
+    }
+    if (document.getElementById('vaultOverlay').classList.contains('open')) {
+      await openVault();
+    }
   }
 
   async function refreshVaultCount() {
@@ -1132,39 +1872,62 @@
     try {
       const now = new Date();
       const dhakaDateKey = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
-      const dhakaTime = now.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dhaka' });
+      const dhakaTime = now.toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'Asia/Dhaka'
+      });
+
       const orderTag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || `Order_${Date.now()}`;
       const dedupeKey = `FP_${orderTag}_${dhakaDateKey}`;
-      const baseName = `FP_${orderTag}_${now.toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
+      const tsFile = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const baseName = `FP_${orderTag}_${tsFile}`;
 
       const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
       const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData) : null;
+
       const pngBuffer = await pngBlob.arrayBuffer();
       const pdfBuffer = pdfBlob ? await pdfBlob.arrayBuffer() : null;
 
       const vault = (await idbGet('fpInternalVault')) || [];
       let entry = vault.find(v => v.dedupeKey === dedupeKey);
+
       if (!entry) {
         entry = {
-          id: Date.now(), dedupeKey, orderNo: currentOrderMeta.orderNo || '#Order', orderCode: currentOrderMeta.orderCode || '',
+          id: Date.now(),
+          dedupeKey,
+          orderNo: currentOrderMeta.orderNo || '#Order',
+          orderCode: currentOrderMeta.orderCode || '',
           customer: (lastParsedFpData && lastParsedFpData.customer) || '',
           total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
-          dhakaTime, baseName, pngBuffer, pdfBuffer, parsedData: lastParsedFpData,
+          dhakaTime,
+          baseName,
+          pngBuffer,
+          pdfBuffer,
+          parsedData: lastParsedFpData,
           driveSynced: getSyncedDriveKeys().has(dedupeKey)
         };
         vault.unshift(entry);
         await idbSet('fpInternalVault', vault.slice(0, 150));
         await refreshVaultCount();
       }
+
       await syncVaultEntryToGoogleDrive(entry, true);
     } catch (e) {}
   }
 
   async function reprintLastReceipt() {
     closeMenu();
-    if (docSourceCanvas) { showToast('🖨️ Reprinting current receipt...', 'info'); await handleMainButtonClick(); return; }
+    if (docSourceCanvas) {
+      showToast('🖨️ Reprinting current receipt...', 'info');
+      await handleMainButtonClick();
+      return;
+    }
     const vault = (await idbGet('fpInternalVault')) || [];
-    if (vault.length === 0) return showToast('⚠️ No saved receipt in Vault to reprint', 'warn');
+    if (vault.length === 0) {
+      showToast('⚠️ No saved receipt in Vault to reprint', 'warn');
+      return;
+    }
     await reprintVaultItem(vault[0].id);
   }
 
@@ -1173,6 +1936,7 @@
     const vault = (await idbGet('fpInternalVault')) || [];
     const item = vault.find(v => v.id === entryId);
     if (!item) return;
+
     if (item.parsedData) {
       lastParsedFpData = item.parsedData;
       isFpPipelineRun = true;
@@ -1181,12 +1945,17 @@
       rebuildCompositePreview(true);
       updateMainButtonUI();
     } else if (item.pngBuffer) {
-      await loadMainDocumentFile(new File([item.pngBuffer], `${item.baseName}.png`, { type: 'image/png' }));
+      const f = new File([item.pngBuffer], `${item.baseName}.png`, { type: 'image/png' });
+      await loadMainDocumentFile(f);
     }
+
     showToast(`🖨️ Reprinting ${item.orderNo}...`, 'info');
-    if (!writeChar) await attemptAutoReconnect(3, false);
-    if (writeChar) await printCanvas(false);
-    else showToast('⚠️ Connect printer to complete reprint', 'warn');
+    if (!writeChar) await attemptAutoReconnect(false);
+    if (writeChar) {
+      await printCanvas(false);
+    } else {
+      showToast('⚠️ Connect printer to complete reprint', 'warn');
+    }
   }
 
   async function openVault() {
@@ -1194,84 +1963,126 @@
     const listEl = document.getElementById('vaultList');
     listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:24px;">Loading saved receipts...</div>';
     document.getElementById('vaultOverlay').classList.add('open');
+
     const vault = (await idbGet('fpInternalVault')) || [];
     if (vault.length === 0) {
-      listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:32px;">No saved receipts yet.</div>';
+      listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:32px;">No saved receipts yet. Every printed Foodpanda order will automatically appear here as both PDF and PNG.</div>';
       return;
     }
+
     const syncedSet = getSyncedDriveKeys();
     listEl.innerHTML = '';
+
     for (const item of vault) {
       const isSynced = item.driveSynced || syncedSet.has(item.dedupeKey || item.baseName);
       const row = document.createElement('div');
       row.className = 'vault-item';
-      row.innerHTML = `
-        <div class="vault-top">
-          <div class="vault-info">
-            <div style="font-weight:900; color:#FFFFFF; font-size:15px;">${item.orderNo} ${item.total ? '• ' + item.total : ''}</div>
-            <div style="color:#D1D5DB;">${item.customer || item.orderCode || ''}</div>
-            <div style="color:#9CA3AF; font-size:11px;">${item.dhakaTime}</div>
-          </div>
-          <span style="font-size:11px; font-weight:800; padding:3px 8px; border-radius:99px; ${isSynced ? 'background:#065F46; color:#A7F3D0;' : 'background:#374151; color:#FDE68A;'}">${isSynced ? '☁️ Drive Synced' : '⏳ Local Only'}</span>
-        </div>
+
+      const top = document.createElement('div');
+      top.className = 'vault-top';
+
+      const info = document.createElement('div');
+      info.className = 'vault-info';
+      info.innerHTML = `
+        <div style="font-weight:900; color:#FFFFFF; font-size:15px;">${item.orderNo} ${item.total ? '• ' + item.total : ''}</div>
+        <div style="color:#D1D5DB;">${item.customer || item.orderCode || ''}</div>
+        <div style="color:#9CA3AF; font-size:11px;">${item.dhakaTime}</div>
       `;
+
+      const syncBadge = document.createElement('span');
+      syncBadge.style.cssText = `font-size:11px; font-weight:800; padding:3px 8px; border-radius:99px; ${isSynced ? 'background:#065F46; color:#A7F3D0;' : 'background:#374151; color:#FDE68A;'}`;
+      syncBadge.innerText = isSynced ? '☁️ Drive Synced' : '⏳ Local Only';
+
+      top.appendChild(info);
+      top.appendChild(syncBadge);
+
       const btns = document.createElement('div');
       btns.className = 'vault-btns';
 
       const repBtn = document.createElement('button');
-      repBtn.className = 'vault-pill-btn'; repBtn.style.background = '#D97706'; repBtn.innerText = '🖨️ Reprint';
+      repBtn.className = 'vault-pill-btn';
+      repBtn.style.background = '#D97706';
+      repBtn.innerText = '🖨️ Reprint';
       repBtn.onclick = () => reprintVaultItem(item.id);
       btns.appendChild(repBtn);
 
       if (item.pdfBuffer) {
         const pdfBtn = document.createElement('button');
-        pdfBtn.className = 'vault-pill-btn'; pdfBtn.style.background = '#2563EB'; pdfBtn.innerText = '📄 PDF';
+        pdfBtn.className = 'vault-pill-btn';
+        pdfBtn.style.background = '#2563EB';
+        pdfBtn.innerText = '📄 PDF';
         pdfBtn.onclick = () => downloadVaultFile(item.pdfBuffer, `${item.baseName}.pdf`, 'application/pdf');
         btns.appendChild(pdfBtn);
       }
+
       if (item.pngBuffer) {
         const pngBtn = document.createElement('button');
-        pngBtn.className = 'vault-pill-btn'; pngBtn.style.background = '#10B981'; pngBtn.innerText = '🖼️ PNG';
+        pngBtn.className = 'vault-pill-btn';
+        pngBtn.style.background = '#10B981';
+        pngBtn.innerText = '🖼️ PNG';
         pngBtn.onclick = () => downloadVaultFile(item.pngBuffer, `${item.baseName}.png`, 'image/png');
         btns.appendChild(pngBtn);
       }
+
       if (!isSynced) {
         const upBtn = document.createElement('button');
-        upBtn.className = 'vault-pill-btn'; upBtn.style.background = '#4F46E5'; upBtn.innerText = '☁️ Upload';
-        upBtn.onclick = async () => { await syncVaultEntryToGoogleDrive(item, false); await openVault(); };
+        upBtn.className = 'vault-pill-btn';
+        upBtn.style.background = '#4F46E5';
+        upBtn.innerText = '☁️ Upload';
+        upBtn.onclick = async () => {
+          await syncVaultEntryToGoogleDrive(item, false);
+          await openVault();
+        };
         btns.appendChild(upBtn);
       }
+
+      row.appendChild(top);
       row.appendChild(btns);
       listEl.appendChild(row);
     }
   }
 
-  function closeVault() { document.getElementById('vaultOverlay').classList.remove('open'); }
+  function closeVault() {
+    document.getElementById('vaultOverlay').classList.remove('open');
+  }
+
   async function clearVault() {
-    if (!confirm('Delete all local receipts from Billu Vault?')) return;
+    if (!confirm('Delete all local receipts from Billu Vault? (Files already on Google Drive will remain untouched)')) return;
     await idbSet('fpInternalVault', []);
     await refreshVaultCount();
     await openVault();
+    showToast('🗑️ Local Vault cleared', 'info');
   }
 
   function downloadVaultFile(buffer, fileName, mimeType) {
-    const url = URL.createObjectURL(new Blob([buffer], { type: mimeType }));
+    const blob = new Blob([buffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
   // ============================================================================
-  // 8-SECOND MEDIA SESSION KEEP-ALIVE & CONTINUOUS UNTHROTTLED BLE ENGINE
+  // TRIPLE-DRIVER BACKGROUND ENGINE (WEB WORKER + WEB LOCK + 1Hz INFRASONIC WAV)
   // ============================================================================
 
-  function isFpMasterEnabled() { return (localStorage.getItem('fp_master_enabled') ?? '1') === '1'; }
-  function isSilentBgEnabled() { return isFpMasterEnabled() && localStorage.getItem('fp_silent_bg_enabled') === '1'; }
+  function isFpMasterEnabled() {
+    return (localStorage.getItem('fp_master_enabled') ?? '1') === '1';
+  }
+
+  function isSilentBgEnabled() {
+    return isFpMasterEnabled() && localStorage.getItem('fp_silent_bg_enabled') === '1';
+  }
 
   function saveFpMasterToggle() {
     const enabled = document.getElementById('fpMasterEnable').checked;
     localStorage.setItem('fp_master_enabled', enabled ? '1' : '0');
     applyFpMasterUI();
+    showToast(enabled ? '🐼 Foodpanda Pipeline Enabled' : '🐼 Foodpanda Pipeline Hidden', 'info');
   }
 
   function applyFpMasterUI() {
@@ -1279,8 +2090,12 @@
     document.getElementById('fpMasterEnable').checked = enabled;
     document.getElementById('fpPipelineSubOptions').style.display = enabled ? 'flex' : 'none';
     applyReturnAppUI();
-    if (isSilentBgEnabled()) startLocalB64BackgroundPoller();
-    else stopLocalB64BackgroundPoller();
+
+    if (isSilentBgEnabled()) {
+      startLocalB64BackgroundPoller();
+    } else {
+      stopLocalB64BackgroundPoller();
+    }
   }
 
   function saveSilentBgSetting() {
@@ -1296,11 +2111,12 @@
     }
   }
 
-  // Generates an 8-second (>= 5s Chromium MediaSession threshold) 20 Hz sub-bass WAV
-  // so Chromium's MediaSessionImpl grants true background process keep-alive!
-  function create8SecKeepAliveWavUrl() {
+  // Generates a 1-second 8000Hz 16-bit mono WAV containing a 1 Hz infrasonic sine wave.
+  // 1 Hz is completely inaudible on any phone speaker, but has non-zero digital energy
+  // so Chromium's SilentSinkSuspender NEVER suspends the background audio thread!
+  function createInfrasonicWavUrl() {
     const sampleRate = 8000;
-    const numSamples = 8000 * 8; // 8 full seconds
+    const numSamples = 8000;
     const buffer = new ArrayBuffer(44 + numSamples * 2);
     const view = new DataView(buffer);
     const writeStr = (offset, str) => {
@@ -1321,13 +2137,13 @@
     view.setUint32(40, numSamples * 2, true);
 
     for (let i = 0; i < numSamples; i++) {
-      const sample = Math.round(Math.sin(2 * Math.PI * 20 * (i / sampleRate)) * 600);
+      const sample = Math.round(Math.sin(2 * Math.PI * 1 * (i / sampleRate)) * 450);
       view.setInt16(44 + i * 2, sample, true);
     }
     return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
   }
 
-  // Starts the Dedicated Web Worker + Web Locks API heartbeat immediately on load
+  // Starts the Dedicated Web Worker + Web Locks API heartbeat (works immediately on load without needing a user tap!)
   function startBackgroundWorkerAndLock() {
     if (!bgWebLockActive && navigator.locks && navigator.locks.request) {
       bgWebLockActive = true;
@@ -1356,7 +2172,7 @@
       pollLocalhostB64Once();
     }
 
-    // 2. Maintain BLE connection & auto-discover printer in both foreground and background
+    // 2. Always maintain BLE connection in both foreground and background!
     if (!isPrinting && !isConnecting) {
       if (writeChar && (document.hidden || isSilentBgEnabled())) {
         if (now - lastBlePingTime > 3500) {
@@ -1364,8 +2180,8 @@
           writeBle(makePacket(0xA3, [0x00])).catch(() => {});
         }
       } else if (!writeChar && getSavedPrinterId()) {
-        // Wait at least 2.2s after previous scan ended before launching the next GATT scan
-        if (now - lastConnectEndTime > 2200 && now - lastBlePingTime > 2500) {
+        // Wait at least 2.0 seconds after the previous connect attempt ended before starting the next scan
+        if (now - lastConnectEndTime > 2000 && now - lastBlePingTime > 2200) {
           lastBlePingTime = now;
           attemptAutoReconnect(true);
         }
@@ -1377,16 +2193,12 @@
     startBackgroundWorkerAndLock();
     try {
       if (!silentHtmlAudio) {
-        silentHtmlAudio = new Audio(create8SecKeepAliveWavUrl());
+        silentHtmlAudio = new Audio(createInfrasonicWavUrl());
         silentHtmlAudio.loop = true;
-        silentHtmlAudio.volume = 0.02;
+        silentHtmlAudio.volume = 0.05;
       }
       if (silentHtmlAudio.paused) {
-        silentHtmlAudio.play().then(() => {
-          if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = 'playing';
-          }
-        }).catch(() => {});
+        silentHtmlAudio.play().catch(() => {});
       }
 
       if (!audioCtx) {
@@ -1397,9 +2209,9 @@
       }
       if (!audioScriptNode) {
         const osc = audioCtx.createOscillator();
-        osc.frequency.value = 20;
+        osc.frequency.value = 1; // 1 Hz infrasonic
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.01;
+        gain.gain.value = 0.02;
 
         audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
         audioScriptNode.onaudioprocess = () => onBackgroundHeartbeatTick();
@@ -1412,6 +2224,7 @@
     } catch (e) {}
   }
 
+  // Start the infrasonic audio keep-alive on the very first touch anywhere in the app
   document.addEventListener('pointerdown', () => {
     ensureAudioKeepAliveRunning();
   }, { passive: true });
@@ -1910,13 +2723,15 @@
     }
   }
 
-  // Adaptive Foreground (3.5s) vs. Background (12s) GATT Connection Window
+  // Adaptive Foreground (3.5s) vs. Background (10.5s) GATT Connection Window:
+  // When in the background, Android's `connectGatt(autoConnect=false)` HCI page scan needs up to 10.5 seconds
+  // to discover a newly powered-on printer without `watchAdvertisements()`.
   async function connectToBleDevice(device) {
     if (isConnecting || writeChar) return Boolean(writeChar);
     isConnecting = true;
     const myGen = ++connectGeneration;
     const dispLabel = getPrinterDisplayLabel(device);
-    const timeoutMs = document.hidden ? 12000 : 3500;
+    const timeoutMs = document.hidden ? 10500 : 3500;
     let timeoutHandle = null;
 
     try {
@@ -1932,6 +2747,7 @@
           try { device.gatt.disconnect(); } catch (e) {}
           return null;
         }
+        // 150ms post-connect stabilization delay so Android BLE service discovery never fails in background
         await delayMs(150);
         const services = await server.getPrimaryServices();
         let foundChar = null;
@@ -2021,8 +2837,8 @@
   window.addEventListener('pagehide', releaseBleOnPageUnload);
   window.addEventListener('beforeunload', releaseBleOnPageUnload);
 
-  function ensureWatchingAdvertisements(target, forceRestart = false) {
-    if (!target || !target.watchAdvertisements) return;
+  function ensureWatchingAdvertisements(target) {
+    if (!target || !target.watchAdvertisements || document.hidden) return;
     try {
       if (!target._hasAdListener) {
         target._hasAdListener = true;
@@ -2032,16 +2848,11 @@
           }
         });
       }
-      if (forceRestart && adAbortController) {
+      if (adAbortController) {
         try { adAbortController.abort(); } catch (e) {}
-        adAbortController = null;
       }
-      if (!adAbortController) {
-        adAbortController = new AbortController();
-        target.watchAdvertisements({ signal: adAbortController.signal }).catch(() => {
-          adAbortController = null;
-        });
-      }
+      adAbortController = new AbortController();
+      target.watchAdvertisements({ signal: adAbortController.signal }).catch(() => {});
     } catch (e) {}
   }
 
@@ -2052,8 +2863,10 @@
     }
 
     try {
+      // 1. In background, prefer the pre-cached BluetoothDevice handle if already in RAM
       let target = cachedBleDeviceMap.get(savedId) || (activeBleDevice && activeBleDevice.id === savedId ? activeBleDevice : null);
 
+      // 2. Query navigator.bluetooth.getDevices() if not cached yet or when in foreground
       if ((!target || !document.hidden) && navigator.bluetooth && navigator.bluetooth.getDevices) {
         const devices = await navigator.bluetooth.getDevices();
         if (devices && devices.length > 0) {
@@ -2086,7 +2899,9 @@
         showToast(`🔍 Looking for ${targetLabel}...`, 'info');
       }
 
-      ensureWatchingAdvertisements(target, false);
+      if (!document.hidden) {
+        ensureWatchingAdvertisements(target);
+      }
       return await connectToBleDevice(target);
     } catch (e) {
       return false;
@@ -2104,6 +2919,12 @@
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'hidden') {
+      // When minimized, abort only the foreground watchAdvertisements scanner,
+      // and immediately start the background worker/reconnect engine!
+      if (adAbortController) {
+        try { adAbortController.abort(); } catch (e) {}
+        adAbortController = null;
+      }
       startBackgroundWorkerAndLock();
       if (!writeChar && !isConnecting && getSavedPrinterId()) {
         setTimeout(() => attemptAutoReconnect(true), 400);
@@ -2113,6 +2934,7 @@
 
     if (document.visibilityState === 'visible') {
       if (!writeChar) {
+        // Interrupt any slow 10.5s background scan and switch to fast 3.5s foreground scan + watchAdvertisements()
         hardAbortPendingBle();
         await delayMs(200);
         if (!writeChar && !isPrinting) {
