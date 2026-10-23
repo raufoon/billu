@@ -443,7 +443,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.6.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.6.1</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <div style="display:flex; gap:6px;">
@@ -622,7 +622,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.6.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.6.1</div>
     </div>
 
     <div id="canvasTransform">
@@ -641,8 +641,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.6.0';
-  const APP_UPDATED_DHAKA = '23 Oct 2026, 05:45 AM (Dhaka)';
+  const APP_VERSION = 'v3.6.1';
+  const APP_UPDATED_DHAKA = '23 Oct 2026, 07:25 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -660,8 +660,9 @@
   let isPrinting = false;
   let cancelPrintRequested = false;
   let isConnecting = false;
+  let isReconnectingFlight = false;
   let reconnectTimer = null;
-  let pendingPrintJob = false; // Auto-prints queued receipt as soon as printer turns on!
+  let pendingPrintJob = false;
 
   let docSourceCanvas = null;
   let stampSourceCanvas = null;
@@ -830,7 +831,7 @@
       const tx = db.transaction('kv', 'readwrite');
       tx.objectStore('kv').put(val, key);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(req.error);
+      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -848,7 +849,6 @@
   // MULTI-PRINTER REGISTRY (MAC TAGS, CUSTOM RENAMING, STRICT ACTIVE LOCK)
   // ============================================================================
 
-  // Generates a deterministic, readable MAC-style hex tag (e.g., "A4:C1:38") from Web Bluetooth device.id
   function computeMacTag(deviceId, hwName = '') {
     const macInName = String(hwName || '').match(/([0-9A-Fa-f]{2}[:-]){2,5}[0-9A-Fa-f]{2}/);
     if (macInName) return macInName[0].toUpperCase();
@@ -936,7 +936,7 @@
     }
     renderPrinterManagerList();
     updateMainButtonUI();
-    showToast(`✏️ Renamed printer to ${ getPrinterDisplayLabel(printerId) }`, 'success');
+    showToast(`✏️ Renamed printer to ${getPrinterDisplayLabel(printerId)}`, 'success');
   }
 
   async function selectAndConnectPrinterFromList(printerId) {
@@ -950,6 +950,7 @@
     writeChar = null;
     activeBleDevice = null;
     isConnecting = false;
+    isReconnectingFlight = false;
 
     localStorage.setItem('cat_printer_id', entry.id);
     localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
@@ -957,7 +958,7 @@
     updateMainButtonUI();
 
     showToast(`🔍 Switching to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
-    const ok = await attemptAutoReconnect(3);
+    const ok = await attemptAutoReconnect(false);
     if (!ok) {
       showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)} — make sure it is turned ON`, 'warn');
     }
@@ -1016,6 +1017,7 @@
     writeChar = null;
     activeBleDevice = null;
     isConnecting = false;
+    isReconnectingFlight = false;
     localStorage.removeItem('cat_printer_id');
     localStorage.removeItem('cat_printer_name');
     savePrinterRegistry([]);
@@ -1878,7 +1880,6 @@
       });
 
       const orderTag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || `Order_${Date.now()}`;
-      // Unique deterministic key per order so reprints on the same day never duplicate in Vault or Google Drive
       const dedupeKey = `FP_${orderTag}_${dhakaDateKey}`;
       const tsFile = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const baseName = `FP_${orderTag}_${tsFile}`;
@@ -1950,7 +1951,7 @@
     }
 
     showToast(`🖨️ Reprinting ${item.orderNo}...`, 'info');
-    if (!writeChar) await attemptAutoReconnect(3);
+    if (!writeChar) await attemptAutoReconnect(false);
     if (writeChar) {
       await printCanvas(false);
     } else {
@@ -2133,12 +2134,12 @@
             pollLocalhostB64Once();
           }
 
-          if (!isPrinting && !isConnecting && now - lastBlePingTime > 3500) {
+          if (!isPrinting && !isConnecting && !isReconnectingFlight && now - lastBlePingTime > 4000) {
             lastBlePingTime = now;
             if (writeChar && (isSilentBgEnabled() || document.hidden)) {
               writeBle(makePacket(0xA3, [0x00])).catch(() => {});
             } else if (!writeChar && getSavedPrinterId()) {
-              attemptAutoReconnect(2, true);
+              attemptAutoReconnect(true);
             }
           }
         };
@@ -2249,7 +2250,7 @@
     }
 
     if (!writeChar) {
-      const ok = await attemptAutoReconnect(4, false);
+      const ok = await attemptAutoReconnect(false);
       if (!ok && !writeChar) await pairNewPrinter();
     }
     if (writeChar) {
@@ -2342,7 +2343,6 @@
 
     const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '0') === '1';
 
-    // If NOT silent background AND "Auto-Print if coming from Panda Partner" is unchecked -> Ask Print / Don't Print
     if (!isSilentBgRun && !autoPrintOnOpen) {
       const title = `Print Order ${parsed.orderNo || ''}?`;
       const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
@@ -2350,8 +2350,7 @@
       return { ok: true };
     }
 
-    // Auto-Print path (either Silent Background OR Auto-Print on Open is checked)
-    if (!writeChar) await attemptAutoReconnect(4, false);
+    if (!writeChar) await attemptAutoReconnect(false);
     if (writeChar) {
       pendingPrintJob = false;
       await printCanvas(!isSilentBgRun);
@@ -2615,7 +2614,7 @@
       await printCanvas(isFpPipelineRun);
       return;
     }
-    const ok = await attemptAutoReconnect(3, false);
+    const ok = await attemptAutoReconnect(false);
     if (!ok && !writeChar) {
       await pairNewPrinter();
     }
@@ -2634,6 +2633,7 @@
       }
       writeChar = null;
       isConnecting = false;
+      isReconnectingFlight = false;
 
       registerOrUpdatePrinter(device);
       updateMainButtonUI();
@@ -2644,29 +2644,44 @@
     }
   }
 
+  // Connects to the BLE device with a 4.5-second race timeout so a stale Android socket can NEVER hang `isConnecting`!
   async function connectToBleDevice(device) {
     if (isConnecting || writeChar) return Boolean(writeChar);
     isConnecting = true;
     const dispLabel = getPrinterDisplayLabel(device);
+    let timeoutHandle = null;
+
     try {
       activeBleDevice = device;
       device.removeEventListener('gattserverdisconnected', onBleDisconnected);
       device.addEventListener('gattserverdisconnected', onBleDisconnected);
 
       setStatus(`Connecting to ${dispLabel}...`);
-      const server = await device.gatt.connect();
-      const services = await server.getPrimaryServices();
-      let foundChar = null;
-      for (const service of services) {
-        const chars = await service.getCharacteristics();
-        for (const c of chars) {
-          if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
-            foundChar = c;
-            if (c.uuid.includes('ae01')) break;
+
+      const connectPromise = (async () => {
+        const server = await device.gatt.connect();
+        const services = await server.getPrimaryServices();
+        let foundChar = null;
+        for (const service of services) {
+          const chars = await service.getCharacteristics();
+          for (const c of chars) {
+            if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
+              foundChar = c;
+              if (c.uuid.includes('ae01')) break;
+            }
           }
+          if (foundChar && foundChar.uuid.includes('ae01')) break;
         }
-        if (foundChar && foundChar.uuid.includes('ae01')) break;
-      }
+        return foundChar;
+      })();
+
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error('GATT connect timeout')), 4500);
+      });
+
+      const foundChar = await Promise.race([connectPromise, timeoutPromise]);
+      clearTimeout(timeoutHandle);
+
       if (!foundChar) throw new Error('Write characteristic not found');
 
       writeChar = foundChar;
@@ -2674,7 +2689,6 @@
       showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
       updateMainButtonUI();
 
-      // If an order was queued while the printer was off, print it automatically right now!
       if (pendingPrintJob && docSourceCanvas && !isPrinting) {
         pendingPrintJob = false;
         hideFpModal();
@@ -2684,6 +2698,7 @@
 
       return true;
     } catch (err) {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
       writeChar = null;
       updateMainButtonUI();
       return false;
@@ -2702,85 +2717,118 @@
     }
     setTimeout(() => {
       if (!writeChar && !isConnecting && !isPrinting) {
-        attemptAutoReconnect(3, true);
+        attemptAutoReconnect(true);
       }
-    }, 700);
+    }, 750);
   }
 
-  // Strictly connects ONLY to the selected Active Printer (never falls back to devices[0]!)
-  async function attemptAutoReconnect(maxAttempts = 2, silentToast = true) {
+  // Explicitly release the GATT link when Billu is closed/reloaded so the printer frees its BLE slot immediately!
+  function releaseBleOnPageUnload() {
+    try {
+      if (activeBleDevice && activeBleDevice.gatt && activeBleDevice.gatt.connected) {
+        activeBleDevice.gatt.disconnect();
+      }
+    } catch (e) {}
+  }
+  window.addEventListener('pagehide', releaseBleOnPageUnload);
+  window.addEventListener('beforeunload', releaseBleOnPageUnload);
+
+  // Advertisement-First Reconnect:
+  // 1. Starts watchAdvertisements() first (per Chromium Web Bluetooth spec) so Chrome's adapter cache wakes up.
+  // 2. Waits up to 1.4s for an advertisement packet, then connects cleanly without blocking advertisementreceived!
+  async function attemptAutoReconnect(silentToast = true) {
     const savedId = getSavedPrinterId();
-    if (!savedId || writeChar || isPrinting || isConnecting) return Boolean(writeChar);
+    if (!savedId || writeChar || isPrinting || isConnecting || isReconnectingFlight) {
+      return Boolean(writeChar);
+    }
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
 
-    const list = getPrinterRegistry();
-    const activeEntry = list.find(p => p.id === savedId);
-    const targetLabel = getPrinterDisplayLabel(savedId);
-
-    if (!silentToast) {
-      showToast(`🔍 Looking for ${targetLabel}...`, 'info');
-    }
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (writeChar) return true;
-      try {
-        const devices = await navigator.bluetooth.getDevices();
-        if (!devices || devices.length === 0) return false;
-
-        // STRICT MATCH: Match by exact saved ID first, or exact hardware name if Android rotated the BLE hash.
-        // NEVER fall back to devices[0] (which is the oldest first printer ever paired)!
-        let target = devices.find(d => d.id === savedId);
-        if (!target && activeEntry && activeEntry.hwName) {
-          target = devices.filter(d => d.name === activeEntry.hwName).pop();
-          if (target && target.id !== savedId) {
-            activeEntry.id = target.id;
-            savePrinterRegistry(list);
-            localStorage.setItem('cat_printer_id', target.id);
-          }
+    isReconnectingFlight = true;
+    try {
+      const devices = await navigator.bluetooth.getDevices();
+      if (!devices || devices.length === 0) {
+        if (!silentToast) {
+          showToast('⚠️ Chrome cleared BLE permission — tap button below to pair once', 'warn');
         }
+        return false;
+      }
 
-        if (!target) return false;
+      const list = getPrinterRegistry();
+      const activeEntry = list.find(p => p.id === savedId);
 
-        if (target.watchAdvertisements && !target._watchingAds) {
+      // 1. Match by exact ID, 2. Match by hardware name, 3. Fallback to MOST RECENTLY paired device (never devices[0] unless length===1)
+      let target =
+        devices.find(d => d.id === savedId) ||
+        (activeEntry && activeEntry.hwName && devices.filter(d => d.name === activeEntry.hwName).pop()) ||
+        devices[devices.length - 1];
+
+      if (!target) return false;
+
+      if (target.id !== savedId) {
+        registerOrUpdatePrinter(target);
+      }
+
+      const targetLabel = getPrinterDisplayLabel(target);
+      if (!silentToast) {
+        showToast(`🔍 Looking for ${targetLabel}...`, 'info');
+      }
+
+      // Attach persistent advertisement listener AND wait briefly for first advertisement on cold start
+      if (target.watchAdvertisements) {
+        let adWaitResolver = null;
+        const adPromise = new Promise(resolve => { adWaitResolver = resolve; });
+
+        if (!target._watchingAds) {
           target._watchingAds = true;
           target.addEventListener('advertisementreceived', () => {
-            if (!writeChar && !isConnecting && getSavedPrinterId() === target.id) {
+            if (adWaitResolver) {
+              adWaitResolver(true);
+              adWaitResolver = null;
+            }
+            if (!writeChar && !isConnecting) {
               connectToBleDevice(target);
             }
           });
-          target.watchAdvertisements().catch(() => {
-            target._watchingAds = false;
-          });
         }
 
-        const ok = await connectToBleDevice(target);
-        if (ok && writeChar) return true;
-      } catch (e) {}
+        target.watchAdvertisements().catch(() => {
+          target._watchingAds = false;
+          if (adWaitResolver) {
+            adWaitResolver(false);
+            adWaitResolver = null;
+          }
+        });
 
-      if (attempt < maxAttempts) {
-        await sleep(650);
+        // Wait up to 1200ms for the printer's BLE advertisement to populate Chrome's cache before calling gatt.connect()
+        await Promise.race([adPromise, sleep(1200)]);
+        if (writeChar) return true;
       }
+
+      return await connectToBleDevice(target);
+    } catch (e) {
+      return false;
+    } finally {
+      isReconnectingFlight = false;
     }
-    return Boolean(writeChar);
   }
 
   function startAutoReconnectLoop() {
     if (reconnectTimer) clearInterval(reconnectTimer);
-    attemptAutoReconnect(2, false);
+    attemptAutoReconnect(false);
     reconnectTimer = setInterval(async () => {
-      if (isPrinting || isConnecting) return;
+      if (isPrinting || isConnecting || isReconnectingFlight) return;
       if (!writeChar && getSavedPrinterId()) {
-        await attemptAutoReconnect(2, true);
+        await attemptAutoReconnect(true);
       } else if (writeChar && (isSilentBgEnabled() || document.hidden)) {
         lastBlePingTime = Date.now();
         writeBle(makePacket(0xA3, [0x00])).catch(() => {});
       }
-    }, 3500);
+    }, 4500);
   }
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
-      if (!writeChar && !isConnecting) attemptAutoReconnect(3, true);
+      if (!writeChar && !isConnecting) attemptAutoReconnect(true);
       if (!isPrinting) {
         await checkUrlForFpPayload();
       }
@@ -2864,8 +2912,6 @@
     }
   }
 
-  // Launches Panda Partner; if keepAliveForPrint is true (used by "Return Before Print Finishes"),
-  // it NEVER calls window.close() so the active print job continues in the background!
   function launchReturnApp(keepAliveForPrint = false) {
     hideFpModal();
 
@@ -3113,7 +3159,7 @@
   async function feedPaper5mm() {
     if (isPrinting) return;
     if (!writeChar) {
-      const ok = await attemptAutoReconnect(3, false);
+      const ok = await attemptAutoReconnect(false);
       if (!ok && !writeChar) {
         await pairNewPrinter();
         if (!writeChar) return;
@@ -3180,8 +3226,6 @@
       showToast(`🖨️ Printing receipt for ${jobTitle}...`, 'info', true);
       speakStatus(`Printing ${jobTitle.replace('#', 'number ')}`);
 
-      // If "Auto-Return Before Print Finishes (As Print Starts)" is selected,
-      // start keep-alive audio and jump back to Panda Partner right as printing starts!
       if ((fromFpMacroFlow || isFpPipelineRun) && autoReturnEnabled && autoReturnTiming === 'before' && !document.hidden) {
         ensureAudioKeepAliveRunning();
         setTimeout(() => launchReturnApp(true), 250);
@@ -3298,7 +3342,6 @@
     document.getElementById('menuUpdatedLabel').innerText = APP_UPDATED_DHAKA;
     document.getElementById('homeVersionBadge').innerText = `Billu ${APP_VERSION} • Updated: ${APP_UPDATED_DHAKA}`;
 
-    // Migrate legacy single saved printer into the new Multi-Printer Registry if needed
     const legacyId = localStorage.getItem('cat_printer_id');
     const legacyName = localStorage.getItem('cat_printer_name');
     if (legacyId && getPrinterRegistry().length === 0) {
