@@ -11,53 +11,54 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     :root {
-      --bg: #1F2937;
-      --surface: #111827;
-      --card: #FFFFFF;
-      --blue: #2563EB;
-      --amber: #D97706;
-      --green: #10B981;
-      --red: #EF4444;
-      --gray-btn: #4B5563;
-      --fp-pink: #D70F64;
+      --bg: #1F2937; --surface: #111827; --card: #FFFFFF;
+      --blue: #2563EB; --amber: #D97706; --green: #10B981;
+      --red: #EF4444; --gray-btn: #4B5563; --fp-pink: #D70F64;
     }
-    * {
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, sans-serif;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%;
-      overflow: hidden; background: var(--bg); color: #F9FAFB;
-    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-user-select: none; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #F9FAFB; }
 
-    /* 1. STICKY TOP BRIGHTNESS SLIDER */
+    /* 1. STICKY TOP BAR WITH BRIGHTNESS + 1-TAP RELAUNCH BUTTON */
     .top-bar {
       position: fixed; top: 0; left: 0; right: 0; height: 54px;
       background: var(--surface); display: flex; align-items: center;
-      gap: 12px; padding: 0 16px; z-index: 30;
+      gap: 10px; padding: 0 12px; z-index: 30;
       box-shadow: 0 2px 8px rgba(0,0,0,0.35);
     }
-    .top-bar span { font-size: 14px; font-weight: 600; white-space: nowrap; }
-    .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; }
+    .top-bar span { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; min-width: 70px; }
+    #relaunchTopBtn {
+      background: var(--blue); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 10px; padding: 7px 11px; font-size: 12px; font-weight: 800;
+      cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    #relaunchTopBtn:active { transform: scale(0.95); }
+
+    /* PERSISTENT FIRST-CONTACT SESSION BAR */
+    #firstContactBar {
+      position: fixed; top: 54px; left: 0; right: 0; min-height: 34px;
+      padding: 6px 12px; z-index: 29; display: flex; align-items: center; justify-content: center;
+      gap: 8px; font-size: 12px; font-weight: 800; text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: background 0.2s ease;
+    }
+    .fc-missing { background: #991B1B; color: #FEE2E2; border-bottom: 2px solid #EF4444; }
+    .fc-armed-ok { background: #065F46; color: #D1FAE5; border-bottom: 1px solid #10B981; }
+    .fc-armed-off { background: #92400E; color: #FEF3C7; border-bottom: 2px solid #F59E0B; }
+    .fc-inline-btn {
+      background: #FFFFFF; color: #111827; border: none; border-radius: 99px;
+      padding: 3px 9px; font-size: 11px; font-weight: 900; cursor: pointer; white-space: nowrap;
+    }
 
     /* 2. INTERACTIVE VIEWPORT */
     #viewport {
-      position: fixed; top: 54px; bottom: 84px; left: 0; right: 0;
+      position: fixed; top: 88px; bottom: 84px; left: 0; right: 0;
       overflow: hidden; touch-action: none;
       display: flex; align-items: flex-start; justify-content: flex-start;
       background: #374151;
     }
-    #canvasTransform {
-      transform-origin: 0 0;
-      will-change: transform;
-      display: none;
-    }
-    #printCanvas {
-      display: block; background: #FFFFFF;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
-    }
+    #canvasTransform { transform-origin: 0 0; will-change: transform; display: none; }
+    #printCanvas { display: block; background: #FFFFFF; box-shadow: 0 4px 20px rgba(0,0,0,0.45); }
 
     /* CENTER BIG BUTTON WHEN NO FILE IS OPEN */
     #emptyStateContainer {
@@ -66,10 +67,10 @@
       padding: 24px; z-index: 20; gap: 14px;
     }
     #bigChooseFileBtn {
-      width: 100%; max-width: 340px; min-height: 170px;
+      width: 100%; max-width: 340px; min-height: 165px;
       background: var(--blue); color: #FFFFFF;
       border: 2px dashed rgba(255,255,255,0.45);
-      border-radius: 24px; padding: 24px 20px;
+      border-radius: 24px; padding: 22px 20px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; cursor: pointer;
       box-shadow: 0 10px 28px rgba(0,0,0,0.45);
@@ -77,39 +78,34 @@
       text-align: center;
     }
     #bigChooseFileBtn:active { transform: scale(0.97); }
-    #bigChooseFileBtn .big-icon { font-size: 42px; line-height: 1; }
-    #bigChooseFileBtn .big-title { font-size: 20px; font-weight: 800; line-height: 1.25; }
+    #bigChooseFileBtn .big-icon { font-size: 40px; line-height: 1; }
+    #bigChooseFileBtn .big-title { font-size: 19px; font-weight: 800; line-height: 1.25; }
     #bigChooseFileBtn .big-sub { font-size: 13px; color: #DBEAFE; font-weight: 500; }
 
     .version-pill {
       font-size: 11px; color: #9CA3AF; background: rgba(17,24,39,0.75);
-      padding: 5px 12px; border-radius: 99px; border: 1px solid #374151;
-      text-align: center;
+      padding: 5px 12px; border-radius: 99px; border: 1px solid #374151; text-align: center;
     }
 
     /* PERSISTENT STATUS BANNER + NON-INTERACTABLE TOOLTIP TOAST STACK */
     #statusBanner {
-      position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
       background: rgba(17,24,39,0.92); color: #E5E7EB;
       padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 600;
       pointer-events: none; z-index: 25; white-space: nowrap;
       border: 1px solid rgba(75,85,99,0.6);
       max-width: calc(100% - 130px); overflow: hidden; text-overflow: ellipsis;
     }
-
     #toastStack {
-      position: fixed; top: 92px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 128px; left: 50%; transform: translateX(-50%);
       display: flex; flex-direction: column; align-items: center; gap: 6px;
       pointer-events: none; z-index: 9999; width: 92%; max-width: 360px;
     }
     .toast-pill {
-      pointer-events: none;
-      background: rgba(17, 24, 39, 0.94); color: #F9FAFB;
-      border: 1px solid #4B5563; border-radius: 12px;
-      padding: 7px 13px; font-size: 12px; font-weight: 700;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.55);
-      text-align: center; line-height: 1.3;
-      animation: toastIn 0.18s ease-out;
+      pointer-events: none; background: rgba(17, 24, 39, 0.94); color: #F9FAFB;
+      border: 1px solid #4B5563; border-radius: 12px; padding: 7px 13px;
+      font-size: 12px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+      text-align: center; line-height: 1.3; animation: toastIn 0.18s ease-out;
       transition: opacity 0.25s ease, transform 0.25s ease;
     }
     .toast-pill.toast-success { border-color: var(--green); color: #A7F3D0; }
@@ -120,42 +116,35 @@
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND B64 ERROR DIAGNOSTIC) */
+    /* FOODPANDA MODALS */
     #fpModalBackdrop {
-      position: fixed; top: 54px; bottom: 84px; left: 0; right: 0; z-index: 80;
+      position: fixed; top: 88px; bottom: 84px; left: 0; right: 0; z-index: 80;
       background: rgba(17, 24, 39, 0.82); backdrop-filter: blur(4px);
-      display: none; align-items: center; justify-content: center;
-      padding: 18px;
+      display: none; align-items: center; justify-content: center; padding: 18px;
     }
     #fpModalBackdrop.active { display: flex; }
     .fp-modal-card {
-      position: relative;
-      width: 100%; max-width: 360px;
+      position: relative; width: 100%; max-width: 360px;
       background: #111827; border: 2px solid var(--fp-pink);
       border-radius: 24px; padding: 24px 18px 20px 18px;
       display: flex; flex-direction: column; align-items: center;
-      text-align: center; gap: 14px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.75);
+      text-align: center; gap: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.75);
     }
     .fp-modal-close-x {
-      position: absolute; top: 12px; left: 12px;
-      width: 38px; height: 38px; border-radius: 99px;
-      border: 1px solid #4B5563; background: #1F2937; color: #F9FAFB;
-      font-size: 18px; font-weight: 900; cursor: pointer;
+      position: absolute; top: 12px; left: 12px; width: 38px; height: 38px;
+      border-radius: 99px; border: 1px solid #4B5563; background: #1F2937;
+      color: #F9FAFB; font-size: 18px; font-weight: 900; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
     .fp-modal-close-x:active { transform: scale(0.92); }
     .fp-modal-icon { font-size: 44px; line-height: 1; }
     .fp-modal-title { font-size: 21px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
     .fp-modal-sub { font-size: 14px; color: #D1D5DB; font-weight: 600; line-height: 1.4; }
-    .fp-modal-actions {
-      display: flex; width: 100%; gap: 12px; margin-top: 4px;
-    }
+    .fp-modal-actions { display: flex; width: 100%; gap: 12px; margin-top: 4px; }
     .fp-modal-btn {
       flex: 1; padding: 16px 12px; border-radius: 16px; border: none;
       font-size: 18px; font-weight: 900; cursor: pointer; color: #FFFFFF;
-      transition: transform 0.1s ease;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform 0.1s ease; display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .fp-modal-btn:active { transform: scale(0.96); }
     .fp-btn-yes { background: var(--green); }
@@ -174,14 +163,11 @@
 
     /* INTERNAL RECEIPT VAULT OVERLAY */
     #vaultOverlay {
-      position: fixed; inset: 0; z-index: 95;
-      background: #111827; display: none; flex-direction: column;
-      padding: 16px; gap: 12px;
+      position: fixed; inset: 0; z-index: 95; background: #111827;
+      display: none; flex-direction: column; padding: 16px; gap: 12px;
     }
     #vaultOverlay.open { display: flex; }
-    #vaultList {
-      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
-    }
+    #vaultList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     .vault-item {
       background: #1F2937; border: 1px solid #374151; border-radius: 14px;
       padding: 12px; display: flex; flex-direction: column; gap: 8px;
@@ -199,165 +185,84 @@
       position: fixed; z-index: 35; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       border-radius: 99px; font-weight: 700;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-      transition: transform 0.1s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35); transition: transform 0.1s ease;
     }
     .fab:active { transform: scale(0.95); }
-
-    #returnAppBtn {
-      top: 66px; left: 14px; padding: 10px 14px;
-      background: var(--fp-pink); color: #FFFFFF; font-size: 14px;
-      display: none;
-    }
-    #returnAppBtn .app-icon {
-      width: 24px; height: 24px; background: #FFFFFF; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center; font-size: 16px;
-    }
-
-    #burgerBtn {
-      top: 66px; right: 14px; width: 46px; height: 46px;
-      background: var(--surface); color: #FFFFFF; font-size: 22px;
-    }
-
-    /* Blue "Print something else..." button above Fit Screen */
-    #printSomethingElseBtn {
-      bottom: 146px; right: 14px; padding: 10px 14px;
-      background: var(--blue); color: #FFFFFF; font-size: 13px;
-      border: 1px solid rgba(255,255,255,0.28);
-      display: none;
-    }
-
-    #fitScreenBtn {
-      bottom: 98px; right: 14px; padding: 10px 14px;
-      background: var(--surface); color: #FFFFFF; font-size: 13px;
-      border: 1px solid #4B5563;
-      display: none;
-    }
+    #returnAppBtn { top: 98px; left: 14px; padding: 10px 14px; background: var(--fp-pink); color: #FFFFFF; font-size: 14px; display: none; }
+    #returnAppBtn .app-icon { width: 24px; height: 24px; background: #FFFFFF; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    #burgerBtn { top: 98px; right: 14px; width: 46px; height: 46px; background: var(--surface); color: #FFFFFF; font-size: 22px; }
+    #printSomethingElseBtn { bottom: 146px; right: 14px; padding: 10px 14px; background: var(--blue); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
+    #fitScreenBtn { bottom: 98px; right: 14px; padding: 10px 14px; background: var(--surface); color: #FFFFFF; font-size: 13px; border: 1px solid #4B5563; display: none; }
 
     /* 4. FLOATING OPTIONS MENU */
     #optionsOverlay {
-      position: fixed; top: 66px; right: 14px; width: calc(100% - 28px); max-width: 375px;
-      max-height: calc(100% - 160px); overflow-y: auto;
+      position: fixed; top: 98px; right: 14px; width: calc(100% - 28px); max-width: 375px;
+      max-height: calc(100% - 190px); overflow-y: auto;
       background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px);
       border: 1px solid #374151; border-radius: 18px; padding: 14px;
       z-index: 40; display: none; flex-direction: column; gap: 10px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.65);
     }
     #optionsOverlay.open { display: flex; }
-
-    .opt-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding-bottom: 8px; border-bottom: 1px solid #374151;
-    }
-    .icon-pill {
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 8px 14px; border-radius: 99px; border: none;
-      background: #374151; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;
-    }
-    .opt-row {
-      background: #1F2937; border-radius: 12px; padding: 10px 12px;
-      display: flex; flex-direction: column; gap: 8px; font-size: 13px;
-    }
-    .opt-row-inline {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    }
-    .opt-btn {
-      width: 100%; padding: 10px 12px; border-radius: 10px; border: none;
-      font-weight: 700; font-size: 13px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
+    .opt-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #374151; }
+    .icon-pill { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 99px; border: none; background: #374151; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .opt-row { background: #1F2937; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+    .opt-row-inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .opt-btn { width: 100%; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .opt-btn:active { transform: scale(0.98); }
     .opt-btn-feed { background: var(--green); color: #FFFFFF; }
     .opt-btn-upload { background: #3B82F6; color: #FFFFFF; }
     .opt-btn-fp { background: var(--fp-pink); color: #FFFFFF; }
-    .opt-btn-path {
-      background: #374151; color: #F3F4F6; text-align: left;
-      justify-content: space-between; font-weight: 600; word-break: break-all;
-    }
+    .opt-btn-path { background: #374151; color: #F3F4F6; text-align: left; justify-content: space-between; font-weight: 600; word-break: break-all; }
     .opt-btn-warn { background: var(--red); color: #FFFFFF; }
-    .opt-input, .opt-select {
-      background: #111827; color: #FFFFFF; border: 1px solid #4B5563;
-      border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 85px;
-    }
+    .opt-input, .opt-select { background: #111827; color: #FFFFFF; border: 1px solid #4B5563; border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 85px; }
     .opt-select { width: auto; flex: 1; }
 
     /* SAVED PRINTERS LIST CARDS */
-    .printer-card {
-      background: #111827; border: 1px solid #374151; border-radius: 10px;
-      padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
-    }
-    .printer-card.active-printer {
-      border-color: var(--green);
-      background: rgba(16, 185, 129, 0.08);
-    }
-    .printer-card-top {
-      display: flex; align-items: center; justify-content: space-between; gap: 6px;
-    }
-    .printer-mac-badge {
-      font-family: monospace; font-size: 11px; color: #93C5FD;
-      background: #1E3A8A; padding: 2px 6px; border-radius: 6px; font-weight: 700;
-    }
-    .printer-card-actions {
-      display: flex; gap: 6px;
-    }
-    .printer-mini-btn {
-      flex: 1; padding: 6px 8px; border-radius: 7px; border: none;
-      font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF;
-      background: #374151;
-    }
+    .printer-card { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .printer-card.active-printer { border-color: var(--green); background: rgba(16, 185, 129, 0.08); }
+    .printer-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .printer-mac-badge { font-family: monospace; font-size: 11px; color: #93C5FD; background: #1E3A8A; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
+    .printer-card-actions { display: flex; gap: 6px; }
+    .printer-mini-btn { flex: 1; padding: 6px 8px; border-radius: 7px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF; background: #374151; }
 
     /* 5. STICKY BOTTOM SINGLE ACTION BUTTON */
-    .bottom-bar {
-      position: fixed; bottom: 0; left: 0; right: 0; height: 84px;
-      background: var(--surface); padding: 12px 16px; z-index: 90;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.35);
-    }
-    #mainActionBtn {
-      width: 100%; height: 100%; border: none; border-radius: 16px;
-      font-size: 20px; font-weight: 800; color: #FFFFFF; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: background 0.2s ease, opacity 0.2s ease;
-    }
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 84px; background: var(--surface); padding: 12px 16px; z-index: 90; box-shadow: 0 -2px 10px rgba(0,0,0,0.35); }
+    #mainActionBtn { width: 100%; height: 100%; border: none; border-radius: 16px; font-size: 19px; font-weight: 800; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s ease, opacity 0.2s ease; }
     #mainActionBtn.state-connect { background: var(--blue); }
     #mainActionBtn.state-searching { background: var(--amber); }
     #mainActionBtn.state-print { background: var(--green); }
     #mainActionBtn.state-stop { background: var(--red); }
-    #mainActionBtn.state-disabled {
-      background: var(--gray-btn);
-      color: #9CA3AF;
-    }
+    #mainActionBtn.state-disabled { background: var(--gray-btn); color: #9CA3AF; }
     #mainActionBtn:disabled { opacity: 0.75; cursor: not-allowed; }
 
-    .dots::after {
-      content: '';
-      display: inline-block;
-      width: 1.2em;
-      text-align: left;
-      animation: dotAnim 1.4s infinite steps(4, end);
-    }
-    @keyframes dotAnim {
-      0% { content: ''; }
-      25% { content: '.'; }
-      50% { content: '..'; }
-      75% { content: '...'; }
-    }
+    .dots::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: dotAnim 1.4s infinite steps(4, end); }
+    @keyframes dotAnim { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
   </style>
 </head>
 <body>
 
-  <!-- TOP STICKY BRIGHTNESS SLIDER -->
+  <!-- TOP STICKY BAR: BRIGHTNESS + 1-TAP RELAUNCH BUTTON -->
   <div class="top-bar">
     <span>☀️ Brightness</span>
     <input type="range" id="brightnessSlider" min="40" max="230" value="155" oninput="onBrightnessChange()">
+    <button id="relaunchTopBtn" onclick="relaunchAppFresh()" title="Fresh relaunch to connect immediately">
+      🔄 Relaunch
+    </button>
+  </div>
+
+  <!-- PERSISTENT FIRST-CONTACT SESSION BAR -->
+  <div id="firstContactBar" class="fc-missing">
+    <span id="firstContactText">⚠️ NO FIRST CONTACT YET: Turn ON printer & connect once to arm background printing</span>
+    <button id="firstContactActionBtn" class="fc-inline-btn" onclick="relaunchAppFresh()">🔄 Refresh</button>
   </div>
 
   <!-- PERSISTENT STATUS BANNER & NON-INTERACTABLE TOOLTIP TOAST STACK -->
   <div id="statusBanner">Ready</div>
   <div id="toastStack"></div>
 
-  <!-- FOODPANDA MODALS (PRE-PRINT, POST-PRINT, AND B64 DIAGNOSTIC ERROR) -->
+  <!-- FOODPANDA MODALS -->
   <div id="fpModalBackdrop">
-    <!-- Mode 1: Pre-Print Confirmation (Print / Don't Print) -->
     <div class="fp-modal-card" id="fpPrePrintCard" style="display:none;">
       <button class="fp-modal-close-x" onclick="onFpPrePrintChoice(false)" aria-label="Close">✕</button>
       <div class="fp-modal-icon">🐼</div>
@@ -369,7 +274,6 @@
       </div>
     </div>
 
-    <!-- Mode 2: Post-Print Confirmation (Big Pink Open Panda Partner + Top-Left X) -->
     <div class="fp-modal-card" id="fpPostPrintCard" style="display:none;">
       <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)" aria-label="Dismiss and stay">✕</button>
       <div class="fp-modal-icon">✅</div>
@@ -384,7 +288,6 @@
       </div>
     </div>
 
-    <!-- Mode 3: Explicit Error Modal when Base64 / Order Parsing Fails -->
     <div class="fp-modal-card" id="fpErrorCard" style="display:none; border-color: var(--red);">
       <button class="fp-modal-close-x" onclick="hideFpModal()" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">⚠️</div>
@@ -415,21 +318,13 @@
     <div id="vaultList"></div>
   </div>
 
-  <!-- FLOATING RETURN TO APP BUTTON -->
+  <!-- FLOATING BUTTONS -->
   <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
     <span class="app-icon" id="returnAppIcon">🐼</span>
     <span id="returnAppLabel">Foodpanda</span>
   </button>
-
-  <!-- FLOATING BURGER BUTTON -->
   <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
-
-  <!-- FLOATING BLUE "PRINT SOMETHING ELSE..." BUTTON ABOVE FIT SCREEN -->
-  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">
-    📂 Print something else...
-  </button>
-
-  <!-- FLOATING FIT SCREEN BUTTON -->
+  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">📂 Print something else...</button>
   <button id="fitScreenBtn" class="fab" onclick="fitScreen()">⤢ Fit Screen</button>
 
   <!-- FLOATING OPTIONS MENU -->
@@ -440,15 +335,14 @@
       <button class="icon-pill" onclick="closeMenu()">☰</button>
     </div>
 
-    <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.7.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.8.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <div style="display:flex; gap:6px;">
         <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="forceUpdatePWA()">
-          🔄 Force Update
+          🔄 Update from GitHub
         </button>
         <button class="opt-btn" style="background:#2563EB; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="enableSystemNotifications()">
           🔔 System Notifs
@@ -456,19 +350,13 @@
       </div>
     </div>
 
-    <!-- 0. Top Quick Actions: Feed 5mm & Reprint Last -->
     <div class="opt-row">
       <div style="display:flex; gap:8px;">
-        <button id="feedPaperBtn" class="opt-btn opt-btn-feed" style="flex:1;" onclick="feedPaper5mm()">
-          ⏫ Feed 5mm
-        </button>
-        <button class="opt-btn" style="background:#D97706; color:#FFFFFF; flex:1;" onclick="reprintLastReceipt()">
-          🔁 Reprint Last
-        </button>
+        <button id="feedPaperBtn" class="opt-btn opt-btn-feed" style="flex:1;" onclick="feedPaper5mm()">⏫ Feed 5mm</button>
+        <button class="opt-btn" style="background:#D97706; color:#FFFFFF; flex:1;" onclick="reprintLastReceipt()">🔁 Reprint Last</button>
       </div>
     </div>
 
-    <!-- 1. Open Doc / Photo / FP_Log.txt -->
     <div class="opt-row">
       <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf,.txt,text/plain" style="display:none" onchange="handleManualFile(event)">
       <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
@@ -476,7 +364,7 @@
       </button>
     </div>
 
-    <!-- 2. Master Checkbox + Foodpanda Pipeline Sub-Options -->
+    <!-- Master Checkbox + Foodpanda Pipeline Sub-Options -->
     <div class="opt-row" style="border: 1px solid #D70F64;">
       <label style="font-weight:800; color:#F472B6; font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input type="checkbox" id="fpMasterEnable" onchange="saveFpMasterToggle()">
@@ -488,13 +376,16 @@
           🗄️ Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
         </button>
 
-        <!-- Auto-Print when coming from Panda Partner -->
-        <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
-          ⚡ Auto-Print if coming from Panda Partner
+        <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
+          🛡️ Silent Background Mode (Never Leave Panda)
         </label>
 
-        <!-- Auto-Return to Panda Partner + Before/After Sub-option -->
+        <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
+          ⚡ Auto-Print if opened from Panda Partner
+        </label>
+
         <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
           ↩️ Auto-Return to Panda Partner
@@ -507,13 +398,6 @@
           </select>
         </div>
 
-        <!-- Silent Background Mode (127.0.0.1) -->
-        <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
-          🛡️ Silent Background Mode (b64 Local)
-        </label>
-
-        <!-- Copies & Font Size & Voice QoL -->
         <div class="opt-row-inline">
           <span style="font-weight:600;">Print Copies:</span>
           <select id="fpPrintCopies" class="opt-select" onchange="saveFpPromptSettings()">
@@ -533,7 +417,6 @@
           🗣️ Speak Order Status Out Loud
         </label>
 
-        <!-- Google Drive One-Way Sync Settings -->
         <div style="border-top:1px solid #374151; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
           <div style="font-weight:800; color:#93C5FD; font-size:12px;">☁️ Google Drive One-Way Sync (No Repeats)</div>
           <input type="text" id="gdriveWebhookInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Paste Google Apps Script Web App URL" onchange="saveFpPromptSettings()">
@@ -546,27 +429,20 @@
       </div>
     </div>
 
-    <!-- 3. Multi-Printer Manager (MAC/ID Display, Rename, Manual Connect, Forget All) -->
+    <!-- Multi-Printer Manager -->
     <div class="opt-row" style="border: 1px solid #3B82F6;">
       <div class="opt-row-inline">
         <span style="font-weight:800; color:#93C5FD;">🖨️ Printer Manager</span>
         <span id="savedPrinterLabel" style="color:#10B981; font-size:11px; font-weight:700;">Active: None</span>
       </div>
-      <div style="font-size:11px; color:#9CA3AF;">
-        Strictly connects to your selected Active Printer (never falls back to old printers).
-      </div>
       <div id="savedPrintersList" style="display:flex; flex-direction:column; gap:6px;"></div>
       <div style="display:flex; gap:6px;">
-        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">
-          ➕ Pair New Printer
-        </button>
-        <button class="opt-btn opt-btn-warn" style="flex:1;" onclick="forgetAllPrinters()">
-          🗑️ Forget All
-        </button>
+        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">➕ Pair New Printer</button>
+        <button class="opt-btn opt-btn-warn" style="flex:1;" onclick="forgetAllPrinters()">🗑️ Forget All</button>
       </div>
     </div>
 
-    <!-- 4. Separate Before & After Margins -->
+    <!-- Separate Before & After Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginBeforeMmInput" style="font-weight:600;">Before Margin (mm):</label>
@@ -578,7 +454,7 @@
       </div>
     </div>
 
-    <!-- 5. Stamp -->
+    <!-- Stamp -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
@@ -596,7 +472,7 @@
       </button>
     </div>
 
-    <!-- 6. Return App Button Option -->
+    <!-- Return App Button Option -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="returnAppSelect" style="font-weight:600;">Return Button:</label>
@@ -622,7 +498,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.7.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.8.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -632,17 +508,12 @@
 
   <!-- STICKY BOTTOM SINGLE BUTTON -->
   <div class="bottom-bar">
-    <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>
-      Print
-    </button>
+    <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>Print</button>
   </div>
 
 <script>
-  // ============================================================================
-  // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
-  // ============================================================================
-  const APP_VERSION = 'v3.7.0';
-  const APP_UPDATED_DHAKA = '23 Oct 2026, 08:10 AM (Dhaka)';
+  const APP_VERSION = 'v3.8.0';
+  const APP_UPDATED_DHAKA = '23 Oct 2026, 11:00 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -657,7 +528,8 @@
 
   let writeChar = null;
   let activeBleDevice = null;
-  let cachedBleDeviceMap = new Map(); // Pre-cached BluetoothDevice handles for instant background access
+  let cachedBleDeviceMap = new Map();
+  let hasMadeFirstContact = false; // Tracks whether First Contact was established in this session!
   let isPrinting = false;
   let cancelPrintRequested = false;
   let isConnecting = false;
@@ -665,7 +537,10 @@
   let lastConnectEndTime = 0;
   let adAbortController = null;
   let reconnectTimer = null;
-  let pendingPrintJob = false;
+
+  // Multi-order queue when printer is temporarily off (so MacroDroid never has to switch to Billu!)
+  let pendingPrintQueue = [];
+  let lastRawFpText = '';
 
   let docSourceCanvas = null;
   let stampSourceCanvas = null;
@@ -693,11 +568,84 @@
   let lastPinchCenter = null;
 
   // ============================================================================
-  // TINY NON-INTERACTABLE TOOLTIP TOASTS + ANDROID SYSTEM NOTIFICATIONS
+  // PERSISTENT "FIRST CONTACT" BAR, TOASTS & ANDROID SYSTEM NOTIFICATIONS
   // ============================================================================
 
   function setStatus(msg) {
     document.getElementById('statusBanner').innerText = msg;
+  }
+
+  function updateFirstContactUI(pushPersistentOsNotif = false) {
+    const bar = document.getElementById('firstContactBar');
+    const txt = document.getElementById('firstContactText');
+    const btn = document.getElementById('firstContactActionBtn');
+    const savedId = getSavedPrinterId();
+    const pLabel = savedId ? getPrinterDisplayLabel(savedId) : 'Printer';
+    const qCount = pendingPrintQueue.length;
+    const qSuffix = qCount > 0 ? ` • 📥 ${qCount} Queued Order(s) waiting` : '';
+
+    bar.classList.remove('fc-missing', 'fc-armed-ok', 'fc-armed-off');
+
+    let osTitle = '';
+    let osBody = '';
+
+    if (writeChar) {
+      hasMadeFirstContact = true;
+      bar.classList.add('fc-armed-ok');
+      txt.innerText = `🟢 First Contact Locked (${pLabel}) • Background Print Armed${qSuffix}`;
+      btn.style.display = 'none';
+      osTitle = `🟢 Billu Armed & Connected`;
+      osBody = `Connected to ${pLabel}. Safe to stay in Panda Partner.${qSuffix}`;
+    } else if (!hasMadeFirstContact) {
+      bar.classList.add('fc-missing');
+      txt.innerText = `⚠️ NO FIRST CONTACT YET: Turn ON ${pLabel} & connect once in this session!${qSuffix}`;
+      btn.style.display = 'inline-block';
+      btn.innerText = '🔄 Relaunch to Connect';
+      osTitle = `⚠️ Billu: First Contact Required!`;
+      osBody = `Open Billu & turn ON ${pLabel} once so background printing is armed.${qSuffix}`;
+    } else {
+      bar.classList.add('fc-armed-off');
+      txt.innerText = `🟡 First Contact Locked (${pLabel} Off) — Turn ON printer anytime to auto-print${qSuffix}`;
+      btn.style.display = 'inline-block';
+      btn.innerText = '🔄 Relaunch';
+      osTitle = qCount > 0 ? `📥 ${qCount} Order(s) Queued — Turn ON Printer!` : `🟡 Billu Armed (Printer Off)`;
+      osBody = qCount > 0
+        ? `Waiting for ${pLabel} to turn on to auto-print queued order(s).`
+        : `First contact active. Turn ON ${pLabel} anytime to auto-reconnect.`;
+    }
+
+    if (pushPersistentOsNotif && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(osTitle, {
+            body: osBody,
+            tag: 'billu-first-contact-persistent',
+            renotify: !writeChar && (!hasMadeFirstContact || qCount > 0),
+            requireInteraction: !hasMadeFirstContact || qCount > 0,
+            silent: true,
+            icon: 'https://cdn-icons-png.flaticon.com/512/616/616430.png'
+          }).catch(() => {});
+        });
+      } catch (e) {}
+    }
+  }
+
+  // 1-Tap Relaunch / Refresh Button: preserves any waiting order in sessionStorage,
+  // tears down Chrome's C++ BLE GATT state cleanly, and reloads as a fresh app launch!
+  function relaunchAppFresh() {
+    showToast('🔄 Relaunching Billu for a fresh printer connection...', 'info');
+    try {
+      if (lastRawFpText || pendingPrintQueue.length > 0) {
+        sessionStorage.setItem('billu_relaunch_queue', JSON.stringify(
+          pendingPrintQueue.length > 0 ? pendingPrintQueue : [lastRawFpText]
+        ));
+      }
+      if (activeBleDevice && activeBleDevice.gatt) {
+        activeBleDevice.gatt.disconnect();
+      }
+    } catch (e) {}
+    const cleanUrl = window.location.pathname + '?relaunch=' + Date.now();
+    window.location.replace(cleanUrl);
   }
 
   function showToast(msg, type = 'info', sendOsNotif = false) {
@@ -743,6 +691,7 @@
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       showToast('🔔 Android System Notifications enabled!', 'success', true);
+      updateFirstContactUI(true);
     } else {
       showToast('Notification permission denied', 'warn');
     }
@@ -963,7 +912,7 @@
     showToast(`🔍 Switching to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
     const ok = await attemptAutoReconnect(false);
     if (!ok) {
-      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)} — make sure it is turned ON`, 'warn');
+      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)} — tap 🔄 Relaunch if printer is ON`, 'warn');
     }
   }
 
@@ -1007,6 +956,7 @@
     if (!confirm('Forget all saved Bluetooth printers? You will need to pair again next time.')) return;
     hardAbortPendingBle();
     cachedBleDeviceMap.clear();
+    hasMadeFirstContact = false;
     try {
       if (navigator.bluetooth && navigator.bluetooth.getDevices) {
         const devs = await navigator.bluetooth.getDevices();
@@ -1329,21 +1279,10 @@
 
   function parseSingleScreenBlock(blockText) {
     const res = {
-      restaurant: '',
-      orderNo: '',
-      orderCode: '',
-      prepTime: '',
-      orderReceivedTime: '',
-      customer: '',
-      isHistory: false,
-      items: [],
-      notes: [],
-      discounts: [],
-      subtotal: '',
-      vat: '',
-      total: '',
-      payment: '',
-      deliveryType: ''
+      restaurant: '', orderNo: '', orderCode: '', prepTime: '',
+      orderReceivedTime: '', customer: '', isHistory: false,
+      items: [], notes: [], discounts: [],
+      subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
     };
 
     if (!blockText) return res;
@@ -1520,21 +1459,10 @@
     const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
     const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
     const merged = {
-      restaurant: 'Tasty Patil',
-      orderNo: '',
-      orderCode: '',
-      prepTime: '',
-      orderReceivedTime: '',
-      customer: '',
-      isHistory: false,
-      items: [],
-      notes: [],
-      discounts: [],
-      subtotal: '',
-      vat: '',
-      total: '',
-      payment: '',
-      deliveryType: ''
+      restaurant: 'Tasty Patil', orderNo: '', orderCode: '', prepTime: '',
+      orderReceivedTime: '', customer: '', isHistory: false,
+      items: [], notes: [], discounts: [],
+      subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
     };
     const seenItems = new Set();
     const seenDiscounts = new Set();
@@ -2074,8 +2002,9 @@
     return (localStorage.getItem('fp_master_enabled') ?? '1') === '1';
   }
 
+  // Silent Background Mode now defaults to ON ('1') so MacroDroid never switches to Billu when Billu is in memory!
   function isSilentBgEnabled() {
-    return isFpMasterEnabled() && localStorage.getItem('fp_silent_bg_enabled') === '1';
+    return isFpMasterEnabled() && (localStorage.getItem('fp_silent_bg_enabled') ?? '1') === '1';
   }
 
   function saveFpMasterToggle() {
@@ -2111,9 +2040,6 @@
     }
   }
 
-  // Generates a 1-second 8000Hz 16-bit mono WAV containing a 1 Hz infrasonic sine wave.
-  // 1 Hz is completely inaudible on any phone speaker, but has non-zero digital energy
-  // so Chromium's SilentSinkSuspender NEVER suspends the background audio thread!
   function createInfrasonicWavUrl() {
     const sampleRate = 8000;
     const numSamples = 8000;
@@ -2143,7 +2069,6 @@
     return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
   }
 
-  // Starts the Dedicated Web Worker + Web Locks API heartbeat (works immediately on load without needing a user tap!)
   function startBackgroundWorkerAndLock() {
     if (!bgWebLockActive && navigator.locks && navigator.locks.request) {
       bgWebLockActive = true;
@@ -2155,7 +2080,7 @@
     if (!bgWorker) {
       try {
         const blob = new Blob([`
-          setInterval(() => postMessage('tick'), 900);
+          setInterval(() => postMessage('tick'), 320);
         `], { type: 'application/javascript' });
         bgWorker = new Worker(URL.createObjectURL(blob));
         bgWorker.onmessage = () => onBackgroundHeartbeatTick();
@@ -2166,13 +2091,13 @@
   function onBackgroundHeartbeatTick() {
     const now = Date.now();
 
-    // 1. Poll 127.0.0.1:18999 if Silent Background Mode is enabled
-    if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 450) {
+    // 1. Poll 127.0.0.1:18999 every 300ms EVEN IF PRINTER IS OFF so MacroDroid never pulls user out of Panda Partner!
+    if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 300) {
       lastAudioPollTime = now;
       pollLocalhostB64Once();
     }
 
-    // 2. Always maintain BLE connection in both foreground and background!
+    // 2. Maintain BLE connection in both foreground and background
     if (!isPrinting && !isConnecting) {
       if (writeChar && (document.hidden || isSilentBgEnabled())) {
         if (now - lastBlePingTime > 3500) {
@@ -2180,7 +2105,6 @@
           writeBle(makePacket(0xA3, [0x00])).catch(() => {});
         }
       } else if (!writeChar && getSavedPrinterId()) {
-        // Wait at least 2.0 seconds after the previous connect attempt ended before starting the next scan
         if (now - lastConnectEndTime > 2000 && now - lastBlePingTime > 2200) {
           lastBlePingTime = now;
           attemptAutoReconnect(true);
@@ -2209,7 +2133,7 @@
       }
       if (!audioScriptNode) {
         const osc = audioCtx.createOscillator();
-        osc.frequency.value = 1; // 1 Hz infrasonic
+        osc.frequency.value = 1;
         const gain = audioCtx.createGain();
         gain.gain.value = 0.02;
 
@@ -2224,7 +2148,6 @@
     } catch (e) {}
   }
 
-  // Start the infrasonic audio keep-alive on the very first touch anywhere in the app
   document.addEventListener('pointerdown', () => {
     ensureAudioKeepAliveRunning();
   }, { passive: true });
@@ -2234,7 +2157,7 @@
     localLoopbackTimer = setInterval(() => {
       if (!isSilentBgEnabled() || isPrinting) return;
       pollLocalhostB64Once();
-    }, 450);
+    }, 300);
   }
 
   function stopLocalB64BackgroundPoller() {
@@ -2245,7 +2168,7 @@
   }
 
   window.onBilluBgOrder = async function(b64String) {
-    if (!isFpMasterEnabled() || !b64String || isPrinting) return;
+    if (!isFpMasterEnabled() || !b64String) return;
     const fpKey = getB64Fingerprint(b64String);
     if (fpKey === localStorage.getItem('fp_last_processed_b64')) return;
     localStorage.setItem('fp_last_processed_b64', fpKey);
@@ -2259,7 +2182,7 @@
   };
 
   function pollLocalhostB64Once() {
-    if (isLoopbackPolling || isPrinting || !isSilentBgEnabled()) return;
+    if (isLoopbackPolling || !isSilentBgEnabled()) return;
     isLoopbackPolling = true;
 
     const s = document.createElement('script');
@@ -2271,7 +2194,19 @@
     s.onerror = done;
     s.src = `http://127.0.0.1:18999/poll.js?t=${Date.now()}`;
     document.body.appendChild(s);
-    setTimeout(done, 420);
+    setTimeout(done, 280);
+  }
+
+  // Drains all queued orders sequentially as soon as the printer connects!
+  async function processPendingPrintQueue() {
+    if (isPrinting || !writeChar || pendingPrintQueue.length === 0) return;
+    while (pendingPrintQueue.length > 0 && writeChar && !isPrinting) {
+      const nextRawText = pendingPrintQueue.shift();
+      updateFirstContactUI(false);
+      await prepareFoodpandaOrderFromText(nextRawText, true);
+      await delayMs(500);
+    }
+    updateFirstContactUI(true);
   }
 
   // ============================================================================
@@ -2315,7 +2250,8 @@
     ensureAudioKeepAliveRunning();
 
     if (!shouldPrint) {
-      pendingPrintJob = false;
+      pendingPrintQueue = [];
+      updateFirstContactUI(false);
       showToast('🛑 Print cancelled by user', 'warn');
       return;
     }
@@ -2327,8 +2263,11 @@
     if (writeChar) {
       await printCanvas(true);
     } else {
-      pendingPrintJob = true;
-      showToast(`⚠️ Could not print ${currentOrderMeta.orderNo} — queued for when printer turns on`, 'warn', true);
+      if (lastRawFpText && !pendingPrintQueue.includes(lastRawFpText)) {
+        pendingPrintQueue.push(lastRawFpText);
+      }
+      updateFirstContactUI(true);
+      showToast(`📥 Queued ${currentOrderMeta.orderNo} — turn ON printer to auto-print!`, 'warn', true);
     }
   }
 
@@ -2373,7 +2312,6 @@
   function triggerPrintSomethingElse() {
     hideFpModal();
     isFpPipelineRun = false;
-    pendingPrintJob = false;
     document.getElementById('manualFileInput').click();
   }
 
@@ -2403,6 +2341,15 @@
       return { ok: false, reason: msg };
     }
 
+    // If currently printing another receipt, push this new order into the queue!
+    if (isPrinting) {
+      pendingPrintQueue.push(rawText);
+      updateFirstContactUI(true);
+      showToast(`📥 Queued Order ${parsed.orderNo || ''} (will print next)`, 'info', true);
+      return { ok: true };
+    }
+
+    lastRawFpText = rawText;
     isFpPipelineRun = true;
     lastParsedFpData = parsed;
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
@@ -2412,7 +2359,7 @@
     updateMainButtonUI();
     showToast(`🧾 Order ${parsed.orderNo || ''} loaded (${parsed.items.length} item(s) • ${parsed.total || ''})`, 'info', isSilentBgRun);
 
-    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '0') === '1';
+    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
 
     if (!isSilentBgRun && !autoPrintOnOpen) {
       const title = `Print Order ${parsed.orderNo || ''}?`;
@@ -2423,21 +2370,19 @@
 
     if (!writeChar) await attemptAutoReconnect(false);
     if (writeChar) {
-      pendingPrintJob = false;
       await printCanvas(!isSilentBgRun);
     } else {
-      pendingPrintJob = true;
+      if (!pendingPrintQueue.includes(rawText)) {
+        pendingPrintQueue.push(rawText);
+      }
+      updateFirstContactUI(true);
+      playTone(300, 220);
+      setTimeout(() => playTone(250, 260), 260);
       showToast(
-        `⚠️ Printer offline — Order ${parsed.orderNo || ''} queued to auto-print when printer turns on!`,
+        `📥 Order ${parsed.orderNo || ''} queued — turn ON printer to auto-print!`,
         'warn',
         true
       );
-      if (!isSilentBgRun) {
-        showFpPrePrintModal(
-          `Printer Offline (${parsed.orderNo || ''})`,
-          'Turn on printer to auto-print, or tap Print below to connect manually.'
-        );
-      }
     }
     return { ok: true };
   }
@@ -2462,6 +2407,10 @@
     const rawHref = window.location.href;
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash || '';
+
+    if (params.has('relaunch')) {
+      history.replaceState(null, '', window.location.pathname);
+    }
 
     if (hash === '#stay' || hash === '#return_stay') {
       history.replaceState(null, '', window.location.pathname);
@@ -2521,11 +2470,7 @@
       b64ErrorReason = 'No fp_b64 parameter was found in the URL.';
     }
 
-    showFpErrorModal(
-      'Base64 / Order Load Failed',
-      b64ErrorReason,
-      b64DiagnosticDetail
-    );
+    showFpErrorModal('Base64 / Order Load Failed', b64ErrorReason, b64DiagnosticDetail);
     return true;
   }
 
@@ -2537,6 +2482,7 @@
     closeMenu();
     const sampleHistoryOrder = `{"" :"You are closed\\u000aYou are outside of your opening hours.","$2" :"Back","$3" :"Tasty Patil (CVGI)","$4" :"You are closed\\u000aYou are outside of your opening hours.","$5" :"Tasty Patil (CVGI)","index:28" :"","index:29" :"","index:30" :"","index:31" :"COMPLETED PAYABLE cvgi-2643-jqby Order timeline Order received 20:57 Accepted in 13 sec Order accepted 20:58 Committed preparation time: 21:13 Rider near pickup 21:08 Rider at store 21:13 Picked up by rider 21:14 In delivery 21:14 Order delivered","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"cvgi-2643-jqby","index:41" :"Order timeline","index:44" :"Order received","index:45" :"20:57","index:48" :"Order accepted","index:49" :"20:58","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Koftah Bhuna Khichuri Combo - Regular ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Platform delivery","test_id_web_view_collapsible_title" :"Order History"}`;
 
+    lastRawFpText = sampleHistoryOrder;
     const parsed = parseFoodpandaMultiScroll(sampleHistoryOrder);
     lastParsedFpData = parsed;
     isFpPipelineRun = true;
@@ -2641,6 +2587,7 @@
     const labelStr = savedId ? getPrinterDisplayLabel(savedId) : 'None';
     document.getElementById('savedPrinterLabel').innerText = `Active: ${labelStr}`;
     renderPrinterManagerList();
+    updateFirstContactUI(false);
 
     btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-stop', 'state-disabled');
 
@@ -2723,9 +2670,6 @@
     }
   }
 
-  // Adaptive Foreground (3.5s) vs. Background (10.5s) GATT Connection Window:
-  // When in the background, Android's `connectGatt(autoConnect=false)` HCI page scan needs up to 10.5 seconds
-  // to discover a newly powered-on printer without `watchAdvertisements()`.
   async function connectToBleDevice(device) {
     if (isConnecting || writeChar) return Boolean(writeChar);
     isConnecting = true;
@@ -2747,7 +2691,6 @@
           try { device.gatt.disconnect(); } catch (e) {}
           return null;
         }
-        // 150ms post-connect stabilization delay so Android BLE service discovery never fails in background
         await delayMs(150);
         const services = await server.getPrimaryServices();
         let foundChar = null;
@@ -2779,16 +2722,17 @@
       }
 
       writeChar = foundChar;
+      hasMadeFirstContact = true; // First contact locked in for this session!
       registerOrUpdatePrinter(device);
-      showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
+      showToast(`🟢 First Contact Locked: ${getPrinterDisplayLabel(device)}`, 'success', true);
       playTone(880, 140);
       updateMainButtonUI();
+      updateFirstContactUI(true);
 
-      if (pendingPrintJob && docSourceCanvas && !isPrinting) {
-        pendingPrintJob = false;
+      if (pendingPrintQueue.length > 0 && !isPrinting) {
         hideFpModal();
-        showToast(`🖨️ Auto-printing queued receipt ${currentOrderMeta.orderNo || ''}...`, 'info', true);
-        setTimeout(() => printCanvas(!document.hidden && isFpPipelineRun), 350);
+        showToast(`🖨️ Auto-printing ${pendingPrintQueue.length} queued order(s)...`, 'info', true);
+        setTimeout(() => processPendingPrintQueue(), 350);
       }
 
       return true;
@@ -2817,8 +2761,9 @@
     isConnecting = false;
     lastConnectEndTime = Date.now();
     if (!isPrinting) {
-      showToast(`🔴 Disconnected from ${dispLabel} — looking for printer...`, 'warn', true);
+      showToast(`🟡 ${dispLabel} Off (First Contact Locked) — turn ON printer to auto-reconnect`, 'warn', true);
       updateMainButtonUI();
+      updateFirstContactUI(true);
     }
     setTimeout(() => {
       if (!writeChar && !isConnecting && !isPrinting) {
@@ -2863,10 +2808,8 @@
     }
 
     try {
-      // 1. In background, prefer the pre-cached BluetoothDevice handle if already in RAM
       let target = cachedBleDeviceMap.get(savedId) || (activeBleDevice && activeBleDevice.id === savedId ? activeBleDevice : null);
 
-      // 2. Query navigator.bluetooth.getDevices() if not cached yet or when in foreground
       if ((!target || !document.hidden) && navigator.bluetooth && navigator.bluetooth.getDevices) {
         const devices = await navigator.bluetooth.getDevices();
         if (devices && devices.length > 0) {
@@ -2919,13 +2862,12 @@
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'hidden') {
-      // When minimized, abort only the foreground watchAdvertisements scanner,
-      // and immediately start the background worker/reconnect engine!
       if (adAbortController) {
         try { adAbortController.abort(); } catch (e) {}
         adAbortController = null;
       }
       startBackgroundWorkerAndLock();
+      updateFirstContactUI(true);
       if (!writeChar && !isConnecting && getSavedPrinterId()) {
         setTimeout(() => attemptAutoReconnect(true), 400);
       }
@@ -2934,7 +2876,6 @@
 
     if (document.visibilityState === 'visible') {
       if (!writeChar) {
-        // Interrupt any slow 10.5s background scan and switch to fast 3.5s foreground scan + watchAdvertisements()
         hardAbortPendingBle();
         await delayMs(200);
         if (!writeChar && !isPrinting) {
@@ -3025,31 +2966,20 @@
     }
   }
 
-  function launchReturnApp(keepAliveForPrint = false) {
+  // Never calls window.close() when Foodpanda Pipeline is enabled so First Contact stays alive in background!
+  function launchReturnApp() {
     hideFpModal();
     ensureAudioKeepAliveRunning();
+    updateFirstContactUI(true);
 
-    const triggerIntent = () => {
-      const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
-      let pkg = 'com.deliveryhero.pandaportal';
-      if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || 'com.deliveryhero.pandaportal';
-      if (!pkg) return;
+    const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
+    let pkg = 'com.deliveryhero.pandaportal';
+    if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || 'com.deliveryhero.pandaportal';
+    if (!pkg) return;
 
-      const cleanBaseUrl = window.location.href.split('#')[0];
-      const stayHereFallback = encodeURIComponent(cleanBaseUrl + '#stay');
-      window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
-    };
-
-    if (keepAliveForPrint || isSilentBgEnabled() || isPrinting) {
-      triggerIntent();
-      return;
-    }
-
-    window.close();
-    setTimeout(() => {
-      if (document.hidden) return;
-      triggerIntent();
-    }, 350);
+    const cleanBaseUrl = window.location.href.split('#')[0];
+    const stayHereFallback = encodeURIComponent(cleanBaseUrl + '#stay');
+    window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
   }
 
   async function handleManualFile(e) {
@@ -3341,7 +3271,7 @@
 
       if ((fromFpMacroFlow || isFpPipelineRun) && autoReturnEnabled && autoReturnTiming === 'before' && !document.hidden) {
         ensureAudioKeepAliveRunning();
-        setTimeout(() => launchReturnApp(true), 250);
+        setTimeout(() => launchReturnApp(), 250);
       }
 
       for (let copyIdx = 1; copyIdx <= copies; copyIdx++) {
@@ -3433,9 +3363,9 @@
         await archivePrintedReceiptToVault();
       }
 
-      if ((fromFpMacroFlow || isFpPipelineRun) && !document.hidden) {
+      if ((fromFpMacroFlow || isFpPipelineRun) && !document.hidden && pendingPrintQueue.length === 0) {
         if (autoReturnEnabled && autoReturnTiming === 'after') {
-          setTimeout(() => launchReturnApp(false), 350);
+          setTimeout(() => launchReturnApp(), 350);
         } else if (!autoReturnEnabled) {
           showFpPostPrintModal();
         }
@@ -3479,12 +3409,13 @@
     document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
     document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
 
-    document.getElementById('fpAutoPrintOnOpen').checked = (localStorage.getItem('fp_auto_print_on_open') ?? '0') === '1';
+    // Default both Silent Background Mode and Auto-Print to ON ('1') for zero-friction operation
+    document.getElementById('fpSilentBgEnable').checked = (localStorage.getItem('fp_silent_bg_enabled') ?? '1') === '1';
+    document.getElementById('fpAutoPrintOnOpen').checked = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
     document.getElementById('fpAutoReturn').checked = (localStorage.getItem('fp_auto_return') ?? '0') === '1';
     document.getElementById('fpAutoReturnTiming').value = localStorage.getItem('fp_auto_return_timing') || 'after';
     document.getElementById('fpAutoReturnTimingBox').style.display = document.getElementById('fpAutoReturn').checked ? 'flex' : 'none';
 
-    document.getElementById('fpSilentBgEnable').checked = localStorage.getItem('fp_silent_bg_enabled') === '1';
     document.getElementById('fpPrintCopies').value = localStorage.getItem('fp_print_copies') || '1';
     document.getElementById('fpFontSizeMode').value = localStorage.getItem('fp_font_size_mode') || 'normal';
     document.getElementById('fpVoiceSpeak').checked = localStorage.getItem('fp_voice_speak') === '1';
@@ -3509,8 +3440,30 @@
       }
     } catch (e) {}
 
+    // Restore any queued orders saved across a 1-tap "🔄 Relaunch"
+    try {
+      const savedQueueJson = sessionStorage.getItem('billu_relaunch_queue');
+      if (savedQueueJson) {
+        sessionStorage.removeItem('billu_relaunch_queue');
+        const restoredList = JSON.parse(savedQueueJson);
+        if (Array.isArray(restoredList) && restoredList.length > 0) {
+          for (const rawItem of restoredList) {
+            if (rawItem && !pendingPrintQueue.includes(rawItem)) {
+              pendingPrintQueue.push(rawItem);
+            }
+          }
+          const previewParsed = parseFoodpandaMultiScroll(pendingPrintQueue[0]);
+          lastParsedFpData = previewParsed;
+          isFpPipelineRun = true;
+          currentOrderMeta = { orderNo: previewParsed.orderNo, orderCode: previewParsed.orderCode, isHistory: previewParsed.isHistory };
+          docSourceCanvas = renderSynthesizedFpReceipt(previewParsed);
+        }
+      }
+    } catch (e) {}
+
     rebuildCompositePreview(true);
     updateMainButtonUI();
+    updateFirstContactUI(true);
     startAutoReconnectLoop();
 
     const handledByUrl = await checkUrlForFpPayload();
