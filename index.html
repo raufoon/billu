@@ -443,7 +443,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.6.2</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.7.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <div style="display:flex; gap:6px;">
@@ -622,7 +622,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.6.2</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.7.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -641,8 +641,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.6.2';
-  const APP_UPDATED_DHAKA = '23 Oct 2026, 07:50 AM (Dhaka)';
+  const APP_VERSION = 'v3.7.0';
+  const APP_UPDATED_DHAKA = '23 Oct 2026, 08:10 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -657,10 +657,12 @@
 
   let writeChar = null;
   let activeBleDevice = null;
+  let cachedBleDeviceMap = new Map(); // Pre-cached BluetoothDevice handles for instant background access
   let isPrinting = false;
   let cancelPrintRequested = false;
   let isConnecting = false;
   let connectGeneration = 0;
+  let lastConnectEndTime = 0;
   let adAbortController = null;
   let reconnectTimer = null;
   let pendingPrintJob = false;
@@ -672,6 +674,9 @@
   let lastParsedFpData = null;
   let currentOrderMeta = { orderNo: '', orderCode: '', isHistory: false };
 
+  let bgWorker = null;
+  let bgWebLockActive = false;
+  let silentHtmlAudio = null;
   let localLoopbackTimer = null;
   let isLoopbackPolling = false;
   let audioCtx = null;
@@ -836,10 +841,8 @@
     });
   }
 
-  // Standard timer sleep (used everywhere except background print row loop)
   const delayMs = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Unthrottled sleep strictly for printCanvas() row loop when printing in background
   async function printRowSleep(ms) {
     if (!document.hidden) {
       return new Promise(r => setTimeout(r, ms));
@@ -886,6 +889,7 @@
 
   function registerOrUpdatePrinter(device) {
     if (!device || !device.id) return null;
+    cachedBleDeviceMap.set(device.id, device);
     const list = getPrinterRegistry();
     const macTag = computeMacTag(device.id, device.name);
     let entry = list.find(p => p.id === device.id);
@@ -968,6 +972,7 @@
     const entry = list.find(p => p.id === printerId);
     list = list.filter(p => p.id !== printerId);
     savePrinterRegistry(list);
+    cachedBleDeviceMap.delete(printerId);
 
     try {
       if (navigator.bluetooth && navigator.bluetooth.getDevices) {
@@ -1001,6 +1006,7 @@
   async function forgetAllPrinters() {
     if (!confirm('Forget all saved Bluetooth printers? You will need to pair again next time.')) return;
     hardAbortPendingBle();
+    cachedBleDeviceMap.clear();
     try {
       if (navigator.bluetooth && navigator.bluetooth.getDevices) {
         const devs = await navigator.bluetooth.getDevices();
@@ -2061,7 +2067,7 @@
   }
 
   // ============================================================================
-  // MASTER FOODPANDA PIPELINE TOGGLE & SILENT BACKGROUND B64 POLLER (127.0.0.1)
+  // TRIPLE-DRIVER BACKGROUND ENGINE (WEB WORKER + WEB LOCK + 1Hz INFRASONIC WAV)
   // ============================================================================
 
   function isFpMasterEnabled() {
@@ -2105,8 +2111,96 @@
     }
   }
 
+  // Generates a 1-second 8000Hz 16-bit mono WAV containing a 1 Hz infrasonic sine wave.
+  // 1 Hz is completely inaudible on any phone speaker, but has non-zero digital energy
+  // so Chromium's SilentSinkSuspender NEVER suspends the background audio thread!
+  function createInfrasonicWavUrl() {
+    const sampleRate = 8000;
+    const numSamples = 8000;
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+    const writeStr = (offset, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      const sample = Math.round(Math.sin(2 * Math.PI * 1 * (i / sampleRate)) * 450);
+      view.setInt16(44 + i * 2, sample, true);
+    }
+    return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+  }
+
+  // Starts the Dedicated Web Worker + Web Locks API heartbeat (works immediately on load without needing a user tap!)
+  function startBackgroundWorkerAndLock() {
+    if (!bgWebLockActive && navigator.locks && navigator.locks.request) {
+      bgWebLockActive = true;
+      navigator.locks.request('billu_bg_persistence_lock', () => new Promise(() => {})).catch(() => {
+        bgWebLockActive = false;
+      });
+    }
+
+    if (!bgWorker) {
+      try {
+        const blob = new Blob([`
+          setInterval(() => postMessage('tick'), 900);
+        `], { type: 'application/javascript' });
+        bgWorker = new Worker(URL.createObjectURL(blob));
+        bgWorker.onmessage = () => onBackgroundHeartbeatTick();
+      } catch (e) {}
+    }
+  }
+
+  function onBackgroundHeartbeatTick() {
+    const now = Date.now();
+
+    // 1. Poll 127.0.0.1:18999 if Silent Background Mode is enabled
+    if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 450) {
+      lastAudioPollTime = now;
+      pollLocalhostB64Once();
+    }
+
+    // 2. Always maintain BLE connection in both foreground and background!
+    if (!isPrinting && !isConnecting) {
+      if (writeChar && (document.hidden || isSilentBgEnabled())) {
+        if (now - lastBlePingTime > 3500) {
+          lastBlePingTime = now;
+          writeBle(makePacket(0xA3, [0x00])).catch(() => {});
+        }
+      } else if (!writeChar && getSavedPrinterId()) {
+        // Wait at least 2.0 seconds after the previous connect attempt ended before starting the next scan
+        if (now - lastConnectEndTime > 2000 && now - lastBlePingTime > 2200) {
+          lastBlePingTime = now;
+          attemptAutoReconnect(true);
+        }
+      }
+    }
+  }
+
   function ensureAudioKeepAliveRunning() {
+    startBackgroundWorkerAndLock();
     try {
+      if (!silentHtmlAudio) {
+        silentHtmlAudio = new Audio(createInfrasonicWavUrl());
+        silentHtmlAudio.loop = true;
+        silentHtmlAudio.volume = 0.05;
+      }
+      if (silentHtmlAudio.paused) {
+        silentHtmlAudio.play().catch(() => {});
+      }
+
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
@@ -2115,28 +2209,12 @@
       }
       if (!audioScriptNode) {
         const osc = audioCtx.createOscillator();
+        osc.frequency.value = 1; // 1 Hz infrasonic
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.0001; // Inaudible keep-alive
+        gain.gain.value = 0.02;
 
         audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
-        audioScriptNode.onaudioprocess = () => {
-          const now = Date.now();
-
-          if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 450) {
-            lastAudioPollTime = now;
-            pollLocalhostB64Once();
-          }
-
-          // Background BLE keep-alive ping (every 3.5s when connected) or clean spaced reconnect (every 6s when disconnected)
-          if (!isPrinting && !isConnecting && now - lastBlePingTime > (writeChar ? 3500 : 6000)) {
-            lastBlePingTime = now;
-            if (writeChar && (isSilentBgEnabled() || document.hidden)) {
-              writeBle(makePacket(0xA3, [0x00])).catch(() => {});
-            } else if (!writeChar && getSavedPrinterId()) {
-              attemptAutoReconnect(true);
-            }
-          }
-        };
+        audioScriptNode.onaudioprocess = () => onBackgroundHeartbeatTick();
 
         osc.connect(gain);
         gain.connect(audioScriptNode);
@@ -2146,10 +2224,9 @@
     } catch (e) {}
   }
 
+  // Start the infrasonic audio keep-alive on the very first touch anywhere in the app
   document.addEventListener('pointerdown', () => {
-    if (isSilentBgEnabled()) {
-      ensureAudioKeepAliveRunning();
-    }
+    ensureAudioKeepAliveRunning();
   }, { passive: true });
 
   function startLocalB64BackgroundPoller() {
@@ -2182,10 +2259,7 @@
   };
 
   function pollLocalhostB64Once() {
-    // CRITICAL: Only intercept 127.0.0.1:18999 in the background if `writeChar` is ACTUALLY connected!
-    // If the printer is disconnected while Billu is in the background, do NOT consume 127.0.0.1:18999
-    // so MacroDroid automatically brings Billu to the foreground to wake Android's BLE scanner and print!
-    if (isLoopbackPolling || isPrinting || !isSilentBgEnabled() || !writeChar) return;
+    if (isLoopbackPolling || isPrinting || !isSilentBgEnabled()) return;
     isLoopbackPolling = true;
 
     const s = document.createElement('script');
@@ -2238,7 +2312,7 @@
 
   async function onFpPrePrintChoice(shouldPrint) {
     hideFpModal();
-    if (isSilentBgEnabled()) ensureAudioKeepAliveRunning();
+    ensureAudioKeepAliveRunning();
 
     if (!shouldPrint) {
       pendingPrintJob = false;
@@ -2260,7 +2334,7 @@
 
   function onFpPostPrintChoice(goBack) {
     hideFpModal();
-    if (isSilentBgEnabled()) ensureAudioKeepAliveRunning();
+    ensureAudioKeepAliveRunning();
 
     if (goBack) {
       launchReturnApp(false);
@@ -2474,7 +2548,7 @@
   }
 
   // ============================================================================
-  // VIEWPORT, HARDENED BLE STATE MACHINE, STOP PRINT, MARGINS & STAMP LOGIC
+  // VIEWPORT, ADAPTIVE FOREGROUND/BACKGROUND BLE ENGINE, MARGINS & STAMP LOGIC
   // ============================================================================
 
   const viewportEl = document.getElementById('viewport');
@@ -2598,6 +2672,7 @@
   }
 
   async function handleMainButtonClick() {
+    ensureAudioKeepAliveRunning();
     if (isPrinting) {
       cancelPrintRequested = true;
       showToast('🛑 Stopping printer immediately...', 'warn');
@@ -2617,10 +2692,10 @@
     }
   }
 
-  // Cleanly aborts any stuck C++ GATT connection attempt and advertisement scanner
   function hardAbortPendingBle() {
     connectGeneration++;
     isConnecting = false;
+    lastConnectEndTime = Date.now();
     if (adAbortController) {
       try { adAbortController.abort(); } catch (e) {}
       adAbortController = null;
@@ -2648,13 +2723,15 @@
     }
   }
 
-  // Connects with a 3.2s timeout AND explicitly calls `device.gatt.disconnect()` on timeout
-  // so Android's C++ BluetoothGatt client is NEVER left wedged with stacked pending requests!
+  // Adaptive Foreground (3.5s) vs. Background (10.5s) GATT Connection Window:
+  // When in the background, Android's `connectGatt(autoConnect=false)` HCI page scan needs up to 10.5 seconds
+  // to discover a newly powered-on printer without `watchAdvertisements()`.
   async function connectToBleDevice(device) {
     if (isConnecting || writeChar) return Boolean(writeChar);
     isConnecting = true;
     const myGen = ++connectGeneration;
     const dispLabel = getPrinterDisplayLabel(device);
+    const timeoutMs = document.hidden ? 10500 : 3500;
     let timeoutHandle = null;
 
     try {
@@ -2670,6 +2747,8 @@
           try { device.gatt.disconnect(); } catch (e) {}
           return null;
         }
+        // 150ms post-connect stabilization delay so Android BLE service discovery never fails in background
+        await delayMs(150);
         const services = await server.getPrimaryServices();
         let foundChar = null;
         for (const service of services) {
@@ -2686,7 +2765,7 @@
       })();
 
       const timeoutPromise = new Promise((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error('GATT_TIMEOUT')), 3200);
+        timeoutHandle = setTimeout(() => reject(new Error('GATT_TIMEOUT')), timeoutMs);
       });
 
       const foundChar = await Promise.race([connectPromise, timeoutPromise]);
@@ -2702,6 +2781,7 @@
       writeChar = foundChar;
       registerOrUpdatePrinter(device);
       showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
+      playTone(880, 140);
       updateMainButtonUI();
 
       if (pendingPrintJob && docSourceCanvas && !isPrinting) {
@@ -2716,7 +2796,6 @@
       if (timeoutHandle) clearTimeout(timeoutHandle);
       if (myGen === connectGeneration) {
         writeChar = null;
-        // CRITICAL FIX: Cancel the underlying C++ pending GATT connection on timeout/failure!
         try {
           if (device && device.gatt) device.gatt.disconnect();
         } catch (e) {}
@@ -2726,24 +2805,26 @@
     } finally {
       if (myGen === connectGeneration) {
         isConnecting = false;
+        lastConnectEndTime = Date.now();
       }
     }
   }
 
   function onBleDisconnected() {
-    if (!writeChar && isConnecting) return; // Ignore disconnect events triggered by our own timeout cleanup
+    if (!writeChar && isConnecting) return;
     const dispLabel = activeBleDevice ? getPrinterDisplayLabel(activeBleDevice) : 'Printer';
     writeChar = null;
     isConnecting = false;
+    lastConnectEndTime = Date.now();
     if (!isPrinting) {
-      showToast(`🔴 Disconnected from ${dispLabel} — looking for printer...`, 'warn');
+      showToast(`🔴 Disconnected from ${dispLabel} — looking for printer...`, 'warn', true);
       updateMainButtonUI();
     }
     setTimeout(() => {
       if (!writeChar && !isConnecting && !isPrinting) {
         attemptAutoReconnect(true);
       }
-    }, 700);
+    }, 900);
   }
 
   function releaseBleOnPageUnload() {
@@ -2756,7 +2837,6 @@
   window.addEventListener('pagehide', releaseBleOnPageUnload);
   window.addEventListener('beforeunload', releaseBleOnPageUnload);
 
-  // Starts/restarts watchAdvertisements() cleanly using an AbortController so returning from BG always restarts the scanner!
   function ensureWatchingAdvertisements(target) {
     if (!target || !target.watchAdvertisements || document.hidden) return;
     try {
@@ -2781,30 +2861,37 @@
     if (!savedId || writeChar || isPrinting || isConnecting) {
       return Boolean(writeChar);
     }
-    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
 
     try {
-      const devices = await navigator.bluetooth.getDevices();
-      if (!devices || devices.length === 0) {
+      // 1. In background, prefer the pre-cached BluetoothDevice handle if already in RAM
+      let target = cachedBleDeviceMap.get(savedId) || (activeBleDevice && activeBleDevice.id === savedId ? activeBleDevice : null);
+
+      // 2. Query navigator.bluetooth.getDevices() if not cached yet or when in foreground
+      if ((!target || !document.hidden) && navigator.bluetooth && navigator.bluetooth.getDevices) {
+        const devices = await navigator.bluetooth.getDevices();
+        if (devices && devices.length > 0) {
+          for (const d of devices) cachedBleDeviceMap.set(d.id, d);
+          const list = getPrinterRegistry();
+          const activeEntry = list.find(p => p.id === savedId);
+
+          target =
+            devices.find(d => d.id === savedId) ||
+            (activeEntry && activeEntry.hwName && devices.filter(d => d.name === activeEntry.hwName).pop()) ||
+            devices[devices.length - 1];
+        }
+      }
+
+      if (!target) {
         if (!silentToast) {
           showToast('⚠️ Chrome cleared BLE permission — tap button below to pair once', 'warn');
         }
         return false;
       }
 
-      const list = getPrinterRegistry();
-      const activeEntry = list.find(p => p.id === savedId);
-
-      // 1. Match by exact ID, 2. Match by hardware name, 3. Fallback to most recently paired device
-      let target =
-        devices.find(d => d.id === savedId) ||
-        (activeEntry && activeEntry.hwName && devices.filter(d => d.name === activeEntry.hwName).pop()) ||
-        devices[devices.length - 1];
-
-      if (!target) return false;
-
       if (target.id !== savedId) {
         registerOrUpdatePrinter(target);
+      } else {
+        cachedBleDeviceMap.set(target.id, target);
       }
 
       const targetLabel = getPrinterDisplayLabel(target);
@@ -2812,8 +2899,9 @@
         showToast(`🔍 Looking for ${targetLabel}...`, 'info');
       }
 
-      // Start advertisement scanner in parallel (non-blocking) AND immediately attempt direct connect
-      ensureWatchingAdvertisements(target);
+      if (!document.hidden) {
+        ensureWatchingAdvertisements(target);
+      }
       return await connectToBleDevice(target);
     } catch (e) {
       return false;
@@ -2821,34 +2909,34 @@
   }
 
   function startAutoReconnectLoop() {
+    startBackgroundWorkerAndLock();
     if (reconnectTimer) clearInterval(reconnectTimer);
     attemptAutoReconnect(false);
-    reconnectTimer = setInterval(async () => {
-      if (isPrinting || isConnecting) return;
-      if (!writeChar && getSavedPrinterId()) {
-        await attemptAutoReconnect(true);
-      } else if (writeChar && (isSilentBgEnabled() || document.hidden)) {
-        lastBlePingTime = Date.now();
-        writeBle(makePacket(0xA3, [0x00])).catch(() => {});
-      }
-    }, 5500);
+    reconnectTimer = setInterval(() => {
+      onBackgroundHeartbeatTick();
+    }, 3000);
   }
 
-  // CRITICAL FIX FOR: Open (Printer Off) -> Send to BG -> Turn On Printer -> Bring to FG
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'hidden') {
-      // If we are NOT connected when going to background, abort any hung foreground scan/connect cleanly
-      if (!writeChar) {
-        hardAbortPendingBle();
+      // When minimized, abort only the foreground watchAdvertisements scanner,
+      // and immediately start the background worker/reconnect engine!
+      if (adAbortController) {
+        try { adAbortController.abort(); } catch (e) {}
+        adAbortController = null;
+      }
+      startBackgroundWorkerAndLock();
+      if (!writeChar && !isConnecting && getSavedPrinterId()) {
+        setTimeout(() => attemptAutoReconnect(true), 400);
       }
       return;
     }
 
     if (document.visibilityState === 'visible') {
       if (!writeChar) {
-        // Force-clear any stuck background connection attempt & restart foreground advertisement scanner!
+        // Interrupt any slow 10.5s background scan and switch to fast 3.5s foreground scan + watchAdvertisements()
         hardAbortPendingBle();
-        await delayMs(250);
+        await delayMs(200);
         if (!writeChar && !isPrinting) {
           attemptAutoReconnect(false);
         }
@@ -2860,6 +2948,7 @@
   });
 
   function toggleMenu() {
+    ensureAudioKeepAliveRunning();
     const overlay = document.getElementById('optionsOverlay');
     overlay.classList.toggle('open');
     if (overlay.classList.contains('open')) {
@@ -2938,6 +3027,7 @@
 
   function launchReturnApp(keepAliveForPrint = false) {
     hideFpModal();
+    ensureAudioKeepAliveRunning();
 
     const triggerIntent = () => {
       const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
@@ -2951,7 +3041,6 @@
     };
 
     if (keepAliveForPrint || isSilentBgEnabled() || isPrinting) {
-      ensureAudioKeepAliveRunning();
       triggerIntent();
       return;
     }
