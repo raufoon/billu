@@ -443,7 +443,7 @@
     <!-- Version & Dhaka Update Time + Force Update Button -->
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.7.5</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.7.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
       </div>
       <div style="display:flex; gap:6px;">
@@ -622,7 +622,7 @@
         <span class="big-title">Choose a File / Image to Print</span>
         <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.7.5</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.7.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -641,8 +641,8 @@
   // ============================================================================
   // HARDCODED VERSION & DHAKA UPDATE TIMESTAMP
   // ============================================================================
-  const APP_VERSION = 'v3.7.5';
-  const APP_UPDATED_DHAKA = '23 Oct 2026, 10:00 AM (Dhaka)';
+  const APP_VERSION = 'v3.7.0';
+  const APP_UPDATED_DHAKA = '23 Oct 2026, 08:10 AM (Dhaka)';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -2259,7 +2259,7 @@
   };
 
   function pollLocalhostB64Once() {
-    if (isLoopbackPolling || isPrinting || !isSilentBgEnabled() || !writeChar) return;
+    if (isLoopbackPolling || isPrinting || !isSilentBgEnabled()) return;
     isLoopbackPolling = true;
 
     const s = document.createElement('script');
@@ -2731,7 +2731,7 @@
     isConnecting = true;
     const myGen = ++connectGeneration;
     const dispLabel = getPrinterDisplayLabel(device);
-    const timeoutMs = 3500;
+    const timeoutMs = document.hidden ? 10500 : 3500;
     let timeoutHandle = null;
 
     try {
