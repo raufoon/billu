@@ -177,7 +177,7 @@
     #fitScreenBtn { bottom: 98px; right: 14px; padding: 10px 14px; background: var(--surface); color: #FFFFFF; font-size: 13px; border: 1px solid #4B5563; display: none; }
 
     #optionsOverlay {
-      position: fixed; top: 96px; right: 14px; width: calc(100% - 28px); max-width: 375px;
+      position: fixed; top: 96px; right: 14px; width: calc(100% - 28px); max-width: 380px;
       max-height: calc(100% - 190px); overflow-y: auto;
       background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px);
       border: 1px solid #374151; border-radius: 18px; padding: 14px;
@@ -188,6 +188,8 @@
     .opt-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #374151; }
     .icon-pill { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 99px; border: none; background: #374151; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer; }
     .opt-row { background: #1F2937; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+    .opt-subbox { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 9px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .opt-desc { font-size: 11px; color: #9CA3AF; line-height: 1.35; padding-left: 22px; }
     .opt-row-inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .opt-btn { width: 100%; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .opt-btn:active { transform: scale(0.98); }
@@ -255,7 +257,7 @@
       <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">✅</div>
       <div class="fp-modal-title">Print Complete</div>
-      <div class="fp-modal-sub">Tap below to return to the partner app, or close (✕) to stay in Billu.</div>
+      <div class="fp-modal-sub">Tap below to switch back to the Partner App, or tap (✕) to stay in Billu.</div>
       <div class="fp-modal-actions">
         <button class="fp-modal-btn fp-btn-pink-big" onclick="onFpPostPrintChoice(true)">
           ↩️ Return to Partner App
@@ -270,7 +272,7 @@
       <div class="fp-modal-sub" id="fpErrorSub">Unable to parse order data payload.</div>
       <div class="fp-error-box" id="fpErrorDetails"></div>
       <div class="fp-modal-actions" style="flex-direction:column;">
-        <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp(false, true)">
+        <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp()">
           ↩️ Return to Partner App
         </button>
       </div>
@@ -348,7 +350,7 @@
   </div>
 
   <!-- FLOATING BUTTONS -->
-  <button id="returnAppBtn" class="fab" onclick="launchReturnApp(false, true)">
+  <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
     <span class="app-icon" id="returnAppIcon">↩️</span>
     <span id="returnAppLabel">Partner App</span>
   </button>
@@ -367,7 +369,7 @@
 
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.9.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.9.1</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Updated</span>
       </div>
       <div style="display:flex; gap:6px;">
@@ -397,11 +399,11 @@
       </button>
     </div>
 
-    <!-- Order Integration Pipeline -->
+    <!-- Order Integration Pipeline (Clearly Grouped into Background vs Foreground Behavior) -->
     <div class="opt-row" style="border: 1px solid var(--accent-pink);">
       <label style="font-weight:800; color:#F472B6; font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input type="checkbox" id="fpMasterEnable" onchange="saveFpMasterToggle()">
-        🧾 Enable Automated Order Pipeline
+        🧾 Enable Partner App Order Pipeline
       </label>
 
       <div id="fpPipelineSubOptions" style="display:none; flex-direction:column; gap:8px; margin-top:4px; padding-top:8px; border-top:1px solid #374151;">
@@ -409,26 +411,47 @@
           🗄️ Receipt Archive (<span id="vaultCountBadge">0</span>)
         </button>
 
-        <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
-          🛡️ Background Listener Mode (Localhost)
-        </label>
+        <!-- MODE A: Silent Background Mode -->
+        <div class="opt-subbox" style="border-color:#059669;">
+          <label style="font-weight:800; color:#34D399; display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
+            🛡️ Silent Background Mode (Stay in Partner App)
+          </label>
+          <div class="opt-desc">
+            <b>When ON:</b> Billu catches orders in the background and prints silently without ever opening Billu or leaving the Partner App.<br>
+            <b>When OFF (or if Billu was closed):</b> MacroDroid opens Billu on screen and follows the Foreground rules below.
+          </div>
+        </div>
 
-        <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
-          ⚡ Auto-Print Incoming Orders
-        </label>
+        <!-- MODE B: Foreground Rules (When Billu Opens on Screen) -->
+        <div class="opt-subbox">
+          <div style="font-weight:800; color:#93C5FD; font-size:12px;">📱 When Billu Opens on Screen (Foreground Rules):</div>
 
-        <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
-          ↩️ Auto-Return to Partner App
-        </label>
-        <div id="fpAutoReturnTimingBox" class="opt-row-inline" style="padding-left:22px;">
-          <span style="color:#D1D5DB; font-size:12px;">Return Timing:</span>
-          <select id="fpAutoReturnTiming" class="opt-select" onchange="saveFpPromptSettings()">
-            <option value="after">After Print Completes</option>
-            <option value="before">Before Print Completes (Immediate)</option>
-          </select>
+          <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
+            ⚡ 1. Auto-Print When Billu Opens
+          </label>
+          <div class="opt-desc">
+            <b>When ON:</b> Starts printing immediately without asking.<br>
+            <b>When OFF:</b> Shows a <i>"Print / Cancel"</i> confirmation popup first.
+          </div>
+
+          <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px; margin-top:4px; cursor:pointer;">
+            <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
+            ↩️ 2. Auto-Return to Partner App
+          </label>
+          <div class="opt-desc">
+            <b>When ON:</b> Automatically switches back to the Partner App.<br>
+            <b>When OFF:</b> Shows a <i>"Return to Partner App"</i> popup after printing.
+          </div>
+
+          <div id="fpAutoReturnTimingBox" class="opt-row-inline" style="padding-left:22px; margin-top:2px;">
+            <span style="color:#D1D5DB; font-size:12px;">Switch Back:</span>
+            <select id="fpAutoReturnTiming" class="opt-select" onchange="saveFpPromptSettings()">
+              <option value="after">After Print Finishes</option>
+              <option value="before">As Soon as Print Starts (Continues in BG)</option>
+            </select>
+          </div>
         </div>
 
         <div class="opt-row-inline">
@@ -539,7 +562,7 @@
         <span class="big-title">Open Document or Image</span>
         <span class="big-sub">Supports PDF, PNG, JPG, and Order Logs</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.9.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.9.1</div>
     </div>
 
     <div id="canvasTransform">
@@ -553,7 +576,7 @@
   </div>
 
 <script>
-  const APP_VERSION = 'v3.9.0';
+  const APP_VERSION = 'v3.9.1';
   const APP_UPDATED_DHAKA = '24 Oct 2026';
 
   const PRINTER_WIDTH = 384;
@@ -570,11 +593,12 @@
   let cachedBleDeviceMap = new Map();
   let hasMadeFirstContact = false;
   let isPrinting = false;
-  let isPreparingOrder = false;
+  let isDrainingQueue = false;
   let isJogging = false;
   let bleWriteChain = Promise.resolve();
   let cancelPrintRequested = false;
   let isConnecting = false;
+  let activeConnectPromise = null; // Shared in-flight connection promise so callers never race!
   let connectGeneration = 0;
   let lastConnectEndTime = 0;
   let adAbortController = null;
@@ -632,10 +656,10 @@
     if (writeChar) {
       hasMadeFirstContact = true;
       bar.classList.add('ss-online');
-      txt.innerText = `🟢 Connected: ${pLabel} • Background Ready${qSuffix}`;
+      txt.innerText = `🟢 Connected: ${pLabel} • Ready${qSuffix}`;
       btn.style.display = 'none';
       osTitle = `🟢 Printer Connected (${pLabel})`;
-      osBody = `Background print service active.${qSuffix}`;
+      osBody = `Print service ready.${qSuffix}`;
     } else if (!hasMadeFirstContact) {
       bar.classList.add('ss-unarmed');
       txt.innerText = `⚠️ Printer Disconnected: Power ON ${pLabel} & connect once${qSuffix}`;
@@ -670,6 +694,7 @@
     }
   }
 
+  // Reloads cleanly WITHOUT adding `?reset=...` query parameters so URL always matches MacroDroid's URL
   function relaunchAppFresh() {
     showToast('🔄 Resetting connection state...', 'info');
     try {
@@ -682,7 +707,8 @@
         activeBleDevice.gatt.disconnect();
       }
     } catch (e) {}
-    window.location.replace(window.location.pathname + '?reset=' + Date.now());
+    history.replaceState(null, '', window.location.pathname);
+    window.location.reload();
   }
 
   function showToast(msg, type = 'info', sendOsNotif = false) {
@@ -789,6 +815,7 @@
       }
       await fetch(window.location.pathname, { cache: 'reload' });
     } catch (e) {}
+    history.replaceState(null, '', window.location.pathname);
     window.location.reload();
   }
 
@@ -943,7 +970,6 @@
           let existingPeer = paired.find(p => p.id === env.fromId);
           const maxP = getMaxConcurrentPeers();
 
-          // Try decrypting with the peer's stored key first, then fallback to our own private key
           let usedKey = existingPeer ? existingPeer.key : meNow.key;
           let plainJson = null;
           try {
@@ -967,7 +993,6 @@
 
           if (!plainJson || !plainJson.type) return;
 
-          // Deduplicate MQTT QoS-1 retries using msgId
           if (plainJson.msgId) {
             if (processedRemoteMsgIds.has(plainJson.msgId)) return;
             processedRemoteMsgIds.add(plainJson.msgId);
@@ -977,8 +1002,6 @@
             }
           }
 
-          // Self-healing pairing: if a new peer encrypted a valid message with our QR private key (`meNow.key`),
-          // register them automatically if within the Max Concurrent Peers limit!
           if (!existingPeer && usedKey === meNow.key) {
             if (paired.length >= maxP) {
               sendEncryptedToPeer({ id: env.fromId, key: usedKey }, {
@@ -1413,7 +1436,7 @@
   }
 
   // ============================================================================
-  // 24H+ KEEP-AWAKE ANTI-SLEEP MICRO-JOG (PROTECTED BY BLE MUTEX)
+  // 24H+ KEEP-AWAKE ANTI-SLEEP MICRO-JOG
   // ============================================================================
 
   function isPrinterKeepAwakeEnabled() {
@@ -2494,7 +2517,6 @@
         await refreshVaultCount();
       }
 
-      // Run Google Drive upload asynchronously so it NEVER blocks Auto-Return or `isPrinting` release!
       syncVaultEntryToGoogleDrive(entry, true).catch(() => {});
     } catch (e) {}
   }
@@ -2665,7 +2687,7 @@
     const enabled = document.getElementById('fpMasterEnable').checked;
     localStorage.setItem('fp_master_enabled', enabled ? '1' : '0');
     applyFpMasterUI();
-    showToast(enabled ? '🧾 Automated Order Pipeline Enabled' : '🧾 Automated Order Pipeline Disabled', 'info');
+    showToast(enabled ? '🧾 Partner App Order Pipeline Enabled' : '🧾 Partner App Order Pipeline Disabled', 'info');
   }
 
   function applyFpMasterUI() {
@@ -2687,10 +2709,10 @@
     if (enabled && isFpMasterEnabled()) {
       ensureAudioKeepAliveRunning();
       startLocalB64BackgroundPoller();
-      showToast('🛡️ Background Listener Active', 'success');
+      showToast('🛡️ Silent Background Mode ON', 'success');
     } else {
       stopLocalB64BackgroundPoller();
-      showToast('Background Listener Disabled', 'info');
+      showToast('📱 Silent Background Mode OFF (Billu will open on screen)', 'info');
     }
   }
 
@@ -2748,7 +2770,7 @@
       pollLocalhostB64Once();
     }
 
-    if (!isPrinting && !isPreparingOrder && !isConnecting && !isJogging) {
+    if (!isPrinting && !isDrainingQueue && !isConnecting && !isJogging) {
       if (writeChar) {
         if (isPrinterKeepAwakeEnabled() && now - lastPrinterAntiSleepTime > 600000) {
           lastPrinterAntiSleepTime = now;
@@ -2759,7 +2781,7 @@
           writeBle(makePacket(0xA3, [0x00])).catch(() => {});
         }
       } else if (!writeChar && getSavedPrinterId()) {
-        if (now - lastConnectEndTime > 2000 && now - lastBlePingTime > 2200) {
+        if (now - lastConnectEndTime > 1500 && now - lastBlePingTime > 1800) {
           lastBlePingTime = now;
           attemptAutoReconnect(true);
         }
@@ -2835,7 +2857,6 @@
     } catch (e) {}
   };
 
-  // Uses `<script>` tag injection so Chrome sends a direct GET without a PNA `OPTIONS` preflight
   function pollLocalhostB64Once() {
     if (isLoopbackPolling || !isSilentBgEnabled()) return;
     isLoopbackPolling = true;
@@ -2859,11 +2880,57 @@
     fallbackTimer = setTimeout(done, 260);
   }
 
-  async function processPendingPrintQueue() {
-    if (isPrinting || isPreparingOrder || !writeChar || pendingPrintQueue.length === 0) return;
-    const nextRawText = pendingPrintQueue.shift();
-    updateFirstContactUI(false);
-    await prepareFoodpandaOrderFromText(nextRawText, true, false);
+  // ============================================================================
+  // UNIFIED ORDER QUEUE DRAINER (SOLVES POST-RELOAD RECONNECT RACE CONDITION!)
+  // ============================================================================
+
+  // Whenever an order is queued for auto-print (whether from Silent BG, Foreground Auto-Print, or Remote Peer),
+  // `drainPrintQueue()` waits for any in-flight Bluetooth reconnect AND retries up to 4 times (over ~4 seconds)
+  // if the page just reloaded so the order NEVER gets cancelled while the printer is reconnecting!
+  async function drainPrintQueue(isForegroundFlow = false) {
+    if (isDrainingQueue || isPrinting || pendingPrintQueue.length === 0) return;
+    isDrainingQueue = true;
+
+    try {
+      // If printer is not connected yet (e.g. page just reloaded when MacroDroid opened Billu),
+      // try up to 4 times with an 800ms settle delay so the printer finishes releasing the old socket!
+      for (let attempt = 1; attempt <= 4 && !writeChar && pendingPrintQueue.length > 0; attempt++) {
+        await attemptAutoReconnect(attempt > 1);
+        if (writeChar) break;
+        if (attempt < 4) await delayMs(800);
+      }
+
+      if (!writeChar) {
+        updateFirstContactUI(true);
+        playTone(300, 220);
+        setTimeout(() => playTone(250, 260), 260);
+        showToast(
+          `📥 ${pendingPrintQueue.length} order(s) queued — power ON printer to auto-print`,
+          'warn',
+          true
+        );
+        return;
+      }
+
+      while (pendingPrintQueue.length > 0 && writeChar && !isPrinting) {
+        const nextRawText = pendingPrintQueue.shift();
+        const parsed = parseFoodpandaMultiScroll(nextRawText);
+        if (parsed.items.length > 0 || parsed.total || parsed.subtotal) {
+          lastRawFpText = nextRawText;
+          isFpPipelineRun = true;
+          lastParsedFpData = parsed;
+          currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
+          docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+          rebuildCompositePreview(true);
+          updateMainButtonUI();
+          await printCanvas(isForegroundFlow || !document.hidden);
+          await delayMs(400);
+        }
+      }
+      updateFirstContactUI(true);
+    } finally {
+      isDrainingQueue = false;
+    }
   }
 
   // ============================================================================
@@ -2916,21 +2983,15 @@
     const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
     const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
     if (autoReturnEnabled && autoReturnTiming === 'before') {
-      launchReturnApp(true, true);
+      launchReturnApp();
     }
 
-    if (!writeChar) {
-      const ok = await attemptAutoReconnect(false);
-      if (!ok && !writeChar) await pairNewPrinter();
+    if (lastRawFpText && !pendingPrintQueue.includes(lastRawFpText)) {
+      pendingPrintQueue.unshift(lastRawFpText);
     }
-    if (writeChar) {
-      await printCanvas(true);
-    } else {
-      if (lastRawFpText && !pendingPrintQueue.includes(lastRawFpText)) {
-        pendingPrintQueue.push(lastRawFpText);
-      }
-      updateFirstContactUI(true);
-      showToast(`📥 Queued ${currentOrderMeta.orderNo} — power ON printer to auto-print`, 'warn', true);
+    await drainPrintQueue(true);
+    if (!writeChar) {
+      await pairNewPrinter();
     }
   }
 
@@ -2939,7 +3000,7 @@
     ensureAudioKeepAliveRunning();
 
     if (goBack) {
-      launchReturnApp(false, true);
+      launchReturnApp();
     } else {
       showToast('Stayed in Billu', 'info');
     }
@@ -3019,58 +3080,37 @@
       }
     }
 
-    // Mutex guard: if currently printing OR already preparing/connecting for a previous order, queue in FIFO order!
-    if (isPrinting || isPreparingOrder) {
-      if (!pendingPrintQueue.includes(rawText)) {
-        pendingPrintQueue.push(rawText);
-      }
-      updateFirstContactUI(true);
-      showToast(`📥 Queued Order ${parsed.orderNo || ''} (prints next)`, 'info', true);
-      return { ok: true };
-    }
-
-    isPreparingOrder = true;
-    try {
-      lastRawFpText = rawText;
-      isFpPipelineRun = true;
-      lastParsedFpData = parsed;
-      currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
-
+    // Render preview onto canvas right away so the user sees the receipt
+    lastRawFpText = rawText;
+    isFpPipelineRun = true;
+    lastParsedFpData = parsed;
+    currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
+    if (!isPrinting) {
       docSourceCanvas = renderSynthesizedFpReceipt(parsed);
       rebuildCompositePreview(true);
       updateMainButtonUI();
-      showToast(`🧾 Order ${parsed.orderNo || ''} loaded (${parsed.items.length} item(s) • ${parsed.total || ''})`, 'info', isSilentBgRun);
-
-      const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
-
-      if (!isSilentBgRun && !autoPrintOnOpen) {
-        const title = `Print Order ${parsed.orderNo || ''}?`;
-        const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
-        showFpPrePrintModal(title, sub);
-        return { ok: true };
-      }
-
-      if (!writeChar) await attemptAutoReconnect(false);
-      if (writeChar) {
-        isPreparingOrder = false;
-        await printCanvas(!isSilentBgRun);
-      } else {
-        if (!pendingPrintQueue.includes(rawText)) {
-          pendingPrintQueue.push(rawText);
-        }
-        updateFirstContactUI(true);
-        playTone(300, 220);
-        setTimeout(() => playTone(250, 260), 260);
-        showToast(
-          `📥 Order ${parsed.orderNo || ''} queued — power ON printer to auto-print`,
-          'warn',
-          true
-        );
-      }
-      return { ok: true };
-    } finally {
-      isPreparingOrder = false;
     }
+    showToast(`🧾 Order ${parsed.orderNo || ''} loaded (${parsed.items.length} item(s) • ${parsed.total || ''})`, 'info', isSilentBgRun);
+
+    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
+
+    // If Foreground Mode AND Auto-Print is OFF -> Show "Print / Cancel" modal
+    if (!isSilentBgRun && !autoPrintOnOpen) {
+      const title = `Print Order ${parsed.orderNo || ''}?`;
+      const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
+      showFpPrePrintModal(title, sub);
+      return { ok: true };
+    }
+
+    // Otherwise (Silent Background Mode OR Foreground Auto-Print ON):
+    // Push into `pendingPrintQueue` FIRST and call `drainPrintQueue()` so it waits for any in-progress
+    // Bluetooth reconnection and NEVER cancels the queue!
+    if (!pendingPrintQueue.includes(rawText)) {
+      pendingPrintQueue.push(rawText);
+    }
+    updateFirstContactUI(false);
+    await drainPrintQueue(!isSilentBgRun);
+    return { ok: true };
   }
 
   function decodeBase64Utf8(b64Input) {
@@ -3180,7 +3220,7 @@
   }
 
   // ============================================================================
-  // VIEWPORT, SERIALIZED BLE ENGINE, MARGINS & STAMP LOGIC
+  // VIEWPORT, SHARED-PROMISE BLE ENGINE, MARGINS & STAMP LOGIC
   // ============================================================================
 
   const viewportEl = document.getElementById('viewport');
@@ -3320,7 +3360,7 @@
     const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
     const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
     if (isFpPipelineRun && autoReturnEnabled && autoReturnTiming === 'before') {
-      launchReturnApp(true, true);
+      launchReturnApp();
     }
 
     if (writeChar) {
@@ -3330,12 +3370,15 @@
     const ok = await attemptAutoReconnect(false);
     if (!ok && !writeChar) {
       await pairNewPrinter();
+    } else if (writeChar) {
+      await printCanvas(isFpPipelineRun);
     }
   }
 
   function hardAbortPendingBle() {
     connectGeneration++;
     isConnecting = false;
+    activeConnectPromise = null;
     lastConnectEndTime = Date.now();
     if (adAbortController) {
       try { adAbortController.abort(); } catch (e) {}
@@ -3364,90 +3407,98 @@
     }
   }
 
-  async function connectToBleDevice(device) {
-    if (isConnecting || writeChar) return Boolean(writeChar);
+  // Uses a shared `activeConnectPromise` so if `prepareFoodpandaOrderFromText` or `drainPrintQueue`
+  // calls `connectToBleDevice` while `startAutoReconnectLoop` is already connecting, BOTH await
+  // the exact same connection attempt instead of returning `false`!
+  function connectToBleDevice(device) {
+    if (writeChar) return Promise.resolve(true);
+    if (isConnecting && activeConnectPromise) return activeConnectPromise;
+
     isConnecting = true;
     const myGen = ++connectGeneration;
     const dispLabel = getPrinterDisplayLabel(device);
-    const timeoutMs = document.hidden ? 10500 : 3500;
+    const timeoutMs = document.hidden ? 10500 : 3800;
     let timeoutHandle = null;
 
-    try {
-      activeBleDevice = device;
-      device.removeEventListener('gattserverdisconnected', onBleDisconnected);
-      device.addEventListener('gattserverdisconnected', onBleDisconnected);
+    activeConnectPromise = (async () => {
+      try {
+        activeBleDevice = device;
+        device.removeEventListener('gattserverdisconnected', onBleDisconnected);
+        device.addEventListener('gattserverdisconnected', onBleDisconnected);
 
-      setStatus(`Connecting to ${dispLabel}...`);
+        setStatus(`Connecting to ${dispLabel}...`);
 
-      const connectPromise = (async () => {
-        const server = await device.gatt.connect();
-        if (myGen !== connectGeneration) {
-          try { device.gatt.disconnect(); } catch (e) {}
-          return null;
-        }
-        await delayMs(150);
-        const services = await server.getPrimaryServices();
-        let foundChar = null;
-        for (const service of services) {
-          const chars = await service.getCharacteristics();
-          for (const c of chars) {
-            if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
-              foundChar = c;
-              if (c.uuid.includes('ae01')) break;
-            }
+        const connectPromise = (async () => {
+          const server = await device.gatt.connect();
+          if (myGen !== connectGeneration) {
+            try { device.gatt.disconnect(); } catch (e) {}
+            return null;
           }
-          if (foundChar && foundChar.uuid.includes('ae01')) break;
+          await delayMs(150);
+          const services = await server.getPrimaryServices();
+          let foundChar = null;
+          for (const service of services) {
+            const chars = await service.getCharacteristics();
+            for (const c of chars) {
+              if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
+                foundChar = c;
+                if (c.uuid.includes('ae01')) break;
+              }
+            }
+            if (foundChar && foundChar.uuid.includes('ae01')) break;
+          }
+          return foundChar;
+        })();
+
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('GATT_TIMEOUT')), timeoutMs);
+        });
+
+        const foundChar = await Promise.race([connectPromise, timeoutPromise]);
+        clearTimeout(timeoutHandle);
+
+        if (myGen !== connectGeneration || !foundChar) {
+          if (!foundChar && device.gatt) {
+            try { device.gatt.disconnect(); } catch (e) {}
+          }
+          return false;
         }
-        return foundChar;
-      })();
 
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error('GATT_TIMEOUT')), timeoutMs);
-      });
+        writeChar = foundChar;
+        hasMadeFirstContact = true;
+        lastPrinterAntiSleepTime = Date.now();
+        registerOrUpdatePrinter(device);
+        showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
+        playTone(880, 140);
+        updateMainButtonUI();
+        updateFirstContactUI(true);
 
-      const foundChar = await Promise.race([connectPromise, timeoutPromise]);
-      clearTimeout(timeoutHandle);
+        if (pendingPrintQueue.length > 0 && !isPrinting && !isDrainingQueue) {
+          hideFpModal();
+          setTimeout(() => drainPrintQueue(!document.hidden), 250);
+        }
 
-      if (myGen !== connectGeneration || !foundChar) {
-        if (!foundChar && device.gatt) {
-          try { device.gatt.disconnect(); } catch (e) {}
+        return true;
+      } catch (err) {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (myGen === connectGeneration) {
+          writeChar = null;
+          try {
+            if (device && device.gatt) device.gatt.disconnect();
+          } catch (e) {}
+          updateMainButtonUI();
         }
         return false;
+      } finally {
+        if (myGen === connectGeneration) {
+          isConnecting = false;
+          activeConnectPromise = null;
+          lastConnectEndTime = Date.now();
+        }
       }
+    })();
 
-      writeChar = foundChar;
-      hasMadeFirstContact = true;
-      lastPrinterAntiSleepTime = Date.now();
-      registerOrUpdatePrinter(device);
-      showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
-      playTone(880, 140);
-      updateMainButtonUI();
-      updateFirstContactUI(true);
-
-      // Only trigger queue drain here if `prepareFoodpandaOrderFromText` is NOT already mid-flight!
-      if (pendingPrintQueue.length > 0 && !isPrinting && !isPreparingOrder) {
-        hideFpModal();
-        showToast(`🖨️ Printing ${pendingPrintQueue.length} queued receipt(s)...`, 'info', true);
-        setTimeout(() => processPendingPrintQueue(), 350);
-      }
-
-      return true;
-    } catch (err) {
-      if (timeoutHandle) clearTimeout(timeoutHandle);
-      if (myGen === connectGeneration) {
-        writeChar = null;
-        try {
-          if (device && device.gatt) device.gatt.disconnect();
-        } catch (e) {}
-        updateMainButtonUI();
-      }
-      return false;
-    } finally {
-      if (myGen === connectGeneration) {
-        isConnecting = false;
-        lastConnectEndTime = Date.now();
-      }
-    }
+    return activeConnectPromise;
   }
 
   function onBleDisconnected() {
@@ -3455,9 +3506,10 @@
     const dispLabel = activeBleDevice ? getPrinterDisplayLabel(activeBleDevice) : 'Printer';
     writeChar = null;
     isConnecting = false;
+    activeConnectPromise = null;
     lastConnectEndTime = Date.now();
     if (!isPrinting) {
-      showToast(`🟡 ${dispLabel} disconnected — standby active`, 'warn', true);
+      showToast(`🟡 ${dispLabel} disconnected — reconnecting...`, 'warn', true);
       updateMainButtonUI();
       updateFirstContactUI(true);
     }
@@ -3465,18 +3517,12 @@
       if (!writeChar && !isConnecting && !isPrinting) {
         attemptAutoReconnect(true);
       }
-    }, 900);
+    }, 800);
   }
 
-  function releaseBleOnPageUnload() {
-    try {
-      if (activeBleDevice && activeBleDevice.gatt) {
-        activeBleDevice.gatt.disconnect();
-      }
-    } catch (e) {}
-  }
-  window.addEventListener('pagehide', releaseBleOnPageUnload);
-  window.addEventListener('beforeunload', releaseBleOnPageUnload);
+  // NOTE: Removed `beforeunload` / `pagehide` disconnect listeners (`releaseBleOnPageUnload`)
+  // because triggering `intent://` deep links to return to the Partner App fires `beforeunload` in Chrome,
+  // which was artificially disconnecting the printer when clicking "Return to Partner App"!
 
   function ensureWatchingAdvertisements(target) {
     if (!target || !target.watchAdvertisements || document.hidden) return;
@@ -3499,8 +3545,12 @@
 
   async function attemptAutoReconnect(silentToast = true) {
     const savedId = getSavedPrinterId();
-    if (!savedId || writeChar || isPrinting || isConnecting) {
-      return Boolean(writeChar);
+    if (!savedId) return false;
+    if (writeChar) return true;
+    if (isPrinting) return Boolean(writeChar);
+    // If a connection attempt is already in progress, wait for it instead of returning false!
+    if (isConnecting && activeConnectPromise) {
+      return await activeConnectPromise;
     }
 
     try {
@@ -3571,15 +3621,14 @@
     }
 
     if (document.visibilityState === 'visible') {
-      if (!writeChar) {
-        hardAbortPendingBle();
-        await delayMs(200);
+      if (!isPrinting) {
+        await checkUrlForFpPayload();
+      }
+      if (!writeChar && !isConnecting) {
+        await delayMs(150);
         if (!writeChar && !isPrinting) {
           attemptAutoReconnect(false);
         }
-      }
-      if (!isPrinting) {
-        await checkUrlForFpPayload();
       }
     }
   });
@@ -3662,7 +3711,13 @@
     }
   }
 
-  function launchReturnApp(keepAliveForPrint = false, fromDirectTap = false) {
+  // FIXED RETURN TO PARTNER APP:
+  // 1. NEVER calls `window.close()` (which crashed the PWA Activity and disconnected the printer!).
+  // 2. Fires the Android `intent://` deep link via a synthetic `<a>` element so Chrome keeps the current
+  //    document and its Bluetooth connection 100% alive in the background.
+  // 3. If called automatically after a print job (when Chrome may block gestureless `intent://` redirects),
+  //    checks after 450ms if the page is still visible and shows the 1-tap "Return to Partner App" modal.
+  function launchReturnApp(showModalIfBlocked = false) {
     hideFpModal();
     ensureAudioKeepAliveRunning();
     updateFirstContactUI(true);
@@ -3677,20 +3732,22 @@
     const intentUrl = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
 
     try {
+      const a = document.createElement('a');
+      a.href = intentUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 200);
+    } catch (e) {
       window.location.href = intentUrl;
-    } catch (e) {}
+    }
 
-    if (!keepAliveForPrint && !isPrinting) {
+    if (showModalIfBlocked) {
       setTimeout(() => {
-        if (!document.hidden) {
-          try { window.close(); } catch (e) {}
-          setTimeout(() => {
-            if (!document.hidden && window.history.length > 1) {
-              try { window.history.back(); } catch (e) {}
-            }
-          }, 180);
+        if (!document.hidden && !isPrinting) {
+          showFpPostPrintModal();
         }
-      }, 280);
+      }, 450);
     }
   }
 
@@ -3909,8 +3966,6 @@
     return pkt;
   }
 
-  // Serialized BLE Write Mutex: prevents `GATT operation already in progress` if a background
-  // ping/micro-jog overlaps with `printCanvas()`!
   function writeBle(pkt) {
     const nextOp = bleWriteChain.then(async () => {
       if (!writeChar) throw new Error('Printer disconnected');
@@ -4002,7 +4057,7 @@
 
     if ((fromFpMacroFlow || isFpPipelineRun) && autoReturnEnabled && autoReturnTiming === 'before' && !document.hidden) {
       ensureAudioKeepAliveRunning();
-      launchReturnApp(true, false);
+      launchReturnApp(false);
     }
 
     await acquireWakeLock();
@@ -4106,9 +4161,9 @@
       }
 
       if ((fromFpMacroFlow || isFpPipelineRun) && !document.hidden && pendingPrintQueue.length === 0) {
-        if (autoReturnEnabled && autoReturnTiming === 'after') {
-          setTimeout(() => launchReturnApp(false, false), 150);
-        } else if (!autoReturnEnabled) {
+        if (autoReturnEnabled) {
+          launchReturnApp(true);
+        } else {
           showFpPostPrintModal();
         }
       }
@@ -4119,9 +4174,6 @@
       cancelPrintRequested = false;
       releaseWakeLock();
       updateMainButtonUI();
-      if (pendingPrintQueue.length > 0 && writeChar) {
-        setTimeout(() => processPendingPrintQueue(), 450);
-      }
     }
   }
 
