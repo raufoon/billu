@@ -8,74 +8,64 @@
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/616/616430.png">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/616/616430.png">
   <meta name="theme-color" content="#111827">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script defer src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
   <style>
     :root {
       --bg: #1F2937; --surface: #111827; --card: #FFFFFF;
       --blue: #2563EB; --amber: #D97706; --green: #10B981;
-      --red: #EF4444; --gray-btn: #4B5563; --fp-pink: #D70F64;
+      --red: #EF4444; --gray-btn: #4B5563; --accent-pink: #D70F64; --indigo: #4F46E5;
     }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-user-select: none; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #F9FAFB; }
 
-    /* 1. STICKY TOP BAR WITH BRIGHTNESS + 1-TAP RELAUNCH BUTTON */
     .top-bar {
       position: fixed; top: 0; left: 0; right: 0; height: 54px;
       background: var(--surface); display: flex; align-items: center;
-      gap: 10px; padding: 0 12px; z-index: 30;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      gap: 8px; padding: 0 12px; z-index: 30; box-shadow: 0 2px 8px rgba(0,0,0,0.35);
     }
     .top-bar span { font-size: 13px; font-weight: 700; white-space: nowrap; }
-    .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; min-width: 70px; }
-    #relaunchTopBtn {
+    .top-bar input[type="range"] { flex: 1; accent-color: var(--green); height: 6px; min-width: 55px; }
+    .top-pill-btn {
       background: var(--blue); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 10px; padding: 7px 11px; font-size: 12px; font-weight: 800;
-      cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border-radius: 10px; padding: 7px 10px; font-size: 12px; font-weight: 800;
+      cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 4px;
     }
-    #relaunchTopBtn:active { transform: scale(0.95); }
+    .top-pill-btn:active { transform: scale(0.95); }
 
-    /* PERSISTENT FIRST-CONTACT SESSION BAR */
-    #firstContactBar {
-      position: fixed; top: 54px; left: 0; right: 0; min-height: 34px;
-      padding: 6px 12px; z-index: 29; display: flex; align-items: center; justify-content: center;
-      gap: 8px; font-size: 12px; font-weight: 800; text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: background 0.2s ease;
+    #sessionStatusBar {
+      position: fixed; top: 54px; left: 0; right: 0; min-height: 32px;
+      padding: 5px 12px; z-index: 29; display: flex; align-items: center; justify-content: center;
+      gap: 8px; font-size: 11.5px; font-weight: 800; text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25); transition: background 0.2s ease;
     }
-    .fc-missing { background: #991B1B; color: #FEE2E2; border-bottom: 2px solid #EF4444; }
-    .fc-armed-ok { background: #065F46; color: #D1FAE5; border-bottom: 1px solid #10B981; }
-    .fc-armed-off { background: #92400E; color: #FEF3C7; border-bottom: 2px solid #F59E0B; }
-    .fc-inline-btn {
+    .ss-unarmed { background: #991B1B; color: #FEE2E2; border-bottom: 2px solid #EF4444; }
+    .ss-online { background: #065F46; color: #D1FAE5; border-bottom: 1px solid #10B981; }
+    .ss-standby { background: #92400E; color: #FEF3C7; border-bottom: 2px solid #F59E0B; }
+    .ss-inline-btn {
       background: #FFFFFF; color: #111827; border: none; border-radius: 99px;
       padding: 3px 9px; font-size: 11px; font-weight: 900; cursor: pointer; white-space: nowrap;
     }
 
-    /* 2. INTERACTIVE VIEWPORT */
     #viewport {
-      position: fixed; top: 88px; bottom: 84px; left: 0; right: 0;
+      position: fixed; top: 86px; bottom: 84px; left: 0; right: 0;
       overflow: hidden; touch-action: none;
-      display: flex; align-items: flex-start; justify-content: flex-start;
-      background: #374151;
+      display: flex; align-items: flex-start; justify-content: flex-start; background: #374151;
     }
     #canvasTransform { transform-origin: 0 0; will-change: transform; display: none; }
     #printCanvas { display: block; background: #FFFFFF; box-shadow: 0 4px 20px rgba(0,0,0,0.45); }
 
-    /* CENTER BIG BUTTON WHEN NO FILE IS OPEN */
     #emptyStateContainer {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 24px; z-index: 20; gap: 14px;
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 24px; z-index: 20; gap: 14px;
     }
     #bigChooseFileBtn {
-      width: 100%; max-width: 340px; min-height: 165px;
-      background: var(--blue); color: #FFFFFF;
-      border: 2px dashed rgba(255,255,255,0.45);
-      border-radius: 24px; padding: 22px 20px;
+      width: 100%; max-width: 340px; min-height: 165px; background: var(--blue); color: #FFFFFF;
+      border: 2px dashed rgba(255,255,255,0.45); border-radius: 24px; padding: 22px 20px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; cursor: pointer;
-      box-shadow: 0 10px 28px rgba(0,0,0,0.45);
-      transition: transform 0.1s ease, background 0.15s ease;
-      text-align: center;
+      gap: 10px; cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,0.45); text-align: center;
     }
     #bigChooseFileBtn:active { transform: scale(0.97); }
     #bigChooseFileBtn .big-icon { font-size: 40px; line-height: 1; }
@@ -87,17 +77,15 @@
       padding: 5px 12px; border-radius: 99px; border: 1px solid #374151; text-align: center;
     }
 
-    /* PERSISTENT STATUS BANNER + NON-INTERACTABLE TOOLTIP TOAST STACK */
     #statusBanner {
-      position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
-      background: rgba(17,24,39,0.92); color: #E5E7EB;
-      padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 600;
-      pointer-events: none; z-index: 25; white-space: nowrap;
-      border: 1px solid rgba(75,85,99,0.6);
+      position: fixed; top: 94px; left: 50%; transform: translateX(-50%);
+      background: rgba(17,24,39,0.92); color: #E5E7EB; padding: 5px 13px;
+      border-radius: 99px; font-size: 12px; font-weight: 600; pointer-events: none;
+      z-index: 25; white-space: nowrap; border: 1px solid rgba(75,85,99,0.6);
       max-width: calc(100% - 130px); overflow: hidden; text-overflow: ellipsis;
     }
     #toastStack {
-      position: fixed; top: 128px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 126px; left: 50%; transform: translateX(-50%);
       display: flex; flex-direction: column; align-items: center; gap: 6px;
       pointer-events: none; z-index: 9999; width: 92%; max-width: 360px;
     }
@@ -111,24 +99,19 @@
     .toast-pill.toast-success { border-color: var(--green); color: #A7F3D0; }
     .toast-pill.toast-warn { border-color: var(--amber); color: #FDE68A; }
     .toast-pill.toast-error { border-color: var(--red); color: #FECACA; }
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(-6px) scale(0.96); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-    /* FOODPANDA MODALS */
     #fpModalBackdrop {
-      position: fixed; top: 88px; bottom: 84px; left: 0; right: 0; z-index: 80;
+      position: fixed; top: 86px; bottom: 84px; left: 0; right: 0; z-index: 80;
       background: rgba(17, 24, 39, 0.82); backdrop-filter: blur(4px);
       display: none; align-items: center; justify-content: center; padding: 18px;
     }
     #fpModalBackdrop.active { display: flex; }
     .fp-modal-card {
-      position: relative; width: 100%; max-width: 360px;
-      background: #111827; border: 2px solid var(--fp-pink);
-      border-radius: 24px; padding: 24px 18px 20px 18px;
-      display: flex; flex-direction: column; align-items: center;
-      text-align: center; gap: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.75);
+      position: relative; width: 100%; max-width: 360px; background: #111827;
+      border: 2px solid var(--accent-pink); border-radius: 24px; padding: 24px 18px 20px 18px;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      gap: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.75);
     }
     .fp-modal-close-x {
       position: absolute; top: 12px; left: 12px; width: 38px; height: 38px;
@@ -136,38 +119,31 @@
       color: #F9FAFB; font-size: 18px; font-weight: 900; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
-    .fp-modal-close-x:active { transform: scale(0.92); }
-    .fp-modal-icon { font-size: 44px; line-height: 1; }
-    .fp-modal-title { font-size: 21px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
-    .fp-modal-sub { font-size: 14px; color: #D1D5DB; font-weight: 600; line-height: 1.4; }
+    .fp-modal-icon { font-size: 42px; line-height: 1; }
+    .fp-modal-title { font-size: 20px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
+    .fp-modal-sub { font-size: 13.5px; color: #D1D5DB; font-weight: 600; line-height: 1.4; }
     .fp-modal-actions { display: flex; width: 100%; gap: 12px; margin-top: 4px; }
     .fp-modal-btn {
-      flex: 1; padding: 16px 12px; border-radius: 16px; border: none;
-      font-size: 18px; font-weight: 900; cursor: pointer; color: #FFFFFF;
-      transition: transform 0.1s ease; display: flex; align-items: center; justify-content: center; gap: 8px;
+      flex: 1; padding: 15px 12px; border-radius: 16px; border: none;
+      font-size: 17px; font-weight: 900; cursor: pointer; color: #FFFFFF;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .fp-modal-btn:active { transform: scale(0.96); }
     .fp-btn-yes { background: var(--green); }
-    .fp-btn-pink-big {
-      width: 100%; padding: 18px 16px; font-size: 20px;
-      background: var(--fp-pink); color: #FFFFFF;
-      box-shadow: 0 6px 20px rgba(215, 15, 100, 0.45);
-    }
+    .fp-btn-pink-big { width: 100%; padding: 17px 16px; font-size: 18px; background: var(--accent-pink); color: #FFFFFF; }
     .fp-btn-no { background: #374151; color: #E5E7EB; }
     .fp-error-box {
-      width: 100%; max-height: 140px; overflow-y: auto;
-      background: #1F2937; border: 1px solid #374151; border-radius: 10px;
-      padding: 8px 10px; font-family: monospace; font-size: 11px;
-      color: #FCA5A5; text-align: left; word-break: break-all;
+      width: 100%; max-height: 140px; overflow-y: auto; background: #1F2937;
+      border: 1px solid #374151; border-radius: 10px; padding: 8px 10px;
+      font-family: monospace; font-size: 11px; color: #FCA5A5; text-align: left; word-break: break-all;
     }
 
-    /* INTERNAL RECEIPT VAULT OVERLAY */
-    #vaultOverlay {
+    .full-overlay {
       position: fixed; inset: 0; z-index: 95; background: #111827;
-      display: none; flex-direction: column; padding: 16px; gap: 12px;
+      display: none; flex-direction: column; padding: 16px; gap: 12px; overflow-y: auto;
     }
-    #vaultOverlay.open { display: flex; }
-    #vaultList { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .full-overlay.open { display: flex; }
+    #vaultList, #peerListContainer { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     .vault-item {
       background: #1F2937; border: 1px solid #374151; border-radius: 14px;
       padding: 12px; display: flex; flex-direction: column; gap: 8px;
@@ -175,28 +151,33 @@
     .vault-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .vault-info { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
     .vault-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-    .vault-pill-btn {
-      padding: 7px 11px; border-radius: 10px; border: none; font-weight: 800;
-      font-size: 12px; cursor: pointer; color: #FFFFFF;
-    }
+    .vault-pill-btn { padding: 7px 11px; border-radius: 10px; border: none; font-weight: 800; font-size: 12px; cursor: pointer; color: #FFFFFF; }
 
-    /* 3. FLOATING BUTTONS */
+    #qrDisplayBox {
+      background: #FFFFFF; padding: 14px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto;
+    }
+    #qrVideoContainer {
+      width: 100%; max-width: 320px; margin: 0 auto; border-radius: 14px;
+      overflow: hidden; border: 2px solid var(--green); display: none; position: relative;
+    }
+    #qrVideo { width: 100%; display: block; }
+
     .fab {
       position: fixed; z-index: 35; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
-      border-radius: 99px; font-weight: 700;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.35); transition: transform 0.1s ease;
+      border-radius: 99px; font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.35);
     }
     .fab:active { transform: scale(0.95); }
-    #returnAppBtn { top: 98px; left: 14px; padding: 10px 14px; background: var(--fp-pink); color: #FFFFFF; font-size: 14px; display: none; }
-    #returnAppBtn .app-icon { width: 24px; height: 24px; background: #FFFFFF; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-    #burgerBtn { top: 98px; right: 14px; width: 46px; height: 46px; background: var(--surface); color: #FFFFFF; font-size: 22px; }
+    #returnAppBtn { top: 96px; left: 14px; padding: 10px 14px; background: var(--accent-pink); color: #FFFFFF; font-size: 13px; display: none; }
+    #returnAppBtn .app-icon { width: 22px; height: 22px; background: #FFFFFF; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    #burgerBtn { top: 96px; right: 14px; width: 46px; height: 46px; background: var(--surface); color: #FFFFFF; font-size: 22px; }
+    #sendRemoteFabBtn { bottom: 194px; right: 14px; padding: 10px 14px; background: var(--indigo); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
     #printSomethingElseBtn { bottom: 146px; right: 14px; padding: 10px 14px; background: var(--blue); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
     #fitScreenBtn { bottom: 98px; right: 14px; padding: 10px 14px; background: var(--surface); color: #FFFFFF; font-size: 13px; border: 1px solid #4B5563; display: none; }
 
-    /* 4. FLOATING OPTIONS MENU */
     #optionsOverlay {
-      position: fixed; top: 98px; right: 14px; width: calc(100% - 28px); max-width: 375px;
+      position: fixed; top: 96px; right: 14px; width: calc(100% - 28px); max-width: 375px;
       max-height: calc(100% - 190px); overflow-y: auto;
       background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px);
       border: 1px solid #374151; border-radius: 18px; padding: 14px;
@@ -205,20 +186,19 @@
     }
     #optionsOverlay.open { display: flex; }
     .opt-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #374151; }
-    .icon-pill { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 99px; border: none; background: #374151; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .icon-pill { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 99px; border: none; background: #374151; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer; }
     .opt-row { background: #1F2937; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
     .opt-row-inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .opt-btn { width: 100%; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     .opt-btn:active { transform: scale(0.98); }
     .opt-btn-feed { background: var(--green); color: #FFFFFF; }
     .opt-btn-upload { background: #3B82F6; color: #FFFFFF; }
-    .opt-btn-fp { background: var(--fp-pink); color: #FFFFFF; }
+    .opt-btn-fp { background: var(--accent-pink); color: #FFFFFF; }
     .opt-btn-path { background: #374151; color: #F3F4F6; text-align: left; justify-content: space-between; font-weight: 600; word-break: break-all; }
     .opt-btn-warn { background: var(--red); color: #FFFFFF; }
     .opt-input, .opt-select { background: #111827; color: #FFFFFF; border: 1px solid #4B5563; border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 85px; }
     .opt-select { width: auto; flex: 1; }
 
-    /* SAVED PRINTERS LIST CARDS */
     .printer-card { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
     .printer-card.active-printer { border-color: var(--green); background: rgba(16, 185, 129, 0.08); }
     .printer-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -226,9 +206,8 @@
     .printer-card-actions { display: flex; gap: 6px; }
     .printer-mini-btn { flex: 1; padding: 6px 8px; border-radius: 7px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF; background: #374151; }
 
-    /* 5. STICKY BOTTOM SINGLE ACTION BUTTON */
     .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 84px; background: var(--surface); padding: 12px 16px; z-index: 90; box-shadow: 0 -2px 10px rgba(0,0,0,0.35); }
-    #mainActionBtn { width: 100%; height: 100%; border: none; border-radius: 16px; font-size: 19px; font-weight: 800; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s ease, opacity 0.2s ease; }
+    #mainActionBtn { width: 100%; height: 100%; border: none; border-radius: 16px; font-size: 19px; font-weight: 800; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     #mainActionBtn.state-connect { background: var(--blue); }
     #mainActionBtn.state-searching { background: var(--amber); }
     #mainActionBtn.state-print { background: var(--green); }
@@ -242,48 +221,44 @@
 </head>
 <body>
 
-  <!-- TOP STICKY BAR: BRIGHTNESS + 1-TAP RELAUNCH BUTTON -->
+  <!-- TOP BAR -->
   <div class="top-bar">
-    <span>☀️ Brightness</span>
+    <span>☀️ Contrast</span>
     <input type="range" id="brightnessSlider" min="40" max="230" value="155" oninput="onBrightnessChange()">
-    <button id="relaunchTopBtn" onclick="relaunchAppFresh()" title="Fresh relaunch to connect immediately">
-      🔄 Relaunch
-    </button>
+    <button class="top-pill-btn" style="background:var(--indigo);" onclick="openRemoteSyncOverlay()">🔗 Peers (<span id="topPeerCount">0</span>)</button>
+    <button id="relaunchTopBtn" class="top-pill-btn" onclick="relaunchAppFresh()">🔄 Reset</button>
   </div>
 
-  <!-- PERSISTENT FIRST-CONTACT SESSION BAR -->
-  <div id="firstContactBar" class="fc-missing">
-    <span id="firstContactText">⚠️ NO FIRST CONTACT YET: Turn ON printer & connect once to arm background printing</span>
-    <button id="firstContactActionBtn" class="fc-inline-btn" onclick="relaunchAppFresh()">🔄 Refresh</button>
+  <!-- SESSION STATUS BAR -->
+  <div id="sessionStatusBar" class="ss-unarmed">
+    <span id="sessionStatusText">⚠️ Printer Disconnected — Connect once to enable background queue</span>
+    <button id="sessionStatusActionBtn" class="ss-inline-btn" onclick="relaunchAppFresh()">🔄 Reconnect</button>
   </div>
 
-  <!-- PERSISTENT STATUS BANNER & NON-INTERACTABLE TOOLTIP TOAST STACK -->
   <div id="statusBanner">Ready</div>
   <div id="toastStack"></div>
 
-  <!-- FOODPANDA MODALS -->
+  <!-- ORDER WORKFLOW MODALS -->
   <div id="fpModalBackdrop">
     <div class="fp-modal-card" id="fpPrePrintCard" style="display:none;">
       <button class="fp-modal-close-x" onclick="onFpPrePrintChoice(false)" aria-label="Close">✕</button>
-      <div class="fp-modal-icon">🐼</div>
-      <div class="fp-modal-title" id="fpPrePrintTitle">Print Foodpanda Order?</div>
-      <div class="fp-modal-sub" id="fpPrePrintSub">Ready to send receipt to thermal printer</div>
+      <div class="fp-modal-icon">🧾</div>
+      <div class="fp-modal-title" id="fpPrePrintTitle">Print Order Receipt?</div>
+      <div class="fp-modal-sub" id="fpPrePrintSub">Confirm to send receipt to thermal printer</div>
       <div class="fp-modal-actions">
-        <button class="fp-modal-btn fp-btn-no" onclick="onFpPrePrintChoice(false)">Don't Print</button>
+        <button class="fp-modal-btn fp-btn-no" onclick="onFpPrePrintChoice(false)">Cancel</button>
         <button class="fp-modal-btn fp-btn-yes" onclick="onFpPrePrintChoice(true)">Print</button>
       </div>
     </div>
 
     <div class="fp-modal-card" id="fpPostPrintCard" style="display:none;">
-      <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)" aria-label="Dismiss and stay">✕</button>
+      <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">✅</div>
-      <div class="fp-modal-title">Receipt printing complete!</div>
-      <div class="fp-modal-sub">
-        Click the button to open to Panda Partner or click the cross (X) on the top-left to dismiss this and stay in the Billu app.
-      </div>
+      <div class="fp-modal-title">Print Complete</div>
+      <div class="fp-modal-sub">Tap below to return to the partner app, or close (✕) to stay in Billu.</div>
       <div class="fp-modal-actions">
         <button class="fp-modal-btn fp-btn-pink-big" onclick="onFpPostPrintChoice(true)">
-          🐼 Open Panda Partner
+          ↩️ Return to Partner App
         </button>
       </div>
     </div>
@@ -291,61 +266,116 @@
     <div class="fp-modal-card" id="fpErrorCard" style="display:none; border-color: var(--red);">
       <button class="fp-modal-close-x" onclick="hideFpModal()" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">⚠️</div>
-      <div class="fp-modal-title" id="fpErrorTitle">Order Data Error</div>
-      <div class="fp-modal-sub" id="fpErrorSub">Could not find or parse a valid Base64 order string.</div>
+      <div class="fp-modal-title" id="fpErrorTitle">Data Load Error</div>
+      <div class="fp-modal-sub" id="fpErrorSub">Unable to parse order data payload.</div>
       <div class="fp-error-box" id="fpErrorDetails"></div>
       <div class="fp-modal-actions" style="flex-direction:column;">
-        <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp()">
-          🐼 Open Panda Partner
+        <button class="fp-modal-btn fp-btn-pink-big" onclick="launchReturnApp(false, true)">
+          ↩️ Return to Partner App
         </button>
       </div>
     </div>
   </div>
 
-  <!-- BUILT-IN RECEIPT VAULT OVERLAY -->
-  <div id="vaultOverlay">
+  <!-- RECEIPT VAULT OVERLAY -->
+  <div id="vaultOverlay" class="full-overlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeVault()">← Back</button>
-      <span style="font-weight:800; font-size:15px;">🗄️ Saved Receipts Vault</span>
+      <span style="font-weight:800; font-size:15px;">🗄️ Receipt Archive</span>
       <div style="display:flex; gap:6px;">
-        <button class="icon-pill" style="background:var(--blue); font-size:12px;" onclick="syncAllUnsyncedToDrive()">☁️ Sync All</button>
+        <button class="icon-pill" style="background:var(--blue); font-size:12px;" onclick="syncAllUnsyncedToDrive()">☁️ Sync Cloud</button>
         <button class="icon-pill" style="background:#EF4444; font-size:12px;" onclick="clearVault()">Clear</button>
       </div>
     </div>
     <div style="font-size:12px; color:#9CA3AF;">
-      Stores selectable-text <b>.PDF</b> & <b>.PNG</b> receipts locally and syncs one-way to Google Drive without duplicates.
+      Automatically archives printable <b>.PDF</b> and <b>.PNG</b> copies locally and syncs to Google Drive without duplicates.
     </div>
     <div id="vaultList"></div>
   </div>
 
+  <!-- PEER-TO-PEER REMOTE SYNC OVERLAY -->
+  <div id="remoteSyncOverlay" class="full-overlay">
+    <div class="opt-header">
+      <button class="icon-pill" onclick="closeRemoteSyncOverlay()">← Back</button>
+      <span style="font-weight:800; font-size:15px;">🔗 Remote Billu Sync</span>
+      <span id="remoteNetBadge" style="font-size:11px; font-weight:800; color:#F59E0B;">🟡 Connecting...</span>
+    </div>
+
+    <div class="opt-row" style="border: 1px solid var(--indigo);">
+      <div class="opt-row-inline">
+        <span style="font-weight:800; color:#A5B4FC;">This Device Name:</span>
+        <input type="text" id="myNodeNameInput" class="opt-input" style="width:160px;" placeholder="e.g. Kitchen Terminal" onchange="saveRemoteSettings()">
+      </div>
+      <div class="opt-row-inline">
+        <span style="font-weight:800; color:#A5B4FC;">Max Concurrent Peers:</span>
+        <input type="number" id="maxConcurrentPeersInput" class="opt-input" min="1" max="10" step="1" value="2" onchange="saveRemoteSettings()">
+      </div>
+      <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="remoteAutoPrintIncoming" onchange="saveRemoteSettings()">
+        🖨️ Auto-Print Receipts Received from Peers
+      </label>
+      <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="remoteAutoForwardOrders" onchange="saveRemoteSettings()">
+        📡 Auto-Forward Captured Orders to Peers
+      </label>
+    </div>
+
+    <div class="opt-row" style="text-align:center;">
+      <div style="font-weight:800; font-size:13px; color:#E5E7EB;">Scan on Another Billu App to Link Equally</div>
+      <div id="qrDisplayBox"></div>
+      <div id="myNodeIdLabel" style="font-family:monospace; font-size:11px; color:#9CA3AF;"></div>
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <button class="opt-btn" style="background:var(--green); color:#FFF; flex:1;" onclick="toggleQrCameraScanner()">📷 Scan Peer QR</button>
+        <button class="opt-btn" style="background:#374151; color:#FFF; flex:1;" onclick="copyMyPairingKey()">📋 Copy Key</button>
+        <button class="opt-btn" style="background:#374151; color:#FFF; flex:1;" onclick="pastePeerPairingKey()">📥 Paste Key</button>
+      </div>
+      <button class="opt-btn" style="background:#7F1D1D; color:#FCA5A5; font-size:11px; padding:6px;" onclick="regenerateMyPrivateKey()">
+        🔑 Regenerate My Private Key (Revokes Old QR)
+      </button>
+      <div id="qrVideoContainer">
+        <video id="qrVideo" playsinline></video>
+        <canvas id="qrScanCanvas" style="display:none;"></canvas>
+      </div>
+    </div>
+
+    <div class="opt-row" style="flex:1;">
+      <div class="opt-row-inline">
+        <span style="font-weight:800; color:#93C5FD;">Paired Billu Peers</span>
+        <span id="activePeerSlotsLabel" style="font-size:11px; color:#10B981; font-weight:800;">0 / 2 Active Slots</span>
+      </div>
+      <div id="peerListContainer"></div>
+    </div>
+  </div>
+
   <!-- FLOATING BUTTONS -->
-  <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
-    <span class="app-icon" id="returnAppIcon">🐼</span>
-    <span id="returnAppLabel">Foodpanda</span>
+  <button id="returnAppBtn" class="fab" onclick="launchReturnApp(false, true)">
+    <span class="app-icon" id="returnAppIcon">↩️</span>
+    <span id="returnAppLabel">Partner App</span>
   </button>
   <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
-  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">📂 Print something else...</button>
+  <button id="sendRemoteFabBtn" class="fab" onclick="broadcastCurrentReceiptToPeers()">📡 Send to Peers</button>
+  <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">📂 Open File</button>
   <button id="fitScreenBtn" class="fab" onclick="fitScreen()">⤢ Fit Screen</button>
 
   <!-- FLOATING OPTIONS MENU -->
   <div id="optionsOverlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeMenu()">← Back</button>
-      <span style="font-weight:700; font-size:15px;">Options</span>
+      <span style="font-weight:700; font-size:15px;">Settings</span>
       <button class="icon-pill" onclick="closeMenu()">☰</button>
     </div>
 
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.8.0</span>
-        <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Dhaka Time</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v3.9.0</span>
+        <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Updated</span>
       </div>
       <div style="display:flex; gap:6px;">
         <button class="opt-btn" style="background:#374151; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="forceUpdatePWA()">
-          🔄 Update from GitHub
+          🔄 Check Update
         </button>
         <button class="opt-btn" style="background:#2563EB; color:#FFFFFF; padding:7px 10px; font-size:12px; flex:1;" onclick="enableSystemNotifications()">
-          🔔 System Notifs
+          🔔 Notifications
         </button>
       </div>
     </div>
@@ -360,41 +390,44 @@
     <div class="opt-row">
       <input type="file" id="manualFileInput" accept="application/pdf,image/*,.pdf,.txt,text/plain" style="display:none" onchange="handleManualFile(event)">
       <button class="opt-btn opt-btn-upload" onclick="document.getElementById('manualFileInput').click()">
-        📂 Open Doc / Photo / Log
+        📂 Open PDF / Image / Text
+      </button>
+      <button class="opt-btn" style="background:var(--indigo); color:#FFFFFF;" onclick="openRemoteSyncOverlay()">
+        🔗 Remote Billu Sync (QR Pairing)
       </button>
     </div>
 
-    <!-- Master Checkbox + Foodpanda Pipeline Sub-Options -->
-    <div class="opt-row" style="border: 1px solid #D70F64;">
+    <!-- Order Integration Pipeline -->
+    <div class="opt-row" style="border: 1px solid var(--accent-pink);">
       <label style="font-weight:800; color:#F472B6; font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input type="checkbox" id="fpMasterEnable" onchange="saveFpMasterToggle()">
-        🐼 Enable Foodpanda Pipeline
+        🧾 Enable Automated Order Pipeline
       </label>
 
       <div id="fpPipelineSubOptions" style="display:none; flex-direction:column; gap:8px; margin-top:4px; padding-top:8px; border-top:1px solid #374151;">
         <button class="opt-btn opt-btn-fp" onclick="openVault()">
-          🗄️ Saved Receipts Vault (<span id="vaultCountBadge">0</span>)
+          🗄️ Receipt Archive (<span id="vaultCountBadge">0</span>)
         </button>
 
         <label style="font-weight:700; color:#34D399; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpSilentBgEnable" onchange="saveSilentBgSetting()">
-          🛡️ Silent Background Mode (Never Leave Panda)
+          🛡️ Background Listener Mode (Localhost)
         </label>
 
         <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
-          ⚡ Auto-Print if opened from Panda Partner
+          ⚡ Auto-Print Incoming Orders
         </label>
 
         <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
-          ↩️ Auto-Return to Panda Partner
+          ↩️ Auto-Return to Partner App
         </label>
         <div id="fpAutoReturnTimingBox" class="opt-row-inline" style="padding-left:22px;">
           <span style="color:#D1D5DB; font-size:12px;">Return Timing:</span>
           <select id="fpAutoReturnTiming" class="opt-select" onchange="saveFpPromptSettings()">
-            <option value="after">After Print Finishes</option>
-            <option value="before">Before Print Finishes (As Print Starts)</option>
+            <option value="after">After Print Completes</option>
+            <option value="before">Before Print Completes (Immediate)</option>
           </select>
         </div>
 
@@ -402,54 +435,62 @@
           <span style="font-weight:600;">Print Copies:</span>
           <select id="fpPrintCopies" class="opt-select" onchange="saveFpPromptSettings()">
             <option value="1">1 Copy</option>
-            <option value="2">2 Copies (Kitchen + Rider)</option>
+            <option value="2">2 Copies</option>
           </select>
         </div>
         <div class="opt-row-inline">
-          <span style="font-weight:600;">Receipt Text Size:</span>
+          <span style="font-weight:600;">Receipt Font Style:</span>
           <select id="fpFontSizeMode" class="opt-select" onchange="saveFpPromptSettings()">
-            <option value="normal">Normal</option>
-            <option value="large">Large Bold (Elderly Friendly)</option>
+            <option value="normal">Standard</option>
+            <option value="large">Large Bold</option>
           </select>
         </div>
         <label style="font-weight:600; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="fpVoiceSpeak" onchange="saveFpPromptSettings()">
-          🗣️ Speak Order Status Out Loud
+          🗣️ Voice Status Announcements
         </label>
 
         <div style="border-top:1px solid #374151; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
-          <div style="font-weight:800; color:#93C5FD; font-size:12px;">☁️ Google Drive One-Way Sync (No Repeats)</div>
-          <input type="text" id="gdriveWebhookInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Paste Google Apps Script Web App URL" onchange="saveFpPromptSettings()">
-          <input type="text" id="gdriveFolderIdInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Optional: Specific Google Drive Folder ID" onchange="saveFpPromptSettings()">
+          <div style="font-weight:800; color:#93C5FD; font-size:12px;">☁️ Google Drive One-Way Sync</div>
+          <input type="text" id="gdriveWebhookInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Google Apps Script Web App URL" onchange="saveFpPromptSettings()">
+          <input type="text" id="gdriveFolderIdInput" class="opt-input" style="width:100%; font-size:12px;" placeholder="Optional: Target Folder ID" onchange="saveFpPromptSettings()">
         </div>
 
         <button class="opt-btn" style="background:#374151; color:#E5E7EB;" onclick="loadSampleFpOrder()">
-          🧪 Load Sample Order (#JQBY Test)
+          🧪 Load Sample Receipt
         </button>
       </div>
     </div>
 
-    <!-- Multi-Printer Manager -->
+    <!-- Printer Manager + 24h+ Keep-Awake Anti-Sleep -->
     <div class="opt-row" style="border: 1px solid #3B82F6;">
       <div class="opt-row-inline">
         <span style="font-weight:800; color:#93C5FD;">🖨️ Printer Manager</span>
         <span id="savedPrinterLabel" style="color:#10B981; font-size:11px; font-weight:700;">Active: None</span>
       </div>
+      <label style="font-weight:700; color:#FDE68A; display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="printerKeepAwakeEnable" onchange="saveKeepAwakeSetting()">
+        🔋 24h+ Keep Printer Awake (Anti-Sleep Jog)
+      </label>
+      <div class="opt-row-inline" style="padding-left:22px;">
+        <span style="font-size:11px; color:#9CA3AF;">Spools 1mm out & in every 10m so printer never powers off</span>
+        <button class="printer-mini-btn" style="flex:0 0 76px; background:#D97706;" onclick="sendAntiSleepMicroJog(true)">🧪 Test Jog</button>
+      </div>
       <div id="savedPrintersList" style="display:flex; flex-direction:column; gap:6px;"></div>
       <div style="display:flex; gap:6px;">
-        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">➕ Pair New Printer</button>
+        <button class="opt-btn opt-btn-upload" style="flex:1;" onclick="pairNewPrinter()">➕ Pair Printer</button>
         <button class="opt-btn opt-btn-warn" style="flex:1;" onclick="forgetAllPrinters()">🗑️ Forget All</button>
       </div>
     </div>
 
-    <!-- Separate Before & After Margins -->
+    <!-- Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
-        <label for="marginBeforeMmInput" style="font-weight:600;">Before Margin (mm):</label>
+        <label for="marginBeforeMmInput" style="font-weight:600;">Top Margin (mm):</label>
         <input type="number" id="marginBeforeMmInput" class="opt-input" min="0" max="60" step="1" value="4" onchange="saveMarginSettings()">
       </div>
       <div class="opt-row-inline">
-        <label for="marginAfterMmInput" style="font-weight:600;">After Margin (mm):</label>
+        <label for="marginAfterMmInput" style="font-weight:600;">Bottom Margin (mm):</label>
         <input type="number" id="marginAfterMmInput" class="opt-input" min="0" max="60" step="1" value="4" onchange="saveMarginSettings()">
       </div>
     </div>
@@ -461,44 +502,44 @@
           <input type="checkbox" id="stampEnabled" onchange="saveStampSettings()"> Enable Stamp
         </label>
         <select id="stampPosition" class="opt-select" onchange="saveStampSettings()">
-          <option value="before">Before Doc</option>
-          <option value="after">After Doc</option>
+          <option value="before">Top of Receipt</option>
+          <option value="after">Bottom of Receipt</option>
         </select>
       </div>
       <input type="file" id="stampFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleStampFileSelect(event)">
       <button class="opt-btn opt-btn-path" onclick="document.getElementById('stampFileInput').click()">
-        <span id="stampFileName">No stamp file chosen</span>
-        <span>🏷️ Choose</span>
+        <span id="stampFileName">No stamp image selected</span>
+        <span>🏷️ Browse</span>
       </button>
     </div>
 
-    <!-- Return App Button Option -->
+    <!-- Partner App Shortcut -->
     <div class="opt-row">
       <div class="opt-row-inline">
-        <label for="returnAppSelect" style="font-weight:600;">Return Button:</label>
+        <label for="returnAppSelect" style="font-weight:600;">Shortcut Button:</label>
         <select id="returnAppSelect" class="opt-select" onchange="saveReturnAppSetting()">
-          <option value="none">None (Hidden)</option>
-          <option value="foodpanda">🐼 Foodpanda Partner</option>
-          <option value="custom">⚙️ Custom Android App</option>
+          <option value="none">Hidden</option>
+          <option value="foodpanda">Partner App (Default)</option>
+          <option value="custom">Custom Android Package</option>
         </select>
       </div>
       <div id="customAppFields" style="display:none; flex-direction:column; gap:6px; margin-top:4px;">
-        <input type="text" id="customAppName" class="opt-input" style="width:100%" placeholder="Button Label (e.g. Orders)" onchange="saveReturnAppSetting()">
+        <input type="text" id="customAppName" class="opt-input" style="width:100%" placeholder="Button Label (e.g. POS)" onchange="saveReturnAppSetting()">
         <input type="text" id="customAppIcon" class="opt-input" style="width:100%" placeholder="Emoji Icon (e.g. 📦)" onchange="saveReturnAppSetting()">
         <input type="text" id="customAppPkg" class="opt-input" style="width:100%" placeholder="Package (com.example.app)" onchange="saveReturnAppSetting()">
       </div>
     </div>
   </div>
 
-  <!-- INTERACTIVE PREVIEW VIEWPORT -->
+  <!-- VIEWPORT -->
   <div id="viewport">
     <div id="emptyStateContainer">
       <button id="bigChooseFileBtn" onclick="document.getElementById('manualFileInput').click()">
         <span class="big-icon">📂</span>
-        <span class="big-title">Choose a File / Image to Print</span>
-        <span class="big-sub">Opens PDFs, Images, or FP_Log .txt</span>
+        <span class="big-title">Open Document or Image</span>
+        <span class="big-sub">Supports PDF, PNG, JPG, and Order Logs</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v3.8.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v3.9.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -506,16 +547,14 @@
     </div>
   </div>
 
-  <!-- STICKY BOTTOM SINGLE BUTTON -->
+  <!-- BOTTOM ACTION BUTTON -->
   <div class="bottom-bar">
     <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>Print</button>
   </div>
 
 <script>
-  const APP_VERSION = 'v3.8.0';
-  const APP_UPDATED_DHAKA = '23 Oct 2026, 11:00 AM (Dhaka)';
-
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const APP_VERSION = 'v3.9.0';
+  const APP_UPDATED_DHAKA = '24 Oct 2026';
 
   const PRINTER_WIDTH = 384;
   const PX_PER_MM = 8;
@@ -529,8 +568,11 @@
   let writeChar = null;
   let activeBleDevice = null;
   let cachedBleDeviceMap = new Map();
-  let hasMadeFirstContact = false; // Tracks whether First Contact was established in this session!
+  let hasMadeFirstContact = false;
   let isPrinting = false;
+  let isPreparingOrder = false;
+  let isJogging = false;
+  let bleWriteChain = Promise.resolve();
   let cancelPrintRequested = false;
   let isConnecting = false;
   let connectGeneration = 0;
@@ -538,7 +580,6 @@
   let adAbortController = null;
   let reconnectTimer = null;
 
-  // Multi-order queue when printer is temporarily off (so MacroDroid never has to switch to Billu!)
   let pendingPrintQueue = [];
   let lastRawFpText = '';
 
@@ -555,20 +596,20 @@
   let localLoopbackTimer = null;
   let isLoopbackPolling = false;
   let audioCtx = null;
+  let audioOscNode = null;
+  let audioGainNode = null;
   let audioScriptNode = null;
   let lastAudioPollTime = 0;
   let lastBlePingTime = 0;
+  let lastPrinterAntiSleepTime = Date.now();
   let wakeLockSentinel = null;
 
-  let viewScale = 1;
-  let viewPanX = 0;
-  let viewPanY = 0;
+  let viewScale = 1, viewPanX = 0, viewPanY = 0;
   let activeTouches = new Map();
-  let lastPinchDist = null;
-  let lastPinchCenter = null;
+  let lastPinchDist = null, lastPinchCenter = null;
 
   // ============================================================================
-  // PERSISTENT "FIRST CONTACT" BAR, TOASTS & ANDROID SYSTEM NOTIFICATIONS
+  // STATUS BAR, TOASTS & SYSTEM NOTIFICATIONS
   // ============================================================================
 
   function setStatus(msg) {
@@ -576,42 +617,41 @@
   }
 
   function updateFirstContactUI(pushPersistentOsNotif = false) {
-    const bar = document.getElementById('firstContactBar');
-    const txt = document.getElementById('firstContactText');
-    const btn = document.getElementById('firstContactActionBtn');
+    const bar = document.getElementById('sessionStatusBar');
+    const txt = document.getElementById('sessionStatusText');
+    const btn = document.getElementById('sessionStatusActionBtn');
     const savedId = getSavedPrinterId();
     const pLabel = savedId ? getPrinterDisplayLabel(savedId) : 'Printer';
     const qCount = pendingPrintQueue.length;
-    const qSuffix = qCount > 0 ? ` • 📥 ${qCount} Queued Order(s) waiting` : '';
+    const qSuffix = qCount > 0 ? ` • 📥 ${qCount} Queued` : '';
 
-    bar.classList.remove('fc-missing', 'fc-armed-ok', 'fc-armed-off');
+    bar.classList.remove('ss-unarmed', 'ss-online', 'ss-standby');
 
-    let osTitle = '';
-    let osBody = '';
+    let osTitle = '', osBody = '';
 
     if (writeChar) {
       hasMadeFirstContact = true;
-      bar.classList.add('fc-armed-ok');
-      txt.innerText = `🟢 First Contact Locked (${pLabel}) • Background Print Armed${qSuffix}`;
+      bar.classList.add('ss-online');
+      txt.innerText = `🟢 Connected: ${pLabel} • Background Ready${qSuffix}`;
       btn.style.display = 'none';
-      osTitle = `🟢 Billu Armed & Connected`;
-      osBody = `Connected to ${pLabel}. Safe to stay in Panda Partner.${qSuffix}`;
+      osTitle = `🟢 Printer Connected (${pLabel})`;
+      osBody = `Background print service active.${qSuffix}`;
     } else if (!hasMadeFirstContact) {
-      bar.classList.add('fc-missing');
-      txt.innerText = `⚠️ NO FIRST CONTACT YET: Turn ON ${pLabel} & connect once in this session!${qSuffix}`;
+      bar.classList.add('ss-unarmed');
+      txt.innerText = `⚠️ Printer Disconnected: Power ON ${pLabel} & connect once${qSuffix}`;
       btn.style.display = 'inline-block';
-      btn.innerText = '🔄 Relaunch to Connect';
-      osTitle = `⚠️ Billu: First Contact Required!`;
-      osBody = `Open Billu & turn ON ${pLabel} once so background printing is armed.${qSuffix}`;
+      btn.innerText = '🔄 Reset';
+      osTitle = `⚠️ Printer Connection Required`;
+      osBody = `Open Billu & connect to ${pLabel} once to enable background printing.${qSuffix}`;
     } else {
-      bar.classList.add('fc-armed-off');
-      txt.innerText = `🟡 First Contact Locked (${pLabel} Off) — Turn ON printer anytime to auto-print${qSuffix}`;
+      bar.classList.add('ss-standby');
+      txt.innerText = `🟡 Standby (${pLabel} Offline) — Power ON printer to auto-print${qSuffix}`;
       btn.style.display = 'inline-block';
-      btn.innerText = '🔄 Relaunch';
-      osTitle = qCount > 0 ? `📥 ${qCount} Order(s) Queued — Turn ON Printer!` : `🟡 Billu Armed (Printer Off)`;
+      btn.innerText = '🔄 Reset';
+      osTitle = qCount > 0 ? `📥 ${qCount} Receipt(s) Queued — Power ON Printer` : `🟡 Standby (Printer Offline)`;
       osBody = qCount > 0
-        ? `Waiting for ${pLabel} to turn on to auto-print queued order(s).`
-        : `First contact active. Turn ON ${pLabel} anytime to auto-reconnect.`;
+        ? `Waiting for ${pLabel} to power on to print queued receipt(s).`
+        : `Session active. Power on ${pLabel} anytime to auto-reconnect.`;
     }
 
     if (pushPersistentOsNotif && 'Notification' in window && Notification.permission === 'granted') {
@@ -619,7 +659,7 @@
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(osTitle, {
             body: osBody,
-            tag: 'billu-first-contact-persistent',
+            tag: 'billu-session-status',
             renotify: !writeChar && (!hasMadeFirstContact || qCount > 0),
             requireInteraction: !hasMadeFirstContact || qCount > 0,
             silent: true,
@@ -630,10 +670,8 @@
     }
   }
 
-  // 1-Tap Relaunch / Refresh Button: preserves any waiting order in sessionStorage,
-  // tears down Chrome's C++ BLE GATT state cleanly, and reloads as a fresh app launch!
   function relaunchAppFresh() {
-    showToast('🔄 Relaunching Billu for a fresh printer connection...', 'info');
+    showToast('🔄 Resetting connection state...', 'info');
     try {
       if (lastRawFpText || pendingPrintQueue.length > 0) {
         sessionStorage.setItem('billu_relaunch_queue', JSON.stringify(
@@ -644,8 +682,7 @@
         activeBleDevice.gatt.disconnect();
       }
     } catch (e) {}
-    const cleanUrl = window.location.pathname + '?relaunch=' + Date.now();
-    window.location.replace(cleanUrl);
+    window.location.replace(window.location.pathname + '?reset=' + Date.now());
   }
 
   function showToast(msg, type = 'info', sendOsNotif = false) {
@@ -657,21 +694,19 @@
         pill.className = `toast-pill toast-${type}`;
         pill.innerText = msg;
         stack.appendChild(pill);
-        while (stack.children.length > 3) {
-          stack.removeChild(stack.firstChild);
-        }
+        while (stack.children.length > 3) stack.removeChild(stack.firstChild);
         setTimeout(() => {
           pill.style.opacity = '0';
           pill.style.transform = 'translateY(-6px)';
           setTimeout(() => pill.remove(), 260);
-        }, 3100);
+        }, 3000);
       }
     } catch (e) {}
 
     if ((sendOsNotif || document.hidden) && 'Notification' in window && Notification.permission === 'granted') {
       try {
         navigator.serviceWorker.ready.then(reg => {
-          reg.showNotification('Billu Printer', {
+          reg.showNotification('Billu', {
             body: msg,
             tag: 'billu-live-status',
             renotify: false,
@@ -685,12 +720,12 @@
 
   async function enableSystemNotifications() {
     if (!('Notification' in window)) {
-      showToast('System notifications not supported on this browser', 'warn');
+      showToast('System notifications not supported', 'warn');
       return;
     }
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
-      showToast('🔔 Android System Notifications enabled!', 'success', true);
+      showToast('🔔 System notifications enabled', 'success', true);
       updateFirstContactUI(true);
     } else {
       showToast('Notification permission denied', 'warn');
@@ -742,7 +777,7 @@
   }
 
   async function forceUpdatePWA() {
-    showToast('🔄 Fetching latest update from GitHub...', 'info');
+    showToast('🔄 Checking for updates...', 'info');
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -752,11 +787,7 @@
         const keys = await caches.keys();
         for (const k of keys) await caches.delete(k);
       }
-      const fresh = await fetch(window.location.pathname, { cache: 'reload' });
-      if (fresh.ok) {
-        window.location.reload();
-        return;
-      }
+      await fetch(window.location.pathname, { cache: 'reload' });
     } catch (e) {}
     window.location.reload();
   }
@@ -793,12 +824,637 @@
   const delayMs = (ms) => new Promise(r => setTimeout(r, ms));
 
   async function printRowSleep(ms) {
-    if (!document.hidden) {
-      return new Promise(r => setTimeout(r, ms));
-    }
+    if (!document.hidden) return new Promise(r => setTimeout(r, ms));
     const target = performance.now() + ms;
     while (performance.now() < target) {
       await fetch('data:text/plain,0');
+    }
+  }
+
+  // ============================================================================
+  // PEER-TO-PEER REMOTE BILLU SYNC (QR CODE + SYMMETRIC KEY + CONCURRENT LIMIT)
+  // ============================================================================
+
+  let mqttClient = null;
+  let qrScannerStream = null;
+  let qrScanRaf = null;
+  let activeOnlinePeers = new Map();
+  let processedRemoteMsgIds = new Set();
+
+  function getMyNodeIdentity() {
+    let id = localStorage.getItem('billu_node_id');
+    let key = localStorage.getItem('billu_private_key');
+    let name = localStorage.getItem('billu_node_name') || ('Terminal-' + Math.floor(100 + Math.random() * 900));
+    if (!id || !key) {
+      const randBytes = new Uint8Array(16);
+      crypto.getRandomValues(randBytes);
+      const hex = Array.from(randBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      id = 'BL-' + hex.slice(0, 8).toUpperCase();
+      key = hex;
+      localStorage.setItem('billu_node_id', id);
+      localStorage.setItem('billu_private_key', key);
+      localStorage.setItem('billu_node_name', name);
+    }
+    return { id, key, name };
+  }
+
+  function getPairedPeers() {
+    try {
+      const raw = localStorage.getItem('billu_paired_peers');
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function savePairedPeers(list) {
+    localStorage.setItem('billu_paired_peers', JSON.stringify(list));
+    updateRemotePeerBadges();
+  }
+
+  function getMaxConcurrentPeers() {
+    return Math.max(1, Math.min(10, parseInt(localStorage.getItem('billu_max_peers') || '2', 10)));
+  }
+
+  function cipherWithKey(text, keyHex) {
+    const keyBytes = new TextEncoder().encode(keyHex || 'billu');
+    const inputBytes = new TextEncoder().encode(text);
+    const out = new Uint8Array(inputBytes.length);
+    for (let i = 0; i < inputBytes.length; i++) {
+      out[i] = inputBytes[i] ^ keyBytes[i % keyBytes.length] ^ ((i * 31) & 0xFF);
+    }
+    const chunks = [];
+    for (let i = 0; i < out.length; i += 8192) {
+      chunks.push(String.fromCharCode.apply(null, out.subarray(i, i + 8192)));
+    }
+    return btoa(chunks.join(''));
+  }
+
+  function decipherWithKey(b64Cipher, keyHex) {
+    const keyBytes = new TextEncoder().encode(keyHex || 'billu');
+    const bin = atob(b64Cipher);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+      out[i] = bin.charCodeAt(i) ^ keyBytes[i % keyBytes.length] ^ ((i * 31) & 0xFF);
+    }
+    return new TextDecoder().decode(out);
+  }
+
+  function getAllowedActivePeerIds() {
+    const maxP = getMaxConcurrentPeers();
+    const paired = getPairedPeers();
+    return new Set(paired.slice(0, maxP).map(p => p.id));
+  }
+
+  function initRemoteSyncEngine() {
+    if (typeof mqtt === 'undefined') {
+      setTimeout(initRemoteSyncEngine, 1000);
+      return;
+    }
+    const me = getMyNodeIdentity();
+    try {
+      if (mqttClient) mqttClient.end(true);
+      mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+        clientId: 'billu_' + me.id + '_' + Math.random().toString(16).slice(2, 6),
+        clean: true,
+        reconnectPeriod: 4000
+      });
+
+      mqttClient.on('connect', () => {
+        const badge = document.getElementById('remoteNetBadge');
+        if (badge) { badge.innerText = '🟢 Relay Connected'; badge.style.color = '#10B981'; }
+        mqttClient.subscribe(`billu/v39/inbox/${me.id}`, { qos: 1 });
+        pingAllPairedPeers();
+      });
+
+      mqttClient.on('offline', () => {
+        const badge = document.getElementById('remoteNetBadge');
+        if (badge) { badge.innerText = '🟡 Offline'; badge.style.color = '#F59E0B'; }
+      });
+
+      mqttClient.on('message', async (topic, messageBuffer) => {
+        try {
+          const env = JSON.parse(messageBuffer.toString());
+          if (!env || !env.fromId || !env.cipher) return;
+
+          const meNow = getMyNodeIdentity();
+          const paired = getPairedPeers();
+          let existingPeer = paired.find(p => p.id === env.fromId);
+          const maxP = getMaxConcurrentPeers();
+
+          // Try decrypting with the peer's stored key first, then fallback to our own private key
+          let usedKey = existingPeer ? existingPeer.key : meNow.key;
+          let plainJson = null;
+          try {
+            const parsed = JSON.parse(decipherWithKey(env.cipher, usedKey));
+            if (parsed && parsed.type) plainJson = parsed;
+          } catch (e) {}
+
+          if (!plainJson && usedKey !== meNow.key) {
+            try {
+              const parsed = JSON.parse(decipherWithKey(env.cipher, meNow.key));
+              if (parsed && parsed.type) {
+                plainJson = parsed;
+                usedKey = meNow.key;
+                if (existingPeer) {
+                  existingPeer.key = meNow.key;
+                  savePairedPeers(paired);
+                }
+              }
+            } catch (e) {}
+          }
+
+          if (!plainJson || !plainJson.type) return;
+
+          // Deduplicate MQTT QoS-1 retries using msgId
+          if (plainJson.msgId) {
+            if (processedRemoteMsgIds.has(plainJson.msgId)) return;
+            processedRemoteMsgIds.add(plainJson.msgId);
+            if (processedRemoteMsgIds.size > 300) {
+              const first = processedRemoteMsgIds.values().next().value;
+              processedRemoteMsgIds.delete(first);
+            }
+          }
+
+          // Self-healing pairing: if a new peer encrypted a valid message with our QR private key (`meNow.key`),
+          // register them automatically if within the Max Concurrent Peers limit!
+          if (!existingPeer && usedKey === meNow.key) {
+            if (paired.length >= maxP) {
+              sendEncryptedToPeer({ id: env.fromId, key: usedKey }, {
+                type: 'PAIR_REJECTED',
+                reason: `Peer limit reached (${maxP}/${maxP} max concurrent peers)`
+              });
+              showToast(`⚠️ Rejected ${plainJson.fromName || env.fromId}: Max peers (${maxP}) reached`, 'warn');
+              return;
+            }
+            existingPeer = {
+              id: env.fromId,
+              key: plainJson.sharedKey || usedKey,
+              name: plainJson.fromName || env.fromId,
+              addedAt: Date.now()
+            };
+            paired.push(existingPeer);
+            savePairedPeers(paired);
+            sendEncryptedToPeer(existingPeer, {
+              type: 'PAIR_ACCEPTED',
+              sharedKey: existingPeer.key,
+              fromName: meNow.name
+            });
+            renderPairedPeersList();
+            showToast(`🔗 Paired with ${existingPeer.name}!`, 'success', true);
+            if (plainJson.type === 'PAIR_REQUEST') return;
+          }
+
+          const allowedSet = getAllowedActivePeerIds();
+          if (!existingPeer || !allowedSet.has(env.fromId)) {
+            if (existingPeer && !allowedSet.has(env.fromId)) {
+              sendEncryptedToPeer(existingPeer, {
+                type: 'PAIR_REJECTED',
+                reason: `Peer slot over concurrent limit (${maxP})`
+              });
+            }
+            return;
+          }
+
+          if (plainJson.sharedKey && existingPeer.key !== plainJson.sharedKey) {
+            existingPeer.key = plainJson.sharedKey;
+            savePairedPeers(paired);
+          }
+          if (plainJson.fromName && existingPeer.name !== plainJson.fromName) {
+            existingPeer.name = plainJson.fromName;
+            savePairedPeers(paired);
+          }
+
+          activeOnlinePeers.set(env.fromId, { lastSeen: Date.now(), name: existingPeer.name });
+
+          if (plainJson.type === 'PAIR_REQUEST') {
+            sendEncryptedToPeer(existingPeer, {
+              type: 'PAIR_ACCEPTED',
+              sharedKey: existingPeer.key,
+              fromName: meNow.name
+            });
+            renderPairedPeersList();
+            showToast(`🔗 Re-verified pairing with ${existingPeer.name}`, 'success');
+          } else if (plainJson.type === 'PAIR_ACCEPTED') {
+            showToast(`🟢 ${existingPeer.name} connected!`, 'success', true);
+            renderPairedPeersList();
+          } else if (plainJson.type === 'PAIR_REJECTED') {
+            showToast(`⚠️ ${existingPeer.name}: ${plainJson.reason || 'Connection rejected'}`, 'error');
+          } else if (plainJson.type === 'PING') {
+            sendEncryptedToPeer(existingPeer, { type: 'PONG', fromName: meNow.name });
+            renderPairedPeersList();
+          } else if (plainJson.type === 'PONG') {
+            renderPairedPeersList();
+          } else if (plainJson.type === 'REMOTE_PRINT_B64') {
+            sendEncryptedToPeer(existingPeer, {
+              type: 'REMOTE_PRINT_ACK',
+              orderLabel: plainJson.orderLabel || 'Receipt'
+            });
+            showToast(`📡 Received ${plainJson.orderLabel || 'Receipt'} from ${existingPeer.name}`, 'info', true);
+            await handleIncomingRemotePrint(plainJson, existingPeer.name);
+          } else if (plainJson.type === 'REMOTE_PRINT_ACK') {
+            showToast(`✅ ${existingPeer.name} queued ${plainJson.orderLabel || 'Receipt'}`, 'success');
+          }
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  function sendEncryptedToPeer(peer, payloadObj) {
+    if (!mqttClient || !mqttClient.connected || !peer || !peer.id) return false;
+    const me = getMyNodeIdentity();
+    payloadObj.fromName = me.name;
+    payloadObj.ts = Date.now();
+    payloadObj.msgId = me.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const cipher = cipherWithKey(JSON.stringify(payloadObj), peer.key);
+    mqttClient.publish(`billu/v39/inbox/${peer.id}`, JSON.stringify({
+      fromId: me.id,
+      cipher
+    }), { qos: 1 });
+    return true;
+  }
+
+  function pingAllPairedPeers() {
+    const allowed = getAllowedActivePeerIds();
+    for (const p of getPairedPeers()) {
+      if (allowed.has(p.id)) {
+        sendEncryptedToPeer(p, { type: 'PING' });
+      }
+    }
+    updateRemotePeerBadges();
+  }
+
+  setInterval(() => {
+    if (mqttClient && mqttClient.connected) pingAllPairedPeers();
+  }, 15000);
+
+  async function handleIncomingRemotePrint(msg, senderName) {
+    const autoPrintRemote = (localStorage.getItem('billu_remote_autoprint') ?? '1') === '1';
+    if (msg.kind === 'fp_b64' && msg.b64) {
+      const fpKey = getB64Fingerprint(msg.b64);
+      if (fpKey === localStorage.getItem('fp_last_processed_b64')) return;
+      localStorage.setItem('fp_last_processed_b64', fpKey);
+
+      const decoded = decodeBase64Utf8(msg.b64);
+      await prepareFoodpandaOrderFromText(decoded, autoPrintRemote, true);
+    } else if (msg.kind === 'image_b64' && msg.b64) {
+      const res = await fetch('data:image/png;base64,' + msg.b64);
+      const blob = await res.blob();
+      const file = new File([blob], `Remote_${senderName}.png`, { type: 'image/png' });
+      isFpPipelineRun = false;
+      await loadMainDocumentFile(file);
+      if (autoPrintRemote) {
+        if (!writeChar) await attemptAutoReconnect(false);
+        if (writeChar) await printCanvas(false);
+      }
+    }
+  }
+
+  async function broadcastCurrentReceiptToPeers(specificPeerId = null) {
+    const paired = getPairedPeers();
+    const allowed = getAllowedActivePeerIds();
+    const targets = paired.filter(p => allowed.has(p.id) && (!specificPeerId || p.id === specificPeerId));
+
+    if (targets.length === 0) {
+      showToast('⚠️ No active paired peers. Open "🔗 Peers" at top to scan a QR code.', 'warn');
+      openRemoteSyncOverlay();
+      return;
+    }
+
+    let payload = null;
+    if (isFpPipelineRun && lastRawFpText) {
+      const b64 = encodeUtf8Base64(lastRawFpText);
+      payload = {
+        type: 'REMOTE_PRINT_B64',
+        kind: 'fp_b64',
+        b64,
+        orderLabel: currentOrderMeta.orderNo || 'Order Receipt'
+      };
+    } else if (docSourceCanvas) {
+      const dataUrl = printCanvasEl.toDataURL('image/png');
+      payload = {
+        type: 'REMOTE_PRINT_B64',
+        kind: 'image_b64',
+        b64: dataUrl.split(',')[1],
+        orderLabel: 'Document'
+      };
+    } else {
+      showToast('⚠️ Load a receipt or document first to send to peers', 'warn');
+      return;
+    }
+
+    let sentCount = 0;
+    for (const peer of targets) {
+      if (sendEncryptedToPeer(peer, payload)) sentCount++;
+    }
+    if (sentCount > 0) {
+      showToast(`📡 Sent ${payload.orderLabel} to ${sentCount} peer(s)...`, 'info');
+    } else {
+      showToast('⚠️ Relay offline — check internet connection', 'error');
+    }
+  }
+
+  function encodeUtf8Base64(str) {
+    const bytes = new TextEncoder().encode(str);
+    const chunks = [];
+    for (let i = 0; i < bytes.length; i += 8192) {
+      chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)));
+    }
+    return btoa(chunks.join(''));
+  }
+
+  function getMyPairingUri() {
+    const me = getMyNodeIdentity();
+    return `BILLU1:${me.id}:${me.key}:${encodeURIComponent(me.name)}`;
+  }
+
+  function renderMyQrCode() {
+    const box = document.getElementById('qrDisplayBox');
+    if (!box || typeof QRCode === 'undefined') return;
+    box.innerHTML = '';
+    const me = getMyNodeIdentity();
+    new QRCode(box, {
+      text: getMyPairingUri(),
+      width: 170,
+      height: 170,
+      colorDark: '#000000',
+      colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('myNodeIdLabel').innerText = `Node ID: ${me.id} • Key: ${me.key.slice(0, 8)}...`;
+  }
+
+  function regenerateMyPrivateKey() {
+    if (!confirm('Regenerate your Private Key? Existing paired peers using your old key will be disconnected.')) return;
+    localStorage.removeItem('billu_node_id');
+    localStorage.removeItem('billu_private_key');
+    savePairedPeers([]);
+    activeOnlinePeers.clear();
+    renderMyQrCode();
+    renderPairedPeersList();
+    initRemoteSyncEngine();
+    showToast('🔑 New Private Key & QR generated', 'success');
+  }
+
+  async function copyMyPairingKey() {
+    try {
+      await navigator.clipboard.writeText(getMyPairingUri());
+      showToast('📋 Pairing key copied to clipboard', 'success');
+    } catch (e) {
+      prompt('Copy your Pairing Key:', getMyPairingUri());
+    }
+  }
+
+  function pastePeerPairingKey() {
+    const input = prompt('Paste the Pairing Key from the other Billu app:');
+    if (input && input.trim()) {
+      processScannedPairingUri(input.trim());
+    }
+  }
+
+  function processScannedPairingUri(uri) {
+    const m = String(uri || '').trim().match(/^BILLU1:([A-Z0-9-]+):([a-fA-F0-9]+):(.*)$/);
+    if (!m) {
+      showToast('⚠️ Invalid Billu QR / Pairing Key', 'error');
+      return false;
+    }
+    const [, peerId, peerKey, rawName] = m;
+    const peerName = decodeURIComponent(rawName || peerId);
+    const me = getMyNodeIdentity();
+
+    if (peerId === me.id) {
+      showToast('⚠️ Cannot pair with your own device QR', 'warn');
+      return false;
+    }
+
+    const paired = getPairedPeers();
+    const maxP = getMaxConcurrentPeers();
+    let existing = paired.find(p => p.id === peerId);
+
+    if (!existing && paired.length >= maxP) {
+      showToast(`⚠️ Max Concurrent Peers limit (${maxP}) reached. Increase limit or remove a peer first.`, 'error');
+      return false;
+    }
+
+    if (!existing) {
+      existing = { id: peerId, key: peerKey, name: peerName, addedAt: Date.now() };
+      paired.push(existing);
+    } else {
+      existing.key = peerKey;
+      existing.name = peerName;
+    }
+    savePairedPeers(paired);
+    stopQrCameraScanner();
+    renderPairedPeersList();
+
+    sendEncryptedToPeer(existing, {
+      type: 'PAIR_REQUEST',
+      sharedKey: peerKey,
+      fromName: me.name
+    });
+    showToast(`🔗 Connecting to ${peerName}...`, 'info');
+    return true;
+  }
+
+  async function toggleQrCameraScanner() {
+    const box = document.getElementById('qrVideoContainer');
+    if (qrScannerStream) {
+      stopQrCameraScanner();
+      return;
+    }
+    try {
+      qrScannerStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      const video = document.getElementById('qrVideo');
+      video.srcObject = qrScannerStream;
+      await video.play();
+      box.style.display = 'block';
+      scanQrFrameLoop();
+    } catch (err) {
+      showToast('⚠️ Camera access denied — use Copy/Paste Key instead', 'warn');
+    }
+  }
+
+  function stopQrCameraScanner() {
+    if (qrScanRaf) cancelAnimationFrame(qrScanRaf);
+    qrScanRaf = null;
+    if (qrScannerStream) {
+      qrScannerStream.getTracks().forEach(t => t.stop());
+      qrScannerStream = null;
+    }
+    const box = document.getElementById('qrVideoContainer');
+    if (box) box.style.display = 'none';
+  }
+
+  function scanQrFrameLoop() {
+    if (!qrScannerStream) return;
+    const video = document.getElementById('qrVideo');
+    const canvas = document.getElementById('qrScanCanvas');
+    if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR !== 'undefined') {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+      if (code && code.data && code.data.startsWith('BILLU1:')) {
+        processScannedPairingUri(code.data);
+        return;
+      }
+    }
+    qrScanRaf = requestAnimationFrame(scanQrFrameLoop);
+  }
+
+  function removePairedPeer(peerId) {
+    const next = getPairedPeers().filter(p => p.id !== peerId);
+    activeOnlinePeers.delete(peerId);
+    savePairedPeers(next);
+    renderPairedPeersList();
+    showToast('🗑️ Disconnected peer', 'info');
+  }
+
+  function updateRemotePeerBadges() {
+    const paired = getPairedPeers();
+    const maxP = getMaxConcurrentPeers();
+    const activeCount = Math.min(paired.length, maxP);
+    const topBadge = document.getElementById('topPeerCount');
+    if (topBadge) topBadge.innerText = String(activeCount);
+    const slotLbl = document.getElementById('activePeerSlotsLabel');
+    if (slotLbl) slotLbl.innerText = `${activeCount} / ${maxP} Active Slots`;
+  }
+
+  function renderPairedPeersList() {
+    updateRemotePeerBadges();
+    const container = document.getElementById('peerListContainer');
+    if (!container) return;
+    const paired = getPairedPeers();
+    const allowed = getAllowedActivePeerIds();
+
+    if (paired.length === 0) {
+      container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:16px;">No peers paired yet. Scan another Billu app\'s QR code above to link.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    for (const p of paired) {
+      const isAllowedSlot = allowed.has(p.id);
+      const onlineInfo = activeOnlinePeers.get(p.id);
+      const isOnline = onlineInfo && (Date.now() - onlineInfo.lastSeen < 40000);
+
+      const card = document.createElement('div');
+      card.className = 'printer-card' + (isAllowedSlot ? ' active-printer' : '');
+
+      const top = document.createElement('div');
+      top.className = 'printer-card-top';
+      top.innerHTML = `
+        <div style="font-weight:800; font-size:13px; color:#FFFFFF;">
+          ${!isAllowedSlot ? '⛔ [Over Limit] ' : (isOnline ? '🟢 ' : '⚪ ')}${p.name}
+        </div>
+        <span class="printer-mac-badge">${p.id}</span>
+      `;
+
+      const actions = document.createElement('div');
+      actions.className = 'printer-card-actions';
+
+      const sendBtn = document.createElement('button');
+      sendBtn.className = 'printer-mini-btn';
+      sendBtn.style.background = isAllowedSlot ? 'var(--indigo)' : '#4B5563';
+      sendBtn.disabled = !isAllowedSlot;
+      sendBtn.innerText = '📡 Send Receipt';
+      sendBtn.onclick = () => {
+        closeRemoteSyncOverlay();
+        broadcastCurrentReceiptToPeers(p.id);
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'printer-mini-btn';
+      delBtn.style.background = '#7F1D1D';
+      delBtn.style.flex = '0 0 80px';
+      delBtn.innerText = '✕ Remove';
+      delBtn.onclick = () => removePairedPeer(p.id);
+
+      actions.appendChild(sendBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(top);
+      card.appendChild(actions);
+      container.appendChild(card);
+    }
+  }
+
+  function openRemoteSyncOverlay() {
+    closeMenu();
+    renderMyQrCode();
+    renderPairedPeersList();
+    document.getElementById('remoteSyncOverlay').classList.add('open');
+    pingAllPairedPeers();
+  }
+
+  function closeRemoteSyncOverlay() {
+    stopQrCameraScanner();
+    document.getElementById('remoteSyncOverlay').classList.remove('open');
+  }
+
+  function saveRemoteSettings() {
+    const name = document.getElementById('myNodeNameInput').value.trim() || 'Billu-Terminal';
+    const maxP = Math.max(1, Math.min(10, parseInt(document.getElementById('maxConcurrentPeersInput').value || '2', 10)));
+    const autoPrint = document.getElementById('remoteAutoPrintIncoming').checked;
+    const autoFwd = document.getElementById('remoteAutoForwardOrders').checked;
+
+    localStorage.setItem('billu_node_name', name);
+    localStorage.setItem('billu_max_peers', String(maxP));
+    localStorage.setItem('billu_remote_autoprint', autoPrint ? '1' : '0');
+    localStorage.setItem('billu_remote_autoforward', autoFwd ? '1' : '0');
+
+    renderMyQrCode();
+    renderPairedPeersList();
+    showToast(`🔗 Remote settings saved (Max ${maxP} peer(s))`, 'success');
+  }
+
+  // ============================================================================
+  // 24H+ KEEP-AWAKE ANTI-SLEEP MICRO-JOG (PROTECTED BY BLE MUTEX)
+  // ============================================================================
+
+  function isPrinterKeepAwakeEnabled() {
+    return (localStorage.getItem('cat_printer_keep_awake') ?? '1') === '1';
+  }
+
+  function saveKeepAwakeSetting() {
+    const enabled = document.getElementById('printerKeepAwakeEnable').checked;
+    localStorage.setItem('cat_printer_keep_awake', enabled ? '1' : '0');
+    lastPrinterAntiSleepTime = Date.now();
+    showToast(enabled ? '🔋 24h+ Keep-Awake enabled (10m micro-jog)' : '🔋 24h+ Keep-Awake disabled', 'info');
+  }
+
+  async function sendAntiSleepMicroJog(manualTest = false) {
+    if (!writeChar || isPrinting || isConnecting || isJogging) {
+      if (manualTest && !writeChar) showToast('⚠️ Connect printer first to test micro-jog', 'warn');
+      return;
+    }
+    isJogging = true;
+    try {
+      if (manualTest) showToast('🔋 Testing 1mm out-and-in anti-sleep jog...', 'info');
+      const emptyRow = new Uint8Array(48);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
+      await printRowSleep(25);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA2, emptyRow));
+      await printRowSleep(20);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA1, [0x08, 0x00]));
+      await printRowSleep(120);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA0, [0x08, 0x00]));
+      await printRowSleep(80);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
+      lastPrinterAntiSleepTime = Date.now();
+      if (manualTest) showToast('✅ Micro-jog complete (printer sleep timer reset)', 'success');
+    } catch (e) {
+    } finally {
+      isJogging = false;
     }
   }
 
@@ -883,7 +1539,7 @@
     const entry = list.find(p => p.id === printerId);
     if (!entry) return;
     const nextName = prompt(
-      `Enter a nickname for ${entry.hwName} [${entry.macTag}]:`,
+      `Enter a label for ${entry.hwName} [${entry.macTag}]:`,
       entry.customName || entry.hwName
     );
     if (nextName === null) return;
@@ -903,16 +1559,15 @@
     if (!entry) return;
 
     hardAbortPendingBle();
-
     localStorage.setItem('cat_printer_id', entry.id);
     localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
     renderPrinterManagerList();
     updateMainButtonUI();
 
-    showToast(`🔍 Switching to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
+    showToast(`🔍 Connecting to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
     const ok = await attemptAutoReconnect(false);
     if (!ok) {
-      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)} — tap 🔄 Relaunch if printer is ON`, 'warn');
+      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)}`, 'warn');
     }
   }
 
@@ -953,7 +1608,7 @@
   }
 
   async function forgetAllPrinters() {
-    if (!confirm('Forget all saved Bluetooth printers? You will need to pair again next time.')) return;
+    if (!confirm('Forget all saved Bluetooth printers?')) return;
     hardAbortPendingBle();
     cachedBleDeviceMap.clear();
     hasMadeFirstContact = false;
@@ -972,7 +1627,7 @@
     savePrinterRegistry([]);
     renderPrinterManagerList();
     updateMainButtonUI();
-    showToast('🗑️ All saved printers forgotten', 'warn');
+    showToast('🗑️ All saved printers removed', 'warn');
   }
 
   function renderPrinterManagerList() {
@@ -982,7 +1637,7 @@
     const activeId = getSavedPrinterId();
 
     if (list.length === 0) {
-      container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:6px;">No printers saved yet. Tap "Pair New Printer" below.</div>';
+      container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:6px;">No printers paired yet.</div>';
       return;
     }
 
@@ -1000,7 +1655,7 @@
         <div style="font-weight:800; font-size:12px; color:#FFFFFF; word-break:break-word;">
           ${isConn ? '🟢 ' : (isAct ? '🟡 ' : '⚪ ')}${displayTitle}
         </div>
-        <span class="printer-mac-badge">MAC/ID ${p.macTag}</span>
+        <span class="printer-mac-badge">ID ${p.macTag}</span>
       `;
 
       const actions = document.createElement('div');
@@ -1009,7 +1664,7 @@
       const connBtn = document.createElement('button');
       connBtn.className = 'printer-mini-btn';
       connBtn.style.background = isConn ? '#059669' : '#2563EB';
-      connBtn.innerText = isConn ? '✓ Connected' : (isAct ? '🔌 Reconnect' : '👉 Select & Connect');
+      connBtn.innerText = isConn ? '✓ Connected' : (isAct ? '🔌 Reconnect' : '👉 Connect');
       connBtn.onclick = () => selectAndConnectPrinterFromList(p.id);
 
       const renBtn = document.createElement('button');
@@ -1035,7 +1690,7 @@
   }
 
   // ============================================================================
-  // REAL SELECTABLE-TEXT PDF 1.4 GENERATOR
+  // SELECTABLE-TEXT PDF 1.4 GENERATOR
   // ============================================================================
 
   function pdfCleanStr(str) {
@@ -1089,7 +1744,7 @@
       ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
     };
 
-    addCenterText((data.restaurant || 'TASTY PATIL').toUpperCase(), yCursor, 12, true);
+    addCenterText((data.restaurant || 'ORDER RECEIPT').toUpperCase(), yCursor, 12, true);
     yCursor += 14;
 
     const dtStr = new Date().toLocaleString('en-GB', {
@@ -1140,9 +1795,7 @@
 
     for (const item of (data.items || [])) {
       addText(item.qty || '1x', 6, yCursor, 9, true);
-      if (item.price) {
-        addRightText(item.price, yCursor, 9, true);
-      }
+      if (item.price) addRightText(item.price, yCursor, 9, true);
       const wrappedName = wrapPdfLine(item.name || '', 17);
       for (const nl of wrappedName) {
         addText(nl, 24, yCursor, 8.5, false);
@@ -1236,7 +1889,7 @@
   }
 
   // ============================================================================
-  // UNIVERSAL FOODPANDA PARSER (SUPPORTS LIVE "$n" AND ORDER HISTORY "index:n")
+  // ORDER RECEIPT PARSER & SYNTHESIZER
   // ============================================================================
 
   function validateFoodpandaText(rawText) {
@@ -1244,7 +1897,7 @@
       return { valid: false, reason: 'Empty screen capture text' };
     }
     if (/Failed to generate|Select printer settings|Was the test print successful/i.test(rawText)) {
-      return { valid: false, reason: 'Blocked printer settings error screen' };
+      return { valid: false, reason: 'Ignored printer settings screen' };
     }
     const hasOrderNo = /#\d{1,5}\b/.test(rawText);
     const hasCode = /[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/i.test(rawText);
@@ -1252,7 +1905,7 @@
     const hasPrices = /(?:Subtotal|Total|Order details|৳\s*\d+|\d+\.\d{2})/i.test(rawText);
 
     if (!hasOrderNo && !hasCode && !hasItems && !hasPrices) {
-      return { valid: false, reason: 'No order ID, food items, or price breakdown found in text' };
+      return { valid: false, reason: 'No order ID, items, or price breakdown found' };
     }
     return { valid: true };
   }
@@ -1302,6 +1955,8 @@
         } else if (k === 'test_id_prep_time_adjustment_proof_banner') {
           const pm = v.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
           if (pm) res.prepTime = pm[1];
+        } else if ((k === '$3' || k === '$5') && v.trim() && !/^(Back|You are closed)/i.test(v.trim())) {
+          if (!res.restaurant) res.restaurant = v.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
         } else if (!k.startsWith('test_id_')) {
           const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           lines.push(...splitLines);
@@ -1336,7 +1991,7 @@
       if (prepMatch) res.prepTime = prepMatch[1];
     }
 
-    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|help centre|to get support|Order timeline|Order details|Order received|Order accepted|Rider|Picked up|In delivery|Order delivered|Estimated delivery|Accepted in|Committed preparation|Customer|Google|Engineering|Modify|Back|COMPLETED|PAYABLE|Tasty Patil|You are closed|Updated Preparation|The order needs)/i;
+    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|help centre|to get support|Order timeline|Order details|Order received|Order accepted|Rider|Picked up|In delivery|Order delivered|Estimated delivery|Accepted in|Committed preparation|Customer|Google|Engineering|Modify|Back|COMPLETED|PAYABLE|You are closed|Updated Preparation|The order needs)/i;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -1344,7 +1999,7 @@
       if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside/i.test(line)) {
         continue;
       }
-      if (/^Tasty Patil/i.test(line)) {
+      if (/\([A-Z0-9]{4}\)$/.test(line)) {
         if (!res.restaurant) res.restaurant = line.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
         continue;
       }
@@ -1446,7 +2101,7 @@
         }
 
         const itemName = nameParts.join(' ').trim();
-        if (itemName) {
+        if (itemName && (!res.restaurant || itemName.toLowerCase() !== res.restaurant.toLowerCase())) {
           res.items.push({ qty, name: itemName, price });
         }
       }
@@ -1459,7 +2114,7 @@
     const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
     const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
     const merged = {
-      restaurant: 'Tasty Patil', orderNo: '', orderCode: '', prepTime: '',
+      restaurant: 'Order Receipt', orderNo: '', orderCode: '', prepTime: '',
       orderReceivedTime: '', customer: '', isHistory: false,
       items: [], notes: [], discounts: [],
       subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
@@ -1565,7 +2220,7 @@
 
     ctx.font = '900 26px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText((data.restaurant || 'Tasty Patil').toUpperCase(), PRINTER_WIDTH / 2, y);
+    ctx.fillText((data.restaurant || 'ORDER RECEIPT').toUpperCase(), PRINTER_WIDTH / 2, y);
     y += 32;
 
     ctx.font = '600 15px system-ui, sans-serif';
@@ -1686,7 +2341,7 @@
   }
 
   // ============================================================================
-  // BUILT-IN INTERNAL RECEIPT VAULT + ONE-WAY GOOGLE DRIVE SYNC (NO DUPLICATES)
+  // RECEIPT VAULT + NON-BLOCKING GOOGLE DRIVE ONE-WAY SYNC
   // ============================================================================
 
   function getSyncedDriveKeys() {
@@ -1702,8 +2357,7 @@
     if (!dedupeKey) return;
     const set = getSyncedDriveKeys();
     set.add(dedupeKey);
-    const arr = Array.from(set).slice(-500);
-    localStorage.setItem('fp_gdrive_synced_keys', JSON.stringify(arr));
+    localStorage.setItem('fp_gdrive_synced_keys', JSON.stringify(Array.from(set).slice(-500)));
   }
 
   async function arrayBufferToBase64(buffer) {
@@ -1719,14 +2373,14 @@
     const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
     const folderId = (localStorage.getItem('fp_gdrive_folder_id') || '').trim();
     if (!webhookUrl || !webhookUrl.startsWith('https://')) {
-      if (!silentIfNoUrl) showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
+      if (!silentIfNoUrl) showToast('⚠️ Configure Google Apps Script URL in Settings first', 'warn');
       return false;
     }
 
     const dedupeKey = entry.dedupeKey || entry.baseName;
     if (entry.driveSynced || getSyncedDriveKeys().has(dedupeKey)) {
       entry.driveSynced = true;
-      if (!silentIfNoUrl) showToast(`☁️ ${entry.orderNo} already synced (skipped duplicate)`, 'info');
+      if (!silentIfNoUrl) showToast(`☁️ ${entry.orderNo} already synced`, 'info');
       return true;
     }
 
@@ -1759,10 +2413,10 @@
         await idbSet('fpInternalVault', vault);
       }
 
-      showToast(`☁️ Uploaded ${entry.orderNo} to Google Drive!`, 'success', true);
+      showToast(`☁️ Synced ${entry.orderNo} to Google Drive`, 'success', true);
       return true;
     } catch (err) {
-      showToast(`⚠️ Google Drive sync failed for ${entry.orderNo} (will retry)`, 'warn');
+      showToast(`⚠️ Cloud sync failed for ${entry.orderNo}`, 'warn');
       return false;
     }
   }
@@ -1770,16 +2424,16 @@
   async function syncAllUnsyncedToDrive() {
     const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
     if (!webhookUrl) {
-      showToast('⚠️ Paste your Google Apps Script URL in Options first', 'warn');
+      showToast('⚠️ Configure Google Apps Script URL in Settings first', 'warn');
       return;
     }
     const vault = (await idbGet('fpInternalVault')) || [];
     const unsynced = vault.filter(v => !v.driveSynced && !getSyncedDriveKeys().has(v.dedupeKey || v.baseName));
     if (unsynced.length === 0) {
-      showToast('☁️ All saved receipts are already synced to Google Drive!', 'success');
+      showToast('☁️ All receipts are already synced', 'success');
       return;
     }
-    showToast(`☁️ Syncing ${unsynced.length} receipt(s) to Google Drive...`, 'info');
+    showToast(`☁️ Syncing ${unsynced.length} receipt(s)...`, 'info');
     for (const item of unsynced) {
       await syncVaultEntryToGoogleDrive(item, false);
     }
@@ -1814,7 +2468,7 @@
       const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
       const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData) : null;
 
-      const pngBuffer = await pngBlob.arrayBuffer();
+      const pngBuffer = pngBlob ? await pngBlob.arrayBuffer() : null;
       const pdfBuffer = pdfBlob ? await pdfBlob.arrayBuffer() : null;
 
       const vault = (await idbGet('fpInternalVault')) || [];
@@ -1840,7 +2494,8 @@
         await refreshVaultCount();
       }
 
-      await syncVaultEntryToGoogleDrive(entry, true);
+      // Run Google Drive upload asynchronously so it NEVER blocks Auto-Return or `isPrinting` release!
+      syncVaultEntryToGoogleDrive(entry, true).catch(() => {});
     } catch (e) {}
   }
 
@@ -1853,7 +2508,7 @@
     }
     const vault = (await idbGet('fpInternalVault')) || [];
     if (vault.length === 0) {
-      showToast('⚠️ No saved receipt in Vault to reprint', 'warn');
+      showToast('⚠️ No archived receipt available', 'warn');
       return;
     }
     await reprintVaultItem(vault[0].id);
@@ -1889,12 +2544,12 @@
   async function openVault() {
     closeMenu();
     const listEl = document.getElementById('vaultList');
-    listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:24px;">Loading saved receipts...</div>';
+    listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:24px;">Loading archive...</div>';
     document.getElementById('vaultOverlay').classList.add('open');
 
     const vault = (await idbGet('fpInternalVault')) || [];
     if (vault.length === 0) {
-      listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:32px;">No saved receipts yet. Every printed Foodpanda order will automatically appear here as both PDF and PNG.</div>';
+      listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:32px;">No archived receipts yet.</div>';
       return;
     }
 
@@ -1919,7 +2574,7 @@
 
       const syncBadge = document.createElement('span');
       syncBadge.style.cssText = `font-size:11px; font-weight:800; padding:3px 8px; border-radius:99px; ${isSynced ? 'background:#065F46; color:#A7F3D0;' : 'background:#374151; color:#FDE68A;'}`;
-      syncBadge.innerText = isSynced ? '☁️ Drive Synced' : '⏳ Local Only';
+      syncBadge.innerText = isSynced ? '☁️ Synced' : '⏳ Local';
 
       top.appendChild(info);
       top.appendChild(syncBadge);
@@ -1956,7 +2611,7 @@
         const upBtn = document.createElement('button');
         upBtn.className = 'vault-pill-btn';
         upBtn.style.background = '#4F46E5';
-        upBtn.innerText = '☁️ Upload';
+        upBtn.innerText = '☁️ Sync';
         upBtn.onclick = async () => {
           await syncVaultEntryToGoogleDrive(item, false);
           await openVault();
@@ -1975,11 +2630,11 @@
   }
 
   async function clearVault() {
-    if (!confirm('Delete all local receipts from Billu Vault? (Files already on Google Drive will remain untouched)')) return;
+    if (!confirm('Clear local receipt archive?')) return;
     await idbSet('fpInternalVault', []);
     await refreshVaultCount();
     await openVault();
-    showToast('🗑️ Local Vault cleared', 'info');
+    showToast('🗑️ Archive cleared', 'info');
   }
 
   function downloadVaultFile(buffer, fileName, mimeType) {
@@ -1995,14 +2650,13 @@
   }
 
   // ============================================================================
-  // TRIPLE-DRIVER BACKGROUND ENGINE (WEB WORKER + WEB LOCK + 1Hz INFRASONIC WAV)
+  // BACKGROUND ENGINE + PREFLIGHT-FREE LOCALHOST POLLER + 24H+ ANTI-SLEEP
   // ============================================================================
 
   function isFpMasterEnabled() {
     return (localStorage.getItem('fp_master_enabled') ?? '1') === '1';
   }
 
-  // Silent Background Mode now defaults to ON ('1') so MacroDroid never switches to Billu when Billu is in memory!
   function isSilentBgEnabled() {
     return isFpMasterEnabled() && (localStorage.getItem('fp_silent_bg_enabled') ?? '1') === '1';
   }
@@ -2011,7 +2665,7 @@
     const enabled = document.getElementById('fpMasterEnable').checked;
     localStorage.setItem('fp_master_enabled', enabled ? '1' : '0');
     applyFpMasterUI();
-    showToast(enabled ? '🐼 Foodpanda Pipeline Enabled' : '🐼 Foodpanda Pipeline Hidden', 'info');
+    showToast(enabled ? '🧾 Automated Order Pipeline Enabled' : '🧾 Automated Order Pipeline Disabled', 'info');
   }
 
   function applyFpMasterUI() {
@@ -2033,10 +2687,10 @@
     if (enabled && isFpMasterEnabled()) {
       ensureAudioKeepAliveRunning();
       startLocalB64BackgroundPoller();
-      showToast('🛡️ Silent Background Mode Active', 'success');
+      showToast('🛡️ Background Listener Active', 'success');
     } else {
       stopLocalB64BackgroundPoller();
-      showToast('Silent Background Mode OFF', 'info');
+      showToast('Background Listener Disabled', 'info');
     }
   }
 
@@ -2079,9 +2733,7 @@
 
     if (!bgWorker) {
       try {
-        const blob = new Blob([`
-          setInterval(() => postMessage('tick'), 320);
-        `], { type: 'application/javascript' });
+        const blob = new Blob([`setInterval(() => postMessage('tick'), 300);`], { type: 'application/javascript' });
         bgWorker = new Worker(URL.createObjectURL(blob));
         bgWorker.onmessage = () => onBackgroundHeartbeatTick();
       } catch (e) {}
@@ -2091,16 +2743,18 @@
   function onBackgroundHeartbeatTick() {
     const now = Date.now();
 
-    // 1. Poll 127.0.0.1:18999 every 300ms EVEN IF PRINTER IS OFF so MacroDroid never pulls user out of Panda Partner!
-    if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 300) {
+    if (isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 280) {
       lastAudioPollTime = now;
       pollLocalhostB64Once();
     }
 
-    // 2. Maintain BLE connection in both foreground and background
-    if (!isPrinting && !isConnecting) {
-      if (writeChar && (document.hidden || isSilentBgEnabled())) {
-        if (now - lastBlePingTime > 3500) {
+    if (!isPrinting && !isPreparingOrder && !isConnecting && !isJogging) {
+      if (writeChar) {
+        if (isPrinterKeepAwakeEnabled() && now - lastPrinterAntiSleepTime > 600000) {
+          lastPrinterAntiSleepTime = now;
+          lastBlePingTime = now;
+          sendAntiSleepMicroJog(false);
+        } else if ((document.hidden || isSilentBgEnabled()) && now - lastBlePingTime > 3500) {
           lastBlePingTime = now;
           writeBle(makePacket(0xA3, [0x00])).catch(() => {});
         }
@@ -2132,18 +2786,18 @@
         audioCtx.resume().catch(() => {});
       }
       if (!audioScriptNode) {
-        const osc = audioCtx.createOscillator();
-        osc.frequency.value = 1;
-        const gain = audioCtx.createGain();
-        gain.gain.value = 0.02;
+        audioOscNode = audioCtx.createOscillator();
+        audioOscNode.frequency.value = 1;
+        audioGainNode = audioCtx.createGain();
+        audioGainNode.gain.value = 0.02;
 
         audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
         audioScriptNode.onaudioprocess = () => onBackgroundHeartbeatTick();
 
-        osc.connect(gain);
-        gain.connect(audioScriptNode);
+        audioOscNode.connect(audioGainNode);
+        audioGainNode.connect(audioScriptNode);
         audioScriptNode.connect(audioCtx.destination);
-        osc.start();
+        audioOscNode.start();
       }
     } catch (e) {}
   }
@@ -2157,7 +2811,7 @@
     localLoopbackTimer = setInterval(() => {
       if (!isSilentBgEnabled() || isPrinting) return;
       pollLocalhostB64Once();
-    }, 300);
+    }, 280);
   }
 
   function stopLocalB64BackgroundPoller() {
@@ -2176,45 +2830,48 @@
     try {
       const decodedText = decodeBase64Utf8(b64String);
       if (decodedText && decodedText.trim().length > 8) {
-        await prepareFoodpandaOrderFromText(decodedText, true);
+        await prepareFoodpandaOrderFromText(decodedText, true, false);
       }
     } catch (e) {}
   };
 
+  // Uses `<script>` tag injection so Chrome sends a direct GET without a PNA `OPTIONS` preflight
   function pollLocalhostB64Once() {
     if (isLoopbackPolling || !isSilentBgEnabled()) return;
     isLoopbackPolling = true;
 
     const s = document.createElement('script');
+    let fallbackTimer = null;
     const done = () => {
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
       isLoopbackPolling = false;
+      s.onload = null;
+      s.onerror = null;
       s.remove();
     };
     s.onload = done;
     s.onerror = done;
     s.src = `http://127.0.0.1:18999/poll.js?t=${Date.now()}`;
     document.body.appendChild(s);
-    setTimeout(done, 280);
+    fallbackTimer = setTimeout(done, 260);
   }
 
-  // Drains all queued orders sequentially as soon as the printer connects!
   async function processPendingPrintQueue() {
-    if (isPrinting || !writeChar || pendingPrintQueue.length === 0) return;
-    while (pendingPrintQueue.length > 0 && writeChar && !isPrinting) {
-      const nextRawText = pendingPrintQueue.shift();
-      updateFirstContactUI(false);
-      await prepareFoodpandaOrderFromText(nextRawText, true);
-      await delayMs(500);
-    }
-    updateFirstContactUI(true);
+    if (isPrinting || isPreparingOrder || !writeChar || pendingPrintQueue.length === 0) return;
+    const nextRawText = pendingPrintQueue.shift();
+    updateFirstContactUI(false);
+    await prepareFoodpandaOrderFromText(nextRawText, true, false);
   }
 
   // ============================================================================
-  // FOODPANDA MODALS & AUTO-PRINT / AUTO-RETURN WORKFLOW
+  // ORDER MODALS & SYNCHRONIZED AUTO-RETURN / AUTO-PRINT WORKFLOW
   // ============================================================================
 
   function showFpPrePrintModal(title, sub) {
-    document.getElementById('fpPrePrintTitle').innerText = title || 'Print Foodpanda Order?';
+    document.getElementById('fpPrePrintTitle').innerText = title || 'Print Order Receipt?';
     document.getElementById('fpPrePrintSub').innerText = sub || 'Confirm to send receipt to thermal printer';
     document.getElementById('fpPrePrintCard').style.display = 'flex';
     document.getElementById('fpPostPrintCard').style.display = 'none';
@@ -2230,14 +2887,14 @@
   }
 
   function showFpErrorModal(title, sub, detailText) {
-    document.getElementById('fpErrorTitle').innerText = title || 'Base64 / Order Error';
-    document.getElementById('fpErrorSub').innerText = sub || 'Could not find or parse a valid Base64 string.';
-    document.getElementById('fpErrorDetails').innerText = detailText || 'No payload details available.';
+    document.getElementById('fpErrorTitle').innerText = title || 'Data Load Error';
+    document.getElementById('fpErrorSub').innerText = sub || 'Unable to parse order data.';
+    document.getElementById('fpErrorDetails').innerText = detailText || 'No details available.';
     document.getElementById('fpPrePrintCard').style.display = 'none';
     document.getElementById('fpPostPrintCard').style.display = 'none';
     document.getElementById('fpErrorCard').style.display = 'flex';
     document.getElementById('fpModalBackdrop').classList.add('active');
-    showToast(`⚠️ ${title || 'Order load error'}`, 'error', true);
+    showToast(`⚠️ ${title || 'Data error'}`, 'error', true);
     playTone(240, 350);
   }
 
@@ -2252,8 +2909,14 @@
     if (!shouldPrint) {
       pendingPrintQueue = [];
       updateFirstContactUI(false);
-      showToast('🛑 Print cancelled by user', 'warn');
+      showToast('🛑 Print cancelled', 'warn');
       return;
+    }
+
+    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
+    const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
+    if (autoReturnEnabled && autoReturnTiming === 'before') {
+      launchReturnApp(true, true);
     }
 
     if (!writeChar) {
@@ -2267,7 +2930,7 @@
         pendingPrintQueue.push(lastRawFpText);
       }
       updateFirstContactUI(true);
-      showToast(`📥 Queued ${currentOrderMeta.orderNo} — turn ON printer to auto-print!`, 'warn', true);
+      showToast(`📥 Queued ${currentOrderMeta.orderNo} — power ON printer to auto-print`, 'warn', true);
     }
   }
 
@@ -2276,7 +2939,7 @@
     ensureAudioKeepAliveRunning();
 
     if (goBack) {
-      launchReturnApp(false);
+      launchReturnApp(false, true);
     } else {
       showToast('Stayed in Billu', 'info');
     }
@@ -2315,14 +2978,14 @@
     document.getElementById('manualFileInput').click();
   }
 
-  async function prepareFoodpandaOrderFromText(rawText, isSilentBgRun = false) {
+  async function prepareFoodpandaOrderFromText(rawText, isSilentBgRun = false, fromRemotePeer = false) {
     const v = validateFoodpandaText(rawText);
     if (!v.valid) {
       if (!isSilentBgRun) {
         showFpErrorModal(
           'Invalid Order Text',
           v.reason,
-          'Full decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
+          'Decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
         );
       }
       return { ok: false, reason: v.reason };
@@ -2330,61 +2993,84 @@
 
     const parsed = parseFoodpandaMultiScroll(rawText);
     if (parsed.items.length === 0 && !parsed.total && !parsed.subtotal) {
-      const msg = 'Decoded text contained 0 food items and no price total.';
+      const msg = 'Decoded text contained 0 items and no price total.';
       if (!isSilentBgRun) {
         showFpErrorModal(
           '0 Items Parsed',
           msg,
-          'Full decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
+          'Decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
         );
       }
       return { ok: false, reason: msg };
     }
 
-    // If currently printing another receipt, push this new order into the queue!
-    if (isPrinting) {
-      pendingPrintQueue.push(rawText);
-      updateFirstContactUI(true);
-      showToast(`📥 Queued Order ${parsed.orderNo || ''} (will print next)`, 'info', true);
-      return { ok: true };
+    if (!fromRemotePeer && localStorage.getItem('billu_remote_autoforward') === '1') {
+      const b64 = encodeUtf8Base64(rawText);
+      const allowed = getAllowedActivePeerIds();
+      for (const peer of getPairedPeers()) {
+        if (allowed.has(peer.id)) {
+          sendEncryptedToPeer(peer, {
+            type: 'REMOTE_PRINT_B64',
+            kind: 'fp_b64',
+            b64,
+            orderLabel: parsed.orderNo || 'Order'
+          });
+        }
+      }
     }
 
-    lastRawFpText = rawText;
-    isFpPipelineRun = true;
-    lastParsedFpData = parsed;
-    currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
-
-    docSourceCanvas = renderSynthesizedFpReceipt(parsed);
-    rebuildCompositePreview(true);
-    updateMainButtonUI();
-    showToast(`🧾 Order ${parsed.orderNo || ''} loaded (${parsed.items.length} item(s) • ${parsed.total || ''})`, 'info', isSilentBgRun);
-
-    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
-
-    if (!isSilentBgRun && !autoPrintOnOpen) {
-      const title = `Print Order ${parsed.orderNo || ''}?`;
-      const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
-      showFpPrePrintModal(title, sub);
-      return { ok: true };
-    }
-
-    if (!writeChar) await attemptAutoReconnect(false);
-    if (writeChar) {
-      await printCanvas(!isSilentBgRun);
-    } else {
+    // Mutex guard: if currently printing OR already preparing/connecting for a previous order, queue in FIFO order!
+    if (isPrinting || isPreparingOrder) {
       if (!pendingPrintQueue.includes(rawText)) {
         pendingPrintQueue.push(rawText);
       }
       updateFirstContactUI(true);
-      playTone(300, 220);
-      setTimeout(() => playTone(250, 260), 260);
-      showToast(
-        `📥 Order ${parsed.orderNo || ''} queued — turn ON printer to auto-print!`,
-        'warn',
-        true
-      );
+      showToast(`📥 Queued Order ${parsed.orderNo || ''} (prints next)`, 'info', true);
+      return { ok: true };
     }
-    return { ok: true };
+
+    isPreparingOrder = true;
+    try {
+      lastRawFpText = rawText;
+      isFpPipelineRun = true;
+      lastParsedFpData = parsed;
+      currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
+
+      docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+      rebuildCompositePreview(true);
+      updateMainButtonUI();
+      showToast(`🧾 Order ${parsed.orderNo || ''} loaded (${parsed.items.length} item(s) • ${parsed.total || ''})`, 'info', isSilentBgRun);
+
+      const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
+
+      if (!isSilentBgRun && !autoPrintOnOpen) {
+        const title = `Print Order ${parsed.orderNo || ''}?`;
+        const sub = `${parsed.items.length} item(s) • Total ${parsed.total || parsed.subtotal || ''}`;
+        showFpPrePrintModal(title, sub);
+        return { ok: true };
+      }
+
+      if (!writeChar) await attemptAutoReconnect(false);
+      if (writeChar) {
+        isPreparingOrder = false;
+        await printCanvas(!isSilentBgRun);
+      } else {
+        if (!pendingPrintQueue.includes(rawText)) {
+          pendingPrintQueue.push(rawText);
+        }
+        updateFirstContactUI(true);
+        playTone(300, 220);
+        setTimeout(() => playTone(250, 260), 260);
+        showToast(
+          `📥 Order ${parsed.orderNo || ''} queued — power ON printer to auto-print`,
+          'warn',
+          true
+        );
+      }
+      return { ok: true };
+    } finally {
+      isPreparingOrder = false;
+    }
   }
 
   function decodeBase64Utf8(b64Input) {
@@ -2408,7 +3094,7 @@
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash || '';
 
-    if (params.has('relaunch')) {
+    if (params.has('reset') || params.has('relaunch')) {
       history.replaceState(null, '', window.location.pathname);
     }
 
@@ -2445,32 +3131,32 @@
 
     if (hasB64Key) {
       if (!trimmedB64) {
-        b64ErrorReason = 'Base64 string (fp_b64) in URL was EMPTY. MacroDroid shell script returned nothing.';
+        b64ErrorReason = 'Base64 payload (fp_b64) in URL was empty.';
       } else if (trimmedB64 === 'GONE' || trimmedB64 === 'PRINTED_IN_BG') {
         return false;
       } else if (/\{lv=|\[lv=|file_state/i.test(trimmedB64)) {
-        b64ErrorReason = `MacroDroid did not expand the variable! Received literal text: "${trimmedB64}"`;
+        b64ErrorReason = `Unexpanded macro variable received: "${trimmedB64}"`;
       } else {
         try {
           const decodedText = decodeBase64Utf8(trimmedB64);
-          b64DiagnosticDetail = `Base64 length: ${trimmedB64.length} | Decoded length: ${decodedText.length}\nFull Decoded Text:\n${decodedText.slice(0, 4000)}`;
+          b64DiagnosticDetail = `Base64 length: ${trimmedB64.length} | Decoded length: ${decodedText.length}\nDecoded Text:\n${decodedText.slice(0, 4000)}`;
           if (!decodedText || decodedText.trim().length < 8) {
-            b64ErrorReason = 'Base64 decoded to an empty or too-short string.';
+            b64ErrorReason = 'Base64 decoded to an empty string.';
           } else {
-            const res = await prepareFoodpandaOrderFromText(decodedText, false);
+            const res = await prepareFoodpandaOrderFromText(decodedText, false, false);
             if (res.ok) return true;
             b64ErrorReason = res.reason;
           }
         } catch (err) {
-          b64ErrorReason = 'Corrupted Base64 string (atob failed): ' + err.message;
+          b64ErrorReason = 'Invalid Base64 string: ' + err.message;
           b64DiagnosticDetail = `Raw fp_b64 (${trimmedB64.length} chars):\n${trimmedB64.slice(0, 2000)}`;
         }
       }
     } else {
-      b64ErrorReason = 'No fp_b64 parameter was found in the URL.';
+      b64ErrorReason = 'No fp_b64 parameter found in URL.';
     }
 
-    showFpErrorModal('Base64 / Order Load Failed', b64ErrorReason, b64DiagnosticDetail);
+    showFpErrorModal('Order Data Load Failed', b64ErrorReason, b64DiagnosticDetail);
     return true;
   }
 
@@ -2480,21 +3166,21 @@
 
   function loadSampleFpOrder() {
     closeMenu();
-    const sampleHistoryOrder = `{"" :"You are closed\\u000aYou are outside of your opening hours.","$2" :"Back","$3" :"Tasty Patil (CVGI)","$4" :"You are closed\\u000aYou are outside of your opening hours.","$5" :"Tasty Patil (CVGI)","index:28" :"","index:29" :"","index:30" :"","index:31" :"COMPLETED PAYABLE cvgi-2643-jqby Order timeline Order received 20:57 Accepted in 13 sec Order accepted 20:58 Committed preparation time: 21:13 Rider near pickup 21:08 Rider at store 21:13 Picked up by rider 21:14 In delivery 21:14 Order delivered","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"cvgi-2643-jqby","index:41" :"Order timeline","index:44" :"Order received","index:45" :"20:57","index:48" :"Order accepted","index:49" :"20:58","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Koftah Bhuna Khichuri Combo - Regular ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Platform delivery","test_id_web_view_collapsible_title" :"Order History"}`;
+    const sampleOrder = `{"$2" :"Back","$3" :"Sample Kitchen (DEMO)","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"demo-1042-ab12","index:44" :"Order received","index:45" :"20:57","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Regular Combo Meal ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Standard delivery","test_id_web_view_collapsible_title" :"Order History"}`;
 
-    lastRawFpText = sampleHistoryOrder;
-    const parsed = parseFoodpandaMultiScroll(sampleHistoryOrder);
+    lastRawFpText = sampleOrder;
+    const parsed = parseFoodpandaMultiScroll(sampleOrder);
     lastParsedFpData = parsed;
     isFpPipelineRun = true;
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
     docSourceCanvas = renderSynthesizedFpReceipt(parsed);
     rebuildCompositePreview(true);
     updateMainButtonUI();
-    showToast(`🧪 Loaded sample Order ${parsed.orderNo} (${parsed.total})`, 'info');
+    showToast(`🧪 Loaded sample receipt ${parsed.orderNo} (${parsed.total})`, 'info');
   }
 
   // ============================================================================
-  // VIEWPORT, ADAPTIVE FOREGROUND/BACKGROUND BLE ENGINE, MARGINS & STAMP LOGIC
+  // VIEWPORT, SERIALIZED BLE ENGINE, MARGINS & STAMP LOGIC
   // ============================================================================
 
   const viewportEl = document.getElementById('viewport');
@@ -2503,6 +3189,7 @@
   const emptyStateEl = document.getElementById('emptyStateContainer');
   const fitScreenBtnEl = document.getElementById('fitScreenBtn');
   const printSomethingElseBtnEl = document.getElementById('printSomethingElseBtn');
+  const sendRemoteFabBtnEl = document.getElementById('sendRemoteFabBtn');
 
   function applyTransform() {
     transformEl.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
@@ -2614,7 +3301,7 @@
       btn.innerHTML = 'Connect Printer';
     } else {
       btn.classList.add('state-searching');
-      btn.innerHTML = `<span>Looking for ${labelStr}<span class="dots"></span> (Tap to Pair)</span>`;
+      btn.innerHTML = `<span>Searching for ${labelStr}<span class="dots"></span> (Tap to Pair)</span>`;
     }
   }
 
@@ -2622,13 +3309,20 @@
     ensureAudioKeepAliveRunning();
     if (isPrinting) {
       cancelPrintRequested = true;
-      showToast('🛑 Stopping printer immediately...', 'warn');
+      showToast('🛑 Stopping print job...', 'warn');
       document.getElementById('mainActionBtn').innerText = '🛑 Stopping...';
       return;
     }
 
     hideFpModal();
     if (!docSourceCanvas) return;
+
+    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
+    const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
+    if (isFpPipelineRun && autoReturnEnabled && autoReturnTiming === 'before') {
+      launchReturnApp(true, true);
+    }
+
     if (writeChar) {
       await printCanvas(isFpPipelineRun);
       return;
@@ -2722,16 +3416,18 @@
       }
 
       writeChar = foundChar;
-      hasMadeFirstContact = true; // First contact locked in for this session!
+      hasMadeFirstContact = true;
+      lastPrinterAntiSleepTime = Date.now();
       registerOrUpdatePrinter(device);
-      showToast(`🟢 First Contact Locked: ${getPrinterDisplayLabel(device)}`, 'success', true);
+      showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
       playTone(880, 140);
       updateMainButtonUI();
       updateFirstContactUI(true);
 
-      if (pendingPrintQueue.length > 0 && !isPrinting) {
+      // Only trigger queue drain here if `prepareFoodpandaOrderFromText` is NOT already mid-flight!
+      if (pendingPrintQueue.length > 0 && !isPrinting && !isPreparingOrder) {
         hideFpModal();
-        showToast(`🖨️ Auto-printing ${pendingPrintQueue.length} queued order(s)...`, 'info', true);
+        showToast(`🖨️ Printing ${pendingPrintQueue.length} queued receipt(s)...`, 'info', true);
         setTimeout(() => processPendingPrintQueue(), 350);
       }
 
@@ -2761,7 +3457,7 @@
     isConnecting = false;
     lastConnectEndTime = Date.now();
     if (!isPrinting) {
-      showToast(`🟡 ${dispLabel} Off (First Contact Locked) — turn ON printer to auto-reconnect`, 'warn', true);
+      showToast(`🟡 ${dispLabel} disconnected — standby active`, 'warn', true);
       updateMainButtonUI();
       updateFirstContactUI(true);
     }
@@ -2826,7 +3522,7 @@
 
       if (!target) {
         if (!silentToast) {
-          showToast('⚠️ Chrome cleared BLE permission — tap button below to pair once', 'warn');
+          showToast('⚠️ Bluetooth permission reset — tap below to pair', 'warn');
         }
         return false;
       }
@@ -2839,7 +3535,7 @@
 
       const targetLabel = getPrinterDisplayLabel(target);
       if (!silentToast) {
-        showToast(`🔍 Looking for ${targetLabel}...`, 'info');
+        showToast(`🔍 Searching for ${targetLabel}...`, 'info');
       }
 
       if (!document.hidden) {
@@ -2907,7 +3603,7 @@
     localStorage.setItem('cat_margin_before_mm', beforeVal);
     localStorage.setItem('cat_margin_after_mm', afterVal);
     rebuildCompositePreview(false);
-    showToast(`📏 Margins set: ${beforeVal}mm before, ${afterVal}mm after`, 'info');
+    showToast(`📏 Margins updated: ${beforeVal}mm top, ${afterVal}mm bottom`, 'info');
   }
 
   function saveStampSettings() {
@@ -2916,7 +3612,7 @@
     localStorage.setItem('cat_stamp_enabled', enabled ? '1' : '0');
     localStorage.setItem('cat_stamp_pos', pos);
     rebuildCompositePreview(true);
-    showToast(enabled ? `🏷️ Stamp enabled (${pos} doc)` : '🏷️ Stamp disabled', 'info');
+    showToast(enabled ? `🏷️ Stamp enabled` : '🏷️ Stamp disabled', 'info');
   }
 
   async function handleStampFileSelect(e) {
@@ -2935,8 +3631,8 @@
 
   function saveReturnAppSetting() {
     const mode = document.getElementById('returnAppSelect').value;
-    const customName = document.getElementById('customAppName').value.trim() || 'Return';
-    const customIcon = document.getElementById('customAppIcon').value.trim() || '📱';
+    const customName = document.getElementById('customAppName').value.trim() || 'Partner App';
+    const customIcon = document.getElementById('customAppIcon').value.trim() || '↩️';
     const customPkg = document.getElementById('customAppPkg').value.trim();
 
     localStorage.setItem('cat_return_mode', mode);
@@ -2957,17 +3653,16 @@
       btn.style.display = 'none';
     } else if (mode === 'foodpanda') {
       btn.style.display = 'flex';
-      document.getElementById('returnAppIcon').innerText = '🐼';
-      document.getElementById('returnAppLabel').innerText = 'Foodpanda';
+      document.getElementById('returnAppIcon').innerText = '↩️';
+      document.getElementById('returnAppLabel').innerText = 'Partner App';
     } else if (mode === 'custom') {
       btn.style.display = 'flex';
       document.getElementById('returnAppIcon').innerText = localStorage.getItem('cat_return_icon') || '📱';
-      document.getElementById('returnAppLabel').innerText = localStorage.getItem('cat_return_name') || 'Return';
+      document.getElementById('returnAppLabel').innerText = localStorage.getItem('cat_return_name') || 'Partner App';
     }
   }
 
-  // Never calls window.close() when Foodpanda Pipeline is enabled so First Contact stays alive in background!
-  function launchReturnApp() {
+  function launchReturnApp(keepAliveForPrint = false, fromDirectTap = false) {
     hideFpModal();
     ensureAudioKeepAliveRunning();
     updateFirstContactUI(true);
@@ -2979,7 +3674,24 @@
 
     const cleanBaseUrl = window.location.href.split('#')[0];
     const stayHereFallback = encodeURIComponent(cleanBaseUrl + '#stay');
-    window.location.href = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
+    const intentUrl = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
+
+    try {
+      window.location.href = intentUrl;
+    } catch (e) {}
+
+    if (!keepAliveForPrint && !isPrinting) {
+      setTimeout(() => {
+        if (!document.hidden) {
+          try { window.close(); } catch (e) {}
+          setTimeout(() => {
+            if (!document.hidden && window.history.length > 1) {
+              try { window.history.back(); } catch (e) {}
+            }
+          }, 180);
+        }
+      }, 280);
+    }
   }
 
   async function handleManualFile(e) {
@@ -2990,7 +3702,7 @@
 
     if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
       const txt = await file.text();
-      await prepareFoodpandaOrderFromText(txt, false);
+      await prepareFoodpandaOrderFromText(txt, false, false);
       e.target.value = '';
       return;
     }
@@ -3012,6 +3724,10 @@
   async function renderFileToTrimmedCanvas(file) {
     let rawCanvas;
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      if (typeof pdfjsLib === 'undefined') {
+        throw new Error('PDF library still loading — try again in 2 seconds');
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const pageCanvases = [];
@@ -3100,6 +3816,7 @@
       transformEl.style.display = 'none';
       fitScreenBtnEl.style.display = 'none';
       printSomethingElseBtnEl.style.display = 'none';
+      sendRemoteFabBtnEl.style.display = 'none';
       updateMainButtonUI();
       return;
     }
@@ -3108,6 +3825,7 @@
     transformEl.style.display = 'block';
     fitScreenBtnEl.style.display = 'flex';
     printSomethingElseBtnEl.style.display = 'flex';
+    sendRemoteFabBtnEl.style.display = 'flex';
 
     const threshold = parseInt(document.getElementById('brightnessSlider').value || '155', 10);
     const marginBeforeMm = parseInt(localStorage.getItem('cat_margin_before_mm') ?? '4', 10);
@@ -3191,12 +3909,32 @@
     return pkt;
   }
 
-  async function writeBle(pkt) {
-    if (writeChar.properties.writeWithoutResponse) {
-      await writeChar.writeValueWithoutResponse(pkt);
-    } else {
-      await writeChar.writeValue(pkt);
-    }
+  // Serialized BLE Write Mutex: prevents `GATT operation already in progress` if a background
+  // ping/micro-jog overlaps with `printCanvas()`!
+  function writeBle(pkt) {
+    const nextOp = bleWriteChain.then(async () => {
+      if (!writeChar) throw new Error('Printer disconnected');
+      try {
+        if (writeChar.properties.writeWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(pkt);
+        } else {
+          await writeChar.writeValue(pkt);
+        }
+      } catch (err) {
+        if (/in progress/i.test(err.message) && writeChar) {
+          await printRowSleep(25);
+          if (writeChar.properties.writeWithoutResponse) {
+            await writeChar.writeValueWithoutResponse(pkt);
+          } else {
+            await writeChar.writeValue(pkt);
+          }
+        } else {
+          throw err;
+        }
+      }
+    });
+    bleWriteChain = nextOp.catch(() => {});
+    return nextOp;
   }
 
   async function feedPaper5mm() {
@@ -3217,7 +3955,7 @@
       const blankRows = 5 * PX_PER_MM;
       const emptyRow = new Uint8Array(48);
 
-      showToast('⏫ Feeding 5mm blank paper...', 'info');
+      showToast('⏫ Feeding 5mm paper...', 'info');
       await writeBle(makePacket(0xA4, [0x33]));
       await printRowSleep(20);
       await writeBle(makePacket(0xBE, [0x00]));
@@ -3231,6 +3969,7 @@
       }
 
       await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
+      lastPrinterAntiSleepTime = Date.now();
       showToast('✅ Fed 5mm paper', 'success');
     } catch (err) {
       showToast('⚠️ Feed error: ' + err.message, 'error');
@@ -3245,7 +3984,7 @@
     if (!writeChar || isPrinting || !docSourceCanvas) return;
     isPrinting = true;
     cancelPrintRequested = false;
-    await acquireWakeLock();
+    lastPrinterAntiSleepTime = Date.now();
 
     const btn = document.getElementById('mainActionBtn');
     updateMainButtonUI();
@@ -3258,26 +3997,28 @@
       ? Math.max(1, parseInt(localStorage.getItem('fp_print_copies') || '1', 10))
       : 1;
 
-    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '0') === '1';
+    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
     const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
+
+    if ((fromFpMacroFlow || isFpPipelineRun) && autoReturnEnabled && autoReturnTiming === 'before' && !document.hidden) {
+      ensureAudioKeepAliveRunning();
+      launchReturnApp(true, false);
+    }
+
+    await acquireWakeLock();
 
     try {
       const ctx = printCanvasEl.getContext('2d');
       const totalRows = printCanvasEl.height;
       const imgData = ctx.getImageData(0, 0, PRINTER_WIDTH, totalRows).data;
 
-      showToast(`🖨️ Printing receipt for ${jobTitle}...`, 'info', true);
+      showToast(`🖨️ Printing ${jobTitle}...`, 'info', true);
       speakStatus(`Printing ${jobTitle.replace('#', 'number ')}`);
-
-      if ((fromFpMacroFlow || isFpPipelineRun) && autoReturnEnabled && autoReturnTiming === 'before' && !document.hidden) {
-        ensureAudioKeepAliveRunning();
-        setTimeout(() => launchReturnApp(), 250);
-      }
 
       for (let copyIdx = 1; copyIdx <= copies; copyIdx++) {
         if (cancelPrintRequested) break;
         if (copies > 1) {
-          showToast(`🖨️ Printing ${jobTitle} (Copy ${copyIdx} of ${copies})...`, 'info', true);
+          showToast(`🖨️ Printing ${jobTitle} (Copy ${copyIdx}/${copies})...`, 'info', true);
         }
 
         await writeBle(makePacket(0xA4, [0x33]));
@@ -3329,7 +4070,7 @@
 
         await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
 
-        btn.innerText = '🛑 Finishing Paper Feed (99%)';
+        btn.innerText = '🛑 Finishing Feed (99%)';
         setStatus(`Finishing paper feed for ${jobTitle}...`);
         for (let w = 0; w < 16; w++) {
           if (cancelPrintRequested) break;
@@ -3337,7 +4078,7 @@
         }
 
         if (copyIdx < copies && !cancelPrintRequested) {
-          showToast('⏸️ Tear pause before Copy 2...', 'info');
+          showToast('⏸️ Pause before next copy...', 'info');
           for (let p = 0; p < 20; p++) {
             if (cancelPrintRequested) break;
             await printRowSleep(100);
@@ -3355,7 +4096,8 @@
         return;
       }
 
-      showToast(`✅ Print done for ${jobTitle}!`, 'success', true);
+      lastPrinterAntiSleepTime = Date.now();
+      showToast(`✅ Print complete: ${jobTitle}`, 'success', true);
       speakStatus('Print complete');
       playTone(1046, 220);
 
@@ -3365,25 +4107,32 @@
 
       if ((fromFpMacroFlow || isFpPipelineRun) && !document.hidden && pendingPrintQueue.length === 0) {
         if (autoReturnEnabled && autoReturnTiming === 'after') {
-          setTimeout(() => launchReturnApp(), 350);
+          setTimeout(() => launchReturnApp(false, false), 150);
         } else if (!autoReturnEnabled) {
           showFpPostPrintModal();
         }
       }
     } catch (err) {
-      showToast(`⚠️ Could not print ${jobTitle}: ${err.message}`, 'error', true);
+      showToast(`⚠️ Print error (${jobTitle}): ${err.message}`, 'error', true);
     } finally {
       isPrinting = false;
       cancelPrintRequested = false;
       releaseWakeLock();
       updateMainButtonUI();
+      if (pendingPrintQueue.length > 0 && writeChar) {
+        setTimeout(() => processPendingPrintQueue(), 450);
+      }
     }
   }
 
   window.addEventListener('load', async () => {
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
     document.getElementById('menuVersionLabel').innerText = `Billu ${APP_VERSION}`;
     document.getElementById('menuUpdatedLabel').innerText = APP_UPDATED_DHAKA;
-    document.getElementById('homeVersionBadge').innerText = `Billu ${APP_VERSION} • Updated: ${APP_UPDATED_DHAKA}`;
+    document.getElementById('homeVersionBadge').innerText = `Billu ${APP_VERSION} • ${APP_UPDATED_DHAKA}`;
 
     const legacyId = localStorage.getItem('cat_printer_id');
     const legacyName = localStorage.getItem('cat_printer_name');
@@ -3401,18 +4150,15 @@
     if (savedBrightness) document.getElementById('brightnessSlider').value = savedBrightness;
 
     const legacyMargin = localStorage.getItem('cat_margin_mm') ?? '4';
-    const savedBeforeMargin = localStorage.getItem('cat_margin_before_mm') ?? legacyMargin;
-    const savedAfterMargin = localStorage.getItem('cat_margin_after_mm') ?? legacyMargin;
-    document.getElementById('marginBeforeMmInput').value = savedBeforeMargin;
-    document.getElementById('marginAfterMmInput').value = savedAfterMargin;
+    document.getElementById('marginBeforeMmInput').value = localStorage.getItem('cat_margin_before_mm') ?? legacyMargin;
+    document.getElementById('marginAfterMmInput').value = localStorage.getItem('cat_margin_after_mm') ?? legacyMargin;
 
     document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
     document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
 
-    // Default both Silent Background Mode and Auto-Print to ON ('1') for zero-friction operation
     document.getElementById('fpSilentBgEnable').checked = (localStorage.getItem('fp_silent_bg_enabled') ?? '1') === '1';
     document.getElementById('fpAutoPrintOnOpen').checked = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
-    document.getElementById('fpAutoReturn').checked = (localStorage.getItem('fp_auto_return') ?? '0') === '1';
+    document.getElementById('fpAutoReturn').checked = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
     document.getElementById('fpAutoReturnTiming').value = localStorage.getItem('fp_auto_return_timing') || 'after';
     document.getElementById('fpAutoReturnTimingBox').style.display = document.getElementById('fpAutoReturn').checked ? 'flex' : 'none';
 
@@ -3423,12 +4169,22 @@
     document.getElementById('gdriveWebhookInput').value = localStorage.getItem('fp_gdrive_webhook') || '';
     document.getElementById('gdriveFolderIdInput').value = localStorage.getItem('fp_gdrive_folder_id') || '';
 
+    document.getElementById('printerKeepAwakeEnable').checked = isPrinterKeepAwakeEnabled();
+
+    const me = getMyNodeIdentity();
+    document.getElementById('myNodeNameInput').value = me.name;
+    document.getElementById('maxConcurrentPeersInput').value = String(getMaxConcurrentPeers());
+    document.getElementById('remoteAutoPrintIncoming').checked = (localStorage.getItem('billu_remote_autoprint') ?? '1') === '1';
+    document.getElementById('remoteAutoForwardOrders').checked = localStorage.getItem('billu_remote_autoforward') === '1';
+
     document.getElementById('customAppName').value = localStorage.getItem('cat_return_name') || '';
     document.getElementById('customAppIcon').value = localStorage.getItem('cat_return_icon') || '';
     document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
 
     applyFpMasterUI();
     renderPrinterManagerList();
+    updateRemotePeerBadges();
+    initRemoteSyncEngine();
     await refreshVaultCount();
 
     try {
@@ -3440,7 +4196,6 @@
       }
     } catch (e) {}
 
-    // Restore any queued orders saved across a 1-tap "🔄 Relaunch"
     try {
       const savedQueueJson = sessionStorage.getItem('billu_relaunch_queue');
       if (savedQueueJson) {
@@ -3509,7 +4264,7 @@
 
           history.replaceState(null, '', window.location.pathname);
           if (combinedText.trim()) {
-            await prepareFoodpandaOrderFromText(combinedText, false);
+            await prepareFoodpandaOrderFromText(combinedText, false, false);
           }
         }
       } catch (e) {}
