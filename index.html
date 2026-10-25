@@ -414,7 +414,7 @@
 
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v4.0.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v4.1.0</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Updated</span>
       </div>
       <div style="display:flex; gap:6px;">
@@ -626,7 +626,7 @@
         <span class="big-title">Open Document or Image</span>
         <span class="big-sub">Supports PDF, PNG, JPG, and Order Logs</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v4.0.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v4.1.0</div>
     </div>
 
     <div id="canvasTransform">
@@ -640,7 +640,7 @@
   </div>
 
 <script>
-  const APP_VERSION = 'v4.0.0';
+  const APP_VERSION = 'v4.1.0';
   const APP_UPDATED_DHAKA = '24 Oct 2026';
 
   const PRINTER_WIDTH = 384;
@@ -2279,7 +2279,7 @@
       ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
     };
 
-    addCenterText((data.restaurant || 'ORDER RECEIPT').toUpperCase(), yCursor, 12, true);
+    addCenterText((data.restaurant || localStorage.getItem('billu_detected_restaurant') || 'ORDER RECEIPT').toUpperCase(), yCursor, 12, true);
     yCursor += 14;
 
     const dtStr = new Date().toLocaleString('en-GB', {
@@ -2465,7 +2465,7 @@
     return pairs;
   }
 
-  function parseSingleScreenBlock(blockText) {
+function parseSingleScreenBlock(blockText) {
     const res = {
       restaurant: '', orderNo: '', orderCode: '', prepTime: '',
       orderReceivedTime: '', customer: '', isHistory: false,
@@ -2481,19 +2481,30 @@
     if (kvPairs.length > 0) {
       for (const [k, v] of kvPairs) {
         if (typeof v !== 'string') continue;
+        const trimmedV = v.trim();
+        if (!trimmedV) continue;
+
         if (k === 'test_id_customer_name_text') {
-          res.customer = v.trim();
+          res.customer = trimmedV;
+        } else if (/vendor_name|restaurant_name|store_name/i.test(k)) {
+          res.restaurant = trimmedV.replace(/\s*\([A-Z0-9_-]{2,8}\)\s*$/i, '').trim();
         } else if (k === 'test_id_new_order_id') {
-          res.orderCode = v.trim().toLowerCase();
-        } else if (k === 'test_id_web_view_collapsible_title' && /Order History/i.test(v)) {
+          const numMatch = trimmedV.match(/#\s*(\d{1,5})\b/);
+          if (numMatch && !res.orderNo) res.orderNo = '#' + numMatch[1];
+          const codeMatch = trimmedV.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
+          if (codeMatch) {
+            res.orderCode = codeMatch[1].toLowerCase();
+          } else if (!numMatch) {
+            res.orderCode = trimmedV.toLowerCase();
+          }
+        } else if (k === 'test_id_web_view_collapsible_title' && /Order History/i.test(trimmedV)) {
           res.isHistory = true;
         } else if (k === 'test_id_prep_time_adjustment_proof_banner') {
-          const pm = v.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
+          const pm = trimmedV.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
           if (pm) res.prepTime = pm[1];
-        } else if ((k === '$3' || k === '$5') && v.trim() && !/^(Back|You are closed)/i.test(v.trim())) {
-          if (!res.restaurant) res.restaurant = v.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
-        } else if (!k.startsWith('test_id_')) {
-          const splitLines = v.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        } else {
+          // Include all other fields so #1234 order numbers inside test_id_* keys are never skipped
+          const splitLines = trimmedV.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           lines.push(...splitLines);
         }
       }
@@ -2511,13 +2522,18 @@
       res.isHistory = true;
     }
 
-    const noMatch = fullBlock.match(/#(\d{1,5})\b/);
-    if (noMatch) res.orderNo = '#' + noMatch[1];
+    if (!res.orderNo) {
+      const noMatch = fullBlock.match(/#\s*(\d{1,5})\b/);
+      if (noMatch) res.orderNo = '#' + noMatch[1];
+    }
 
     if (!res.orderCode) {
       const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
       if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
     }
+
+    // Extract the 4-char vendor prefix from the order code (e.g. "cvgi" from "cvgi-2643-jqby")
+    const vendorPrefix = res.orderCode ? res.orderCode.split('-')[0].toUpperCase() : '';
 
     if (!res.prepTime) {
       const prepMatch =
@@ -2526,18 +2542,41 @@
       if (prepMatch) res.prepTime = prepMatch[1];
     }
 
-    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|help centre|to get support|Order timeline|Order details|Order received|Order accepted|Rider|Picked up|In delivery|Order delivered|Estimated delivery|Accepted in|Committed preparation|Customer|Google|Engineering|Modify|Back|COMPLETED|PAYABLE|You are closed|Updated Preparation|The order needs)/i;
+    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|help centre|to get support|Order timeline|Order details|Order received|Order accepted|Rider|Picked up|In delivery|Order delivered|Estimated delivery|Accepted in|Committed preparation|Customer|Google|Engineering|Modify|Back|COMPLETED|PAYABLE|Order History|You are closed|You are outside|Updated Preparation|The order needs)/i;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside/i.test(line)) {
+      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^You are closed|^You are outside/i.test(line)) {
         continue;
       }
-      if (/\([A-Z0-9]{4}\)$/.test(line)) {
-        if (!res.restaurant) res.restaurant = line.replace(/\s*\([A-Z0-9]+\)\s*$/i, '').trim();
+
+      // 1. Dynamic Restaurant Match: "Restaurant Name (CODE)" (matches store code in parentheses)
+      const storeHeaderMatch = line.match(/^(.+?)\s*\(([A-Z0-9]{3,6})\)$/);
+      if (
+        storeHeaderMatch &&
+        !stopWordsRe.test(line) &&
+        !/^(Regular|Large|Small|Medium|Mini|Half|Full)$/i.test(storeHeaderMatch[2])
+      ) {
+        const candidateName = storeHeaderMatch[1].trim();
+        const candidateCode = storeHeaderMatch[2].toUpperCase();
+        if (!res.restaurant || (vendorPrefix && candidateCode === vendorPrefix)) {
+          res.restaurant = candidateName;
+        }
         continue;
       }
+
+      // 2. Dynamic Restaurant Match: Node immediately after "Back" in the top app bar
+      if (/^Back$/i.test(line)) {
+        const nextLine = lines[i + 1] || '';
+        if (nextLine && !stopWordsRe.test(nextLine) && nextLine.length >= 3 && nextLine.length <= 45 && !/[৳\d]{3,}/.test(nextLine)) {
+          if (!res.restaurant) {
+            res.restaurant = nextLine.replace(/\s*\([A-Z0-9_-]{2,8}\)\s*$/i, '').trim();
+          }
+        }
+        continue;
+      }
+
       if (/^Customer$/i.test(line)) {
         if (!res.customer && lines[i + 1] && !stopWordsRe.test(lines[i + 1])) {
           res.customer = lines[i + 1];
@@ -2649,7 +2688,7 @@
     const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
     const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
     const merged = {
-      restaurant: 'Order Receipt', orderNo: '', orderCode: '', prepTime: '',
+      restaurant: '', orderNo: '', orderCode: '', prepTime: '',
       orderReceivedTime: '', customer: '', isHistory: false,
       items: [], notes: [], discounts: [],
       subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
@@ -2692,6 +2731,14 @@
       }
     }
 
+    // Cache detected restaurant name for future scrolled captures, or fall back to cached name
+    if (merged.restaurant) {
+      localStorage.setItem('billu_detected_restaurant', merged.restaurant);
+    } else {
+      merged.restaurant = localStorage.getItem('billu_detected_restaurant') || 'Order Receipt';
+    }
+
+    // Fallback to the 4-char suffix ONLY when the order does not have a #number
     if (!merged.orderNo && merged.orderCode) {
       const parts = merged.orderCode.split('-');
       merged.orderNo = '#' + parts[parts.length - 1].toUpperCase();
@@ -2755,7 +2802,7 @@
 
     ctx.font = '900 26px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText((data.restaurant || 'ORDER RECEIPT').toUpperCase(), PRINTER_WIDTH / 2, y);
+    ctx.fillText((data.restaurant || localStorage.getItem('billu_detected_restaurant') || 'ORDER RECEIPT').toUpperCase(), PRINTER_WIDTH / 2, y);
     y += 32;
 
     ctx.font = '600 15px system-ui, sans-serif';
