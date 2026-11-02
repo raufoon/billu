@@ -21,6 +21,7 @@
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-user-select: none; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #F9FAFB; }
 
+    /* 1. TOP BAR (ONLY ONE RESET BUTTON HERE) */
     .top-bar {
       position: fixed; top: 0; left: 0; right: 0; height: 54px;
       background: var(--surface); display: flex; align-items: center;
@@ -35,10 +36,11 @@
     }
     .top-pill-btn:active { transform: scale(0.95); }
 
+    /* SESSION STATUS BAR (PURE STATUS + QUEUE PILL, NO DUPLICATE RESET BUTTON) */
     #sessionStatusBar {
       position: fixed; top: 54px; left: 0; right: 0; min-height: 34px;
       padding: 4px 10px; z-index: 29; display: flex; align-items: center; justify-content: center;
-      flex-wrap: wrap; gap: 6px; font-size: 11.5px; font-weight: 800; text-align: center;
+      flex-wrap: wrap; gap: 8px; font-size: 11.5px; font-weight: 800; text-align: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.25); transition: background 0.2s ease;
     }
     .ss-unarmed { background: #991B1B; color: #FEE2E2; border-bottom: 2px solid #EF4444; }
@@ -46,10 +48,10 @@
     .ss-standby { background: #92400E; color: #FEF3C7; border-bottom: 2px solid #F59E0B; }
     .ss-inline-btn {
       background: #FFFFFF; color: #111827; border: none; border-radius: 99px;
-      padding: 3px 9px; font-size: 11px; font-weight: 900; cursor: pointer; white-space: nowrap;
+      padding: 3px 10px; font-size: 11px; font-weight: 900; cursor: pointer; white-space: nowrap;
     }
-    .ss-inline-btn.ss-btn-warn { background: #FEE2E2; color: #991B1B; }
 
+    /* 2. INTERACTIVE VIEWPORT */
     #viewport {
       position: fixed; top: 88px; bottom: 84px; left: 0; right: 0;
       overflow: hidden; touch-action: none;
@@ -102,43 +104,55 @@
     .toast-pill.toast-error { border-color: var(--red); color: #FECACA; }
     @keyframes toastIn { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
+    /* MODALS (SITS ABOVE BOTTOM BAR SO THE SINGLE MAIN PRINT BUTTON IS ALWAYS ACCESSIBLE) */
     #fpModalBackdrop, #queueModalBackdrop {
       position: fixed; top: 88px; bottom: 84px; left: 0; right: 0; z-index: 80;
-      background: rgba(17, 24, 39, 0.84); backdrop-filter: blur(4px);
-      display: none; align-items: center; justify-content: center; padding: 16px;
+      background: rgba(17, 24, 39, 0.78); backdrop-filter: blur(3px);
+      display: none; align-items: center; justify-content: center; padding: 14px;
     }
     #fpModalBackdrop.active, #queueModalBackdrop.active { display: flex; }
     .fp-modal-card {
       position: relative; width: 100%; max-width: 365px; background: #111827;
-      border: 2px solid var(--accent-pink); border-radius: 24px; padding: 22px 16px 18px 16px;
+      border: 2px solid var(--blue); border-radius: 22px; padding: 20px 16px 16px 16px;
       display: flex; flex-direction: column; align-items: center; text-align: center;
       gap: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.75); max-height: 100%; overflow-y: auto;
     }
     .fp-modal-close-x {
-      position: absolute; top: 10px; left: 10px; width: 36px; height: 36px;
+      position: absolute; top: 10px; left: 10px; width: 34px; height: 34px;
       border-radius: 99px; border: 1px solid #4B5563; background: #1F2937;
-      color: #F9FAFB; font-size: 17px; font-weight: 900; cursor: pointer;
+      color: #F9FAFB; font-size: 16px; font-weight: 900; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
-    .fp-modal-icon { font-size: 38px; line-height: 1; }
-    .fp-modal-title { font-size: 19px; font-weight: 900; color: #FFFFFF; line-height: 1.25; }
-    .fp-modal-sub { font-size: 13px; color: #D1D5DB; font-weight: 600; line-height: 1.35; }
+    .fp-modal-icon { font-size: 34px; line-height: 1; }
+    .fp-modal-title { font-size: 18px; font-weight: 900; color: #FFFFFF; line-height: 1.25; padding: 0 24px; }
+    .fp-modal-sub { font-size: 12.5px; color: #D1D5DB; font-weight: 600; line-height: 1.35; }
     .fp-modal-actions { display: flex; width: 100%; gap: 10px; margin-top: 2px; }
     .fp-modal-btn {
-      flex: 1; padding: 14px 10px; border-radius: 14px; border: none;
+      flex: 1; padding: 13px 10px; border-radius: 14px; border: none;
       font-size: 15px; font-weight: 900; cursor: pointer; color: #FFFFFF;
       display: flex; align-items: center; justify-content: center; gap: 6px;
     }
     .fp-modal-btn:active { transform: scale(0.96); }
-    .fp-btn-yes { background: var(--green); }
-    .fp-btn-peer { background: var(--indigo); }
-    .fp-btn-both { background: var(--blue); }
-    .fp-btn-pink-big { width: 100%; padding: 16px 14px; font-size: 17px; background: var(--accent-pink); color: #FFFFFF; }
-    .fp-btn-no { background: #374151; color: #E5E7EB; }
+    .fp-btn-pink-big { width: 100%; padding: 15px 14px; font-size: 16px; background: var(--accent-pink); color: #FFFFFF; }
     .fp-error-box {
       width: 100%; max-height: 130px; overflow-y: auto; background: #1F2937;
       border: 1px solid #374151; border-radius: 10px; padding: 8px 10px;
       font-family: monospace; font-size: 11px; color: #FCA5A5; text-align: left; word-break: break-all;
+    }
+
+    /* SEGMENTED ROUTE SELECTOR PILLS (STATE TOGGLES, NOT ACTION BUTTONS) */
+    .route-seg-group {
+      display: flex; width: 100%; gap: 6px; background: #1F2937; padding: 5px;
+      border-radius: 12px; border: 1px solid #374151;
+    }
+    .route-seg-btn {
+      flex: 1; padding: 9px 6px; border-radius: 9px; border: 1px solid transparent;
+      background: transparent; color: #9CA3AF; font-size: 12px; font-weight: 800;
+      cursor: pointer; transition: all 0.15s ease; text-align: center;
+    }
+    .route-seg-btn.active-seg {
+      background: var(--blue); color: #FFFFFF; border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
 
     .full-overlay {
@@ -166,6 +180,7 @@
     }
     #qrVideo { width: 100%; display: block; }
 
+    /* FLOATING BUTTONS */
     .fab {
       position: fixed; z-index: 35; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -175,14 +190,14 @@
     #returnAppBtn { top: 96px; left: 14px; padding: 10px 14px; background: var(--accent-pink); color: #FFFFFF; font-size: 13px; display: none; }
     #returnAppBtn .app-icon { width: 22px; height: 22px; background: #FFFFFF; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
     #burgerBtn { top: 96px; right: 14px; width: 46px; height: 46px; background: var(--surface); color: #FFFFFF; font-size: 22px; }
-    #sendRemoteFabBtn { bottom: 194px; right: 14px; padding: 10px 14px; background: var(--indigo); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
+    #openOptionsCardFabBtn { bottom: 194px; right: 14px; padding: 10px 14px; background: var(--indigo); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
     #printSomethingElseBtn { bottom: 146px; right: 14px; padding: 10px 14px; background: var(--blue); color: #FFFFFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.28); display: none; }
     #fitScreenBtn { bottom: 98px; right: 14px; padding: 10px 14px; background: var(--surface); color: #FFFFFF; font-size: 13px; border: 1px solid #4B5563; display: none; }
 
     #optionsOverlay {
-      position: fixed; top: 96px; right: 14px; width: calc(100% - 28px); max-width: 380px;
+      position: fixed; top: 96px; right: 14px; width: calc(100% - 28px); max-width: 385px;
       max-height: calc(100% - 190px); overflow-y: auto;
-      background: rgba(17, 24, 39, 0.97); backdrop-filter: blur(8px);
+      background: rgba(17, 24, 39, 0.98); backdrop-filter: blur(8px);
       border: 1px solid #374151; border-radius: 18px; padding: 14px;
       z-index: 40; display: none; flex-direction: column; gap: 10px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.65);
@@ -211,11 +226,13 @@
     .printer-card-actions { display: flex; gap: 6px; }
     .printer-mini-btn { flex: 1; padding: 6px 8px; border-radius: 7px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; color: #FFFFFF; background: #374151; }
 
+    /* 5. STICKY BOTTOM BAR (THE SINGLE UNIFIED PRINT BUTTON) */
     .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 84px; background: var(--surface); padding: 12px 16px; z-index: 90; box-shadow: 0 -2px 10px rgba(0,0,0,0.35); }
-    #mainActionBtn { width: 100%; height: 100%; border: none; border-radius: 16px; font-size: 19px; font-weight: 800; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    #mainActionBtn { width: 100%; height: 100%; border: none; border-radius: 16px; font-size: 18px; font-weight: 800; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
     #mainActionBtn.state-connect { background: var(--blue); }
     #mainActionBtn.state-searching { background: var(--amber); }
     #mainActionBtn.state-print { background: var(--green); }
+    #mainActionBtn.state-peer { background: var(--indigo); }
     #mainActionBtn.state-stop { background: var(--red); }
     #mainActionBtn.state-disabled { background: var(--gray-btn); color: #9CA3AF; }
     #mainActionBtn:disabled { opacity: 0.75; cursor: not-allowed; }
@@ -226,7 +243,7 @@
 </head>
 <body>
 
-  <!-- TOP BAR -->
+  <!-- TOP BAR (SINGLE RESET BUTTON) -->
   <div class="top-bar">
     <span>☀️ Contrast</span>
     <input type="range" id="brightnessSlider" min="40" max="230" value="155" oninput="onBrightnessChange()">
@@ -234,75 +251,72 @@
     <button id="relaunchTopBtn" class="top-pill-btn" onclick="relaunchAppFresh()">🔄 Reset</button>
   </div>
 
-  <!-- SESSION STATUS BAR WITH QUEUE MANAGER & CLEAR BUTTONS -->
+  <!-- SESSION STATUS BAR (NO DUPLICATE RESET BUTTON; ONLY STATUS + QUEUE MANAGER PILL) -->
   <div id="sessionStatusBar" class="ss-unarmed">
     <span id="sessionStatusText">⚠️ Printer Disconnected — Connect once to enable background queue</span>
     <button id="queueManageBtn" class="ss-inline-btn" style="display:none;" onclick="openQueueModal()">📋 Queue (0)</button>
-    <button id="queueQuickClearBtn" class="ss-inline-btn ss-btn-warn" style="display:none;" onclick="clearAllPendingQueue()">✕ Clear Queue</button>
-    <button id="sessionStatusActionBtn" class="ss-inline-btn" onclick="relaunchAppFresh()">🔄 Reconnect</button>
   </div>
 
   <div id="statusBanner">Ready</div>
   <div id="toastStack"></div>
 
-  <!-- QUEUED PRINTS MANAGER MODAL (REMOVE SPECIFIC OR ALL QUEUED ITEMS) -->
+  <!-- QUEUED PRINTS MANAGER MODAL (ONLY MANAGES/REMOVES QUEUED ITEMS; NO DUPLICATE PRINT BUTTON) -->
   <div id="queueModalBackdrop">
     <div class="fp-modal-card" style="border-color: var(--amber);">
       <button class="fp-modal-close-x" onclick="closeQueueModal()" aria-label="Close">✕</button>
       <div class="fp-modal-icon">📥</div>
       <div class="fp-modal-title">Queued Print Jobs (<span id="queueModalCount">0</span>)</div>
-      <div class="fp-modal-sub">Waiting for printer connection. Remove any item below or clear the queue:</div>
-      <div id="queueModalList" style="width:100%; max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; text-align:left;"></div>
+      <div class="fp-modal-sub">Waiting for printer connection. Remove individual jobs below or clear all:</div>
+      <div id="queueModalList" style="width:100%; max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; text-align:left;"></div>
       <div class="fp-modal-actions" style="flex-direction:column; gap:8px;">
-        <button class="fp-modal-btn fp-btn-yes" style="width:100%; padding:12px;" onclick="closeQueueModal(); drainPrintQueue(true);">
-          🖨️ Connect & Print Queue Now
-        </button>
         <button class="fp-modal-btn" style="width:100%; padding:12px; background:var(--red);" onclick="clearAllPendingQueue()">
-          🗑️ Cancel & Remove All Queued Prints
+          🗑️ Remove All Queued Prints
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ORDER WORKFLOW MODALS (SUPPORTS LOCAL, PEER, AND BOTH ROUTING) -->
+  <!-- UNIFIED PRE-PRINT OPTIONS CARD (SELECTS STATES ONLY — USE THE MAIN BOTTOM BUTTON TO PRINT!) -->
   <div id="fpModalBackdrop">
     <div class="fp-modal-card" id="fpPrePrintCard" style="display:none;">
-      <button class="fp-modal-close-x" onclick="onFpRouteChoice('cancel')" aria-label="Close">✕</button>
-      <div class="fp-modal-icon">🧾</div>
-      <div class="fp-modal-title" id="fpPrePrintTitle">Print Order Receipt?</div>
-      <div class="fp-modal-sub" id="fpPrePrintSub">Choose where to print this receipt</div>
+      <button class="fp-modal-close-x" onclick="dismissPrePrintOptionsCard()" aria-label="Close">✕</button>
+      <div class="fp-modal-icon">🎛️</div>
+      <div class="fp-modal-title" id="fpPrePrintTitle">Print Options</div>
+      <div class="fp-modal-sub" id="fpPrePrintSub">Select store & destination below, then tap the main Print button at the bottom.</div>
 
-      <!-- Peer Selector Box inside Modal when "Prompt to forward to selected peer" is enabled -->
-      <div id="modalPeerSelectBox" class="opt-subbox" style="width:100%; display:none; text-align:left; border-color:var(--indigo);">
+      <!-- 1. Store Profile Selector -->
+      <div class="opt-subbox" style="width:100%; text-align:left; border-color:#10B981;">
         <div class="opt-row-inline">
-          <span style="font-size:12px; font-weight:800; color:#A5B4FC;">Target Peer:</span>
-          <select id="modalPeerSelect" class="opt-select" onchange="onModalPeerSelectChange()"></select>
+          <span style="font-size:12px; font-weight:800; color:#6EE7B7;">🏷️ Store Profile:</span>
+          <select id="modalStoreProfileSelect" class="opt-select" onchange="onModalStoreProfileChange()"></select>
         </div>
-        <div id="modalPeerPrinterStatus" style="font-size:11.5px; font-weight:700; color:#9CA3AF;">Checking peer printer status...</div>
+        <div id="modalStoreProfileSub" style="font-size:11px; color:#9CA3AF;">Updates store header & stamp on receipt</div>
       </div>
 
-      <!-- Standard 2-button actions (when Peer Prompt is OFF) -->
-      <div class="fp-modal-actions" id="fpStandardPreActions">
-        <button class="fp-modal-btn fp-btn-no" onclick="onFpRouteChoice('cancel')">Cancel</button>
-        <button class="fp-modal-btn fp-btn-yes" onclick="onFpRouteChoice('local')">🖨️ Print</button>
+      <!-- 2. Print Destination State Selector (Local / Peer / Both) -->
+      <div class="opt-subbox" style="width:100%; text-align:left; border-color:var(--indigo);">
+        <span style="font-size:12px; font-weight:800; color:#A5B4FC;">📡 Print Destination:</span>
+        <div class="route-seg-group">
+          <button type="button" id="segBtnLocal" class="route-seg-btn active-seg" onclick="setActiveRouteMode('local')">🖨️ This Printer</button>
+          <button type="button" id="segBtnPeer" class="route-seg-btn" onclick="setActiveRouteMode('peer')">📡 Peer</button>
+          <button type="button" id="segBtnBoth" class="route-seg-btn" onclick="setActiveRouteMode('both')">🖨️+📡 Both</button>
+        </div>
+        <div id="modalPeerTargetRow" style="display:none; flex-direction:column; gap:5px; margin-top:4px;">
+          <div class="opt-row-inline">
+            <span style="font-size:12px; font-weight:700; color:#D1D5DB;">Target Peer:</span>
+            <select id="modalPeerSelect" class="opt-select" onchange="onModalPeerSelectChange()"></select>
+          </div>
+          <div id="modalPeerPrinterStatus" style="font-size:11px; font-weight:700; color:#9CA3AF;">Checking peer printer status...</div>
+        </div>
       </div>
 
-      <!-- 4-button Peer Routing actions (when Peer Prompt is ON) -->
-      <div id="fpPeerRouteActions" style="display:none; flex-direction:column; width:100%; gap:8px; margin-top:2px;">
-        <div style="display:flex; width:100%; gap:8px;">
-          <button class="fp-modal-btn fp-btn-yes" onclick="onFpRouteChoice('local')">🖨️ Print Here</button>
-          <button class="fp-modal-btn fp-btn-peer" onclick="onFpRouteChoice('peer')">📡 Print at Peer</button>
-        </div>
-        <button class="fp-modal-btn fp-btn-both" style="width:100%;" onclick="onFpRouteChoice('both')">
-          🖨️+📡 Print on Both Printers
-        </button>
-        <button class="fp-modal-btn fp-btn-no" style="width:100%; padding:10px;" onclick="onFpRouteChoice('cancel')">
-          Cancel
-        </button>
+      <div style="font-size:11.5px; color:#93C5FD; font-weight:700;">
+        👇 Tap the main button at the bottom of the screen to execute
       </div>
     </div>
 
-    <div class="fp-modal-card" id="fpPostPrintCard" style="display:none;">
+    <!-- Post-Print Return Prompt (Only shown when Auto-Return is OFF) -->
+    <div class="fp-modal-card" id="fpPostPrintCard" style="display:none; border-color:var(--accent-pink);">
       <button class="fp-modal-close-x" onclick="onFpPostPrintChoice(false)" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">✅</div>
       <div class="fp-modal-title">Print Complete</div>
@@ -314,6 +328,7 @@
       </div>
     </div>
 
+    <!-- Error Diagnostic Card -->
     <div class="fp-modal-card" id="fpErrorCard" style="display:none; border-color: var(--red);">
       <button class="fp-modal-close-x" onclick="hideFpModal()" aria-label="Dismiss">✕</button>
       <div class="fp-modal-icon">⚠️</div>
@@ -394,17 +409,17 @@
     </div>
   </div>
 
-  <!-- FLOATING BUTTONS -->
+  <!-- FLOATING BUTTONS (NO DUPLICATE PRINT BUTTONS; "🎛️ Store / Route" OPENS THE SELECTOR CARD) -->
   <button id="returnAppBtn" class="fab" onclick="launchReturnApp()">
     <span class="app-icon" id="returnAppIcon">↩️</span>
     <span id="returnAppLabel">Partner App</span>
   </button>
   <button id="burgerBtn" class="fab" onclick="toggleMenu()" aria-label="Options">☰</button>
-  <button id="sendRemoteFabBtn" class="fab" onclick="sendRenderedViewerRleToPeer()">📡 Send RLE Image to Peer</button>
+  <button id="openOptionsCardFabBtn" class="fab" onclick="openViewerOptionsCard()">🎛️ Store / Route</button>
   <button id="printSomethingElseBtn" class="fab" onclick="triggerPrintSomethingElse()">📂 Open File</button>
   <button id="fitScreenBtn" class="fab" onclick="fitScreen()">⤢ Fit Screen</button>
 
-  <!-- FLOATING OPTIONS MENU -->
+  <!-- FLOATING SETTINGS MENU -->
   <div id="optionsOverlay">
     <div class="opt-header">
       <button class="icon-pill" onclick="closeMenu()">← Back</button>
@@ -444,7 +459,54 @@
       </button>
     </div>
 
-    <!-- Order Integration Pipeline -->
+    <!-- 1. MULTI-STORE STAMP PROFILES -->
+    <div class="opt-row" style="border: 1px solid #10B981;">
+      <div class="opt-row-inline">
+        <span style="font-weight:800; color:#6EE7B7;">🏷️ Store & Stamp Profiles</span>
+        <button class="printer-mini-btn" style="flex:0 0 auto; background:var(--green); padding:5px 10px;" onclick="toggleAddProfileForm()">➕ New Profile</button>
+      </div>
+      <div style="font-size:11px; color:#9CA3AF;">
+        Each profile has an optional <b>Store Name</b> (always printed at the very top of the receipt) and an optional <b>Stamp Image/PDF</b> (placed at Top or Bottom).
+      </div>
+
+      <label style="font-weight:700; color:#A7F3D0; display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="defaultStoreNoAskCheckbox" onchange="onToggleDefaultStoreNoAsk()">
+        ☑️ Print for default store without asking
+      </label>
+      <div class="opt-desc">
+        <b>When checked:</b> Uses your Default Profile automatically.<br>
+        <b>When unchecked:</b> Opens the Options Card before printing so you can pick which Store Profile to use.
+      </div>
+
+      <!-- Add / Edit Profile Form -->
+      <div id="profileEditorBox" class="opt-subbox" style="display:none; border-color:#10B981;">
+        <div style="font-weight:800; font-size:12px; color:#6EE7B7;" id="profileEditorTitle">Create Store Profile</div>
+        <input type="text" id="profStoreNameInput" class="opt-input" style="width:100%;" placeholder="Store Name (optional, e.g. Tasty Patil)">
+        <div class="opt-row-inline">
+          <span style="font-size:12px; color:#D1D5DB;">Stamp Position:</span>
+          <select id="profStampPosSelect" class="opt-select">
+            <option value="before">Top of Receipt</option>
+            <option value="after">Bottom of Receipt</option>
+          </select>
+        </div>
+        <input type="file" id="profStampFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="onProfileStampFileSelected(event)">
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="opt-btn opt-btn-path" style="flex:1; padding:8px 10px; font-size:12px;" onclick="document.getElementById('profStampFileInput').click()">
+            <span id="profStampFileLabel">No stamp file (optional)</span>
+            <span>📎</span>
+          </button>
+          <button type="button" class="printer-mini-btn" style="flex:0 0 60px; background:#374151;" onclick="clearEditorStampFile()">Clear</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:4px;">
+          <button type="button" class="opt-btn" style="background:var(--green); color:#FFF; flex:1; padding:8px;" onclick="saveStoreProfileFromEditor()">💾 Save</button>
+          <button type="button" class="opt-btn" style="background:#374151; color:#FFF; flex:1; padding:8px;" onclick="closeProfileEditor()">Cancel</button>
+        </div>
+      </div>
+
+      <div id="storeProfilesListContainer" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+
+    <!-- 2. Order Integration Pipeline -->
     <div class="opt-row" style="border: 1px solid var(--accent-pink);">
       <label style="font-weight:800; color:#F472B6; font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input type="checkbox" id="fpMasterEnable" onchange="saveFpMasterToggle()">
@@ -463,7 +525,7 @@
             🛡️ Silent Background Mode (Stay in Partner App)
           </label>
           <div class="opt-desc">
-            Catches orders in the background without leaving the Partner App.
+            Catches orders in the background without leaving the Partner App (requires <i>"Print for default store without asking"</i> ON and <i>"Prompt to forward"</i> OFF).
           </div>
         </div>
 
@@ -471,7 +533,7 @@
         <div class="opt-subbox" style="border-color:var(--indigo);">
           <div style="font-weight:800; color:#A5B4FC; font-size:12px;">📡 Remote Peer Printer Routing:</div>
           <div class="opt-row-inline">
-            <span style="color:#D1D5DB; font-size:12px;">Selected Peer:</span>
+            <span style="color:#D1D5DB; font-size:12px;">Default Peer:</span>
             <select id="defaultTargetPeerSelect" class="opt-select" onchange="savePeerRoutingSettings()"></select>
           </div>
           <div id="defaultTargetPeerStatus" style="font-size:11px; color:#9CA3AF;">Pair a peer via QR to enable remote routing</div>
@@ -481,7 +543,7 @@
             📡 Forward All Receipt Prints to Selected Peer
           </label>
           <div class="opt-desc">
-            Instead of printing on this phone's printer, sends all incoming orders directly to the selected peer printer (works in Silent Mode).
+            Automatically forwards incoming orders to the selected peer printer instead of printing locally (works in Silent Mode).
           </div>
 
           <label style="font-weight:700; color:#FDE68A; display:flex; align-items:center; gap:8px; margin-top:4px; cursor:pointer;">
@@ -489,7 +551,7 @@
             ❓ Prompt to Forward to Selected Peer
           </label>
           <div class="opt-desc">
-            Auto-disables Silent Mode so Billu opens with a prompt: <b>Print Here</b>, <b>Print at Peer</b>, or <b>Print on Both Printers</b>.
+            Opens the Options Card on every order so you can choose <b>This Printer</b>, <b>Peer</b>, or <b>Both</b> before tapping Print.
           </div>
         </div>
 
@@ -499,21 +561,24 @@
 
           <label style="font-weight:700; color:#6EE7B7; display:flex; align-items:center; gap:8px; cursor:pointer;">
             <input type="checkbox" id="fpAutoPrintOnOpen" onchange="saveFpPromptSettings()">
-            ⚡ 1. Auto-Print When Billu Opens
+            ⚡ 1. Auto-Print Without Asking
           </label>
           <div class="opt-desc">
-            Starts printing immediately without asking (ignored if "Prompt to Forward" is checked above).
+            Starts printing immediately when no Store or Peer prompt is required.
           </div>
 
           <label style="font-weight:700; color:#F9A8D4; display:flex; align-items:center; gap:8px; margin-top:4px; cursor:pointer;">
             <input type="checkbox" id="fpAutoReturn" onchange="saveFpPromptSettings()">
             ↩️ 2. Auto-Return to Partner App
           </label>
+          <div class="opt-desc">
+            Switches back to the Partner App automatically after printing (or immediately after queuing if the printer is currently off).
+          </div>
           <div id="fpAutoReturnTimingBox" class="opt-row-inline" style="padding-left:22px; margin-top:2px;">
             <span style="color:#D1D5DB; font-size:12px;">Switch Back:</span>
             <select id="fpAutoReturnTiming" class="opt-select" onchange="saveFpPromptSettings()">
-              <option value="after">After Print Finishes</option>
-              <option value="before">As Soon as Print Starts (Continues in BG)</option>
+              <option value="after">After Print Finishes (or Queues)</option>
+              <option value="before">Immediately as Print Starts</option>
             </select>
           </div>
         </div>
@@ -549,7 +614,7 @@
       </div>
     </div>
 
-    <!-- Printer Manager + 24h+ Keep-Awake Anti-Sleep -->
+    <!-- 3. Printer Manager + 24h+ Keep-Awake Anti-Sleep -->
     <div class="opt-row" style="border: 1px solid #3B82F6;">
       <div class="opt-row-inline">
         <span style="font-weight:800; color:#93C5FD;">🖨️ Printer Manager</span>
@@ -570,7 +635,7 @@
       </div>
     </div>
 
-    <!-- Margins -->
+    <!-- 4. Margins -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="marginBeforeMmInput" style="font-weight:600;">Top Margin (mm):</label>
@@ -582,25 +647,7 @@
       </div>
     </div>
 
-    <!-- Stamp -->
-    <div class="opt-row">
-      <div class="opt-row-inline">
-        <label style="font-weight:600; display:flex; align-items:center; gap:6px;">
-          <input type="checkbox" id="stampEnabled" onchange="saveStampSettings()"> Enable Stamp
-        </label>
-        <select id="stampPosition" class="opt-select" onchange="saveStampSettings()">
-          <option value="before">Top of Receipt</option>
-          <option value="after">Bottom of Receipt</option>
-        </select>
-      </div>
-      <input type="file" id="stampFileInput" accept="application/pdf,image/*,.pdf" style="display:none" onchange="handleStampFileSelect(event)">
-      <button class="opt-btn opt-btn-path" onclick="document.getElementById('stampFileInput').click()">
-        <span id="stampFileName">No stamp image selected</span>
-        <span>🏷️ Browse</span>
-      </button>
-    </div>
-
-    <!-- Partner App Shortcut -->
+    <!-- 5. Partner App Shortcut -->
     <div class="opt-row">
       <div class="opt-row-inline">
         <label for="returnAppSelect" style="font-weight:600;">Shortcut Button:</label>
@@ -634,14 +681,14 @@
     </div>
   </div>
 
-  <!-- BOTTOM ACTION BUTTON -->
+  <!-- SINGLE UNIFIED BOTTOM ACTION BUTTON -->
   <div class="bottom-bar">
     <button id="mainActionBtn" class="state-disabled" onclick="handleMainButtonClick()" disabled>Print</button>
   </div>
 
 <script>
   const APP_VERSION = 'v4.1.0';
-  const APP_UPDATED_DHAKA = '24 Oct 2026';
+  const APP_UPDATED_DHAKA = '02 Nov 2026';
 
   const PRINTER_WIDTH = 384;
   const PX_PER_MM = 8;
@@ -668,13 +715,22 @@
   let adAbortController = null;
   let reconnectTimer = null;
 
-  // Structured print queue: each item is { id, kind: 'fp_text'|'rle_image', rawText, rleB64, label, total, fromPeerId, timeStr }
+  // Store & Stamp Profiles State
+  // Each profile: { id, storeName, stampPosition: 'before'|'after', stampFileName, stampFileType, stampBuffer, stampCanvas }
+  let storeProfiles = [];
+  let activeStoreProfileId = 'none';
+  let editingProfileId = null;
+  let editorTempStamp = null; // { name, type, buffer }
+
+  // Active Print Destination State ('local' | 'peer' | 'both') controlled by the Options Card
+  let activeRouteMode = 'local';
+
+  // Print Queue: { id, kind: 'fp_text'|'rle_image', rawText, rleB64, label, total, storeProfileId, fromPeerId, timeStr }
   let pendingPrintQueue = [];
   let lastRawFpText = '';
   let currentRemoteOriginPeerId = null;
 
   let docSourceCanvas = null;
-  let stampSourceCanvas = null;
 
   let isFpPipelineRun = false;
   let lastParsedFpData = null;
@@ -709,9 +765,7 @@
   function updateFirstContactUI(pushPersistentOsNotif = false) {
     const bar = document.getElementById('sessionStatusBar');
     const txt = document.getElementById('sessionStatusText');
-    const btn = document.getElementById('sessionStatusActionBtn');
     const qBtn = document.getElementById('queueManageBtn');
-    const qClearBtn = document.getElementById('queueQuickClearBtn');
     const savedId = getSavedPrinterId();
     const pLabel = savedId ? getPrinterDisplayLabel(savedId) : 'Printer';
     const qCount = pendingPrintQueue.length;
@@ -719,9 +773,6 @@
     if (qBtn) {
       qBtn.style.display = qCount > 0 ? 'inline-block' : 'none';
       qBtn.innerText = `📋 Queue (${qCount})`;
-    }
-    if (qClearBtn) {
-      qClearBtn.style.display = qCount > 0 ? 'inline-block' : 'none';
     }
 
     bar.classList.remove('ss-unarmed', 'ss-online', 'ss-standby');
@@ -732,21 +783,16 @@
       hasMadeFirstContact = true;
       bar.classList.add('ss-online');
       txt.innerText = `🟢 Connected: ${pLabel}`;
-      btn.style.display = 'none';
       osTitle = `🟢 Printer Connected (${pLabel})`;
       osBody = `Print service ready.${qCount > 0 ? ' ' + qCount + ' queued.' : ''}`;
     } else if (!hasMadeFirstContact) {
       bar.classList.add('ss-unarmed');
       txt.innerText = `⚠️ Disconnected: Power ON ${pLabel} & connect once`;
-      btn.style.display = 'inline-block';
-      btn.innerText = '🔄 Reset';
       osTitle = `⚠️ Printer Connection Required`;
       osBody = `Open Billu & connect to ${pLabel} once.${qCount > 0 ? ' ' + qCount + ' queued.' : ''}`;
     } else {
       bar.classList.add('ss-standby');
-      txt.innerText = `🟡 Standby (${pLabel} Offline)`;
-      btn.style.display = 'inline-block';
-      btn.innerText = '🔄 Reset';
+      txt.innerText = `🟡 Standby (${pLabel} Offline — Power ON to auto-print)`;
       osTitle = qCount > 0 ? `📥 ${qCount} Receipt(s) Queued — Power ON Printer` : `🟡 Standby (Printer Offline)`;
       osBody = qCount > 0
         ? `Waiting for ${pLabel} to power on to print ${qCount} queued receipt(s).`
@@ -768,7 +814,6 @@
       } catch (e) {}
     }
 
-    // Broadcast our updated printer & queue state to any connected peers!
     broadcastMyPrinterStatusToPeers();
   }
 
@@ -786,6 +831,7 @@
         rleB64: jobObj.rleB64 || '',
         label: jobObj.label || 'Receipt',
         total: jobObj.total || '',
+        storeProfileId: jobObj.storeProfileId || activeStoreProfileId,
         fromPeerId: jobObj.fromPeerId || null,
         timeStr: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
       });
@@ -846,12 +892,14 @@
 
     listEl.innerHTML = '';
     for (const item of pendingPrintQueue) {
+      const prof = getStoreProfileById(item.storeProfileId);
+      const storeTag = (prof && prof.storeName) ? ` • 🏪 ${prof.storeName}` : '';
       const card = document.createElement('div');
       card.style.cssText = 'background:#1F2937; border:1px solid #374151; border-radius:10px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; gap:8px;';
       card.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:2px;">
           <span style="font-weight:800; color:#FFFFFF; font-size:13px;">${item.label} ${item.total ? '• ' + item.total : ''}</span>
-          <span style="font-size:11px; color:#9CA3AF;">Queued at ${item.timeStr}${item.fromPeerId ? ' • From Peer' : ''}</span>
+          <span style="font-size:11px; color:#9CA3AF;">Queued at ${item.timeStr}${storeTag}${item.fromPeerId ? ' • From Peer' : ''}</span>
         </div>
       `;
       const delBtn = document.createElement('button');
@@ -1025,12 +1073,360 @@
   }
 
   // ============================================================================
+  // MULTI-STORE STAMP PROFILES ENGINE (STORE NAME + OPTIONAL STAMP IMAGE/PDF)
+  // ============================================================================
+
+  function isDefaultStoreNoAskEnabled() {
+    return (localStorage.getItem('billu_default_store_no_ask') ?? '1') === '1';
+  }
+
+  function needsStoreSelectionPrompt() {
+    return !isDefaultStoreNoAskEnabled() && storeProfiles.length > 0;
+  }
+
+  function getDefaultStoreProfileId() {
+    const saved = localStorage.getItem('billu_default_profile_id');
+    if (saved === 'none') return 'none';
+    if (saved && storeProfiles.some(p => p.id === saved)) return saved;
+    return storeProfiles.length > 0 ? storeProfiles[0].id : 'none';
+  }
+
+  function getStoreProfileById(id) {
+    if (!id || id === 'none') return null;
+    return storeProfiles.find(p => p.id === id) || null;
+  }
+
+  function getActiveStoreProfile() {
+    return getStoreProfileById(activeStoreProfileId);
+  }
+
+  async function loadStoreProfilesFromDB() {
+    try {
+      // Remove any legacy auto-detected restaurant name from v4.0
+      localStorage.removeItem('billu_detected_restaurant');
+
+      let rawList = await idbGet('billuStoreProfilesV41');
+      if (!Array.isArray(rawList)) {
+        rawList = [];
+        // Migrate legacy single stamp from v3.x/v4.0 if present
+        const legacyStamp = await idbGet('stampFile');
+        const legacyEnabled = localStorage.getItem('cat_stamp_enabled') === '1';
+        const legacyPos = localStorage.getItem('cat_stamp_pos') || 'after';
+        if (legacyStamp && legacyStamp.buffer) {
+          rawList.push({
+            id: 'prof_default',
+            storeName: '',
+            stampPosition: legacyPos,
+            stampFileName: legacyStamp.name || 'stamp.png',
+            stampFileType: legacyStamp.type || 'image/png',
+            stampBuffer: legacyStamp.buffer
+          });
+          await idbSet('billuStoreProfilesV41', rawList);
+          localStorage.setItem('billu_default_profile_id', legacyEnabled ? 'prof_default' : 'none');
+        }
+      }
+
+      storeProfiles = [];
+      for (const item of rawList) {
+        let stampCanvas = null;
+        if (item.stampBuffer) {
+          try {
+            const f = new File([item.stampBuffer], item.stampFileName || 'stamp.png', { type: item.stampFileType || 'image/png' });
+            stampCanvas = await renderFileToTrimmedCanvas(f);
+          } catch (e) {}
+        }
+        storeProfiles.push({
+          ...item,
+          stampCanvas
+        });
+      }
+
+      activeStoreProfileId = getDefaultStoreProfileId();
+      renderStoreProfilesList();
+      populateStoreProfileDropdown();
+    } catch (e) {}
+  }
+
+  async function persistStoreProfilesToDB() {
+    const serializable = storeProfiles.map(p => ({
+      id: p.id,
+      storeName: p.storeName || '',
+      stampPosition: p.stampPosition || 'after',
+      stampFileName: p.stampFileName || '',
+      stampFileType: p.stampFileType || '',
+      stampBuffer: p.stampBuffer || null
+    }));
+    await idbSet('billuStoreProfilesV41', serializable);
+  }
+
+  function onToggleDefaultStoreNoAsk() {
+    const checked = document.getElementById('defaultStoreNoAskCheckbox').checked;
+    localStorage.setItem('billu_default_store_no_ask', checked ? '1' : '0');
+    if (!checked && storeProfiles.length > 0) {
+      // If user wants Billu to ask which store profile to use on every order, pause Silent Background interception
+      document.getElementById('fpSilentBgEnable').checked = false;
+      localStorage.setItem('fp_silent_bg_enabled', '0');
+      stopLocalB64BackgroundPoller();
+      showToast('🏷️ Store Prompt ON (Silent Mode paused so Billu opens to ask which store)', 'warn');
+    } else {
+      showToast('🏷️ Default store profile will be used automatically', 'success');
+    }
+  }
+
+  function toggleAddProfileForm(editId = null) {
+    const box = document.getElementById('profileEditorBox');
+    const titleEl = document.getElementById('profileEditorTitle');
+    const nameIn = document.getElementById('profStoreNameInput');
+    const posSel = document.getElementById('profStampPosSelect');
+    const fileLbl = document.getElementById('profStampFileLabel');
+
+    if (editId) {
+      const existing = getStoreProfileById(editId);
+      if (!existing) return;
+      editingProfileId = editId;
+      titleEl.innerText = '✏️ Edit Store Profile';
+      nameIn.value = existing.storeName || '';
+      posSel.value = existing.stampPosition || 'after';
+      editorTempStamp = existing.stampBuffer ? {
+        name: existing.stampFileName,
+        type: existing.stampFileType,
+        buffer: existing.stampBuffer
+      } : null;
+      fileLbl.innerText = existing.stampFileName || 'No stamp file (optional)';
+      box.style.display = 'flex';
+      return;
+    }
+
+    if (box.style.display === 'flex' && !editingProfileId) {
+      closeProfileEditor();
+      return;
+    }
+
+    editingProfileId = null;
+    editorTempStamp = null;
+    titleEl.innerText = '➕ New Store Profile';
+    nameIn.value = '';
+    posSel.value = 'after';
+    fileLbl.innerText = 'No stamp file (optional)';
+    box.style.display = 'flex';
+  }
+
+  function closeProfileEditor() {
+    editingProfileId = null;
+    editorTempStamp = null;
+    document.getElementById('profileEditorBox').style.display = 'none';
+  }
+
+  async function onProfileStampFileSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    editorTempStamp = { name: file.name, type: file.type, buffer: buf };
+    document.getElementById('profStampFileLabel').innerText = file.name;
+    e.target.value = '';
+  }
+
+  function clearEditorStampFile() {
+    editorTempStamp = null;
+    document.getElementById('profStampFileLabel').innerText = 'No stamp file (optional)';
+  }
+
+  async function saveStoreProfileFromEditor() {
+    const storeName = document.getElementById('profStoreNameInput').value.trim();
+    const stampPosition = document.getElementById('profStampPosSelect').value || 'after';
+
+    if (!storeName && !editorTempStamp) {
+      showToast('⚠️ Enter a Store Name or choose a Stamp File (or both)', 'warn');
+      return;
+    }
+
+    let stampCanvas = null;
+    if (editorTempStamp && editorTempStamp.buffer) {
+      try {
+        const f = new File([editorTempStamp.buffer], editorTempStamp.name || 'stamp.png', { type: editorTempStamp.type || 'image/png' });
+        stampCanvas = await renderFileToTrimmedCanvas(f);
+      } catch (err) {
+        showToast('⚠️ Could not decode stamp file: ' + err.message, 'error');
+        return;
+      }
+    }
+
+    if (editingProfileId) {
+      const idx = storeProfiles.findIndex(p => p.id === editingProfileId);
+      if (idx !== -1) {
+        storeProfiles[idx] = {
+          id: editingProfileId,
+          storeName,
+          stampPosition,
+          stampFileName: editorTempStamp ? editorTempStamp.name : '',
+          stampFileType: editorTempStamp ? editorTempStamp.type : '',
+          stampBuffer: editorTempStamp ? editorTempStamp.buffer : null,
+          stampCanvas
+        };
+      }
+    } else {
+      const newId = 'prof_' + Date.now();
+      storeProfiles.push({
+        id: newId,
+        storeName,
+        stampPosition,
+        stampFileName: editorTempStamp ? editorTempStamp.name : '',
+        stampFileType: editorTempStamp ? editorTempStamp.type : '',
+        stampBuffer: editorTempStamp ? editorTempStamp.buffer : null,
+        stampCanvas
+      });
+      localStorage.setItem('billu_default_profile_id', newId);
+      activeStoreProfileId = newId;
+    }
+
+    await persistStoreProfilesToDB();
+    closeProfileEditor();
+    renderStoreProfilesList();
+    populateStoreProfileDropdown();
+    refreshReceiptForActiveProfile();
+    showToast('✅ Store profile saved', 'success');
+  }
+
+  function selectDefaultStoreProfile(profileId) {
+    localStorage.setItem('billu_default_profile_id', profileId);
+    activeStoreProfileId = profileId;
+    renderStoreProfilesList();
+    populateStoreProfileDropdown();
+    refreshReceiptForActiveProfile();
+    const p = getStoreProfileById(profileId);
+    showToast(p ? `🏷️ Default profile: ${p.storeName || p.stampFileName}` : '🏷️ Default profile: None', 'info');
+  }
+
+  async function deleteStoreProfile(profileId) {
+    if (!confirm('Delete this store profile?')) return;
+    storeProfiles = storeProfiles.filter(p => p.id !== profileId);
+    if (localStorage.getItem('billu_default_profile_id') === profileId) {
+      const nextDefault = storeProfiles.length > 0 ? storeProfiles[0].id : 'none';
+      localStorage.setItem('billu_default_profile_id', nextDefault);
+    }
+    if (activeStoreProfileId === profileId) {
+      activeStoreProfileId = getDefaultStoreProfileId();
+    }
+    await persistStoreProfilesToDB();
+    renderStoreProfilesList();
+    populateStoreProfileDropdown();
+    refreshReceiptForActiveProfile();
+    showToast('🗑️ Store profile deleted', 'info');
+  }
+
+  function getProfileDisplayTitle(p) {
+    if (!p) return 'None (No Store Name / No Stamp)';
+    const parts = [];
+    if (p.storeName) parts.push(`🏪 ${p.storeName}`);
+    if (p.stampFileName) parts.push(`🏷️ ${p.stampFileName} (${p.stampPosition === 'before' ? 'Top' : 'Bottom'})`);
+    return parts.join(' • ') || 'Unnamed Profile';
+  }
+
+  function renderStoreProfilesList() {
+    const container = document.getElementById('storeProfilesListContainer');
+    if (!container) return;
+    const defId = getDefaultStoreProfileId();
+
+    container.innerHTML = '';
+
+    // Always include a "None" card option so user can easily disable stamps/headers
+    const noneCard = document.createElement('div');
+    noneCard.className = 'printer-card' + (defId === 'none' ? ' active-printer' : '');
+    noneCard.innerHTML = `
+      <div class="printer-card-top">
+        <span style="font-weight:800; font-size:12px; color:#E5E7EB;">${defId === 'none' ? '🟢 ' : '⚪ '}None (No Store Header / No Stamp)</span>
+        <button class="printer-mini-btn" style="flex:0 0 90px; background:${defId === 'none' ? '#059669' : '#2563EB'};" onclick="selectDefaultStoreProfile('none')">
+          ${defId === 'none' ? '✓ Default' : 'Set Default'}
+        </button>
+      </div>
+    `;
+    container.appendChild(noneCard);
+
+    for (const p of storeProfiles) {
+      const isDef = p.id === defId;
+      const card = document.createElement('div');
+      card.className = 'printer-card' + (isDef ? ' active-printer' : '');
+
+      const top = document.createElement('div');
+      top.className = 'printer-card-top';
+      top.innerHTML = `
+        <div style="font-weight:800; font-size:12px; color:#FFFFFF; word-break:break-word;">
+          ${isDef ? '🟢 ' : '⚪ '}${getProfileDisplayTitle(p)}
+        </div>
+      `;
+
+      const actions = document.createElement('div');
+      actions.className = 'printer-card-actions';
+
+      const defBtn = document.createElement('button');
+      defBtn.className = 'printer-mini-btn';
+      defBtn.style.background = isDef ? '#059669' : '#2563EB';
+      defBtn.innerText = isDef ? '✓ Default' : '👉 Set Default';
+      defBtn.onclick = () => selectDefaultStoreProfile(p.id);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'printer-mini-btn';
+      editBtn.innerText = '✏️ Edit';
+      editBtn.onclick = () => toggleAddProfileForm(p.id);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'printer-mini-btn';
+      delBtn.style.background = '#7F1D1D';
+      delBtn.style.flex = '0 0 34px';
+      delBtn.innerText = '✕';
+      delBtn.onclick = () => deleteStoreProfile(p.id);
+
+      actions.appendChild(defBtn);
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
+      card.appendChild(top);
+      card.appendChild(actions);
+      container.appendChild(card);
+    }
+  }
+
+  function populateStoreProfileDropdown() {
+    const sel = document.getElementById('modalStoreProfileSelect');
+    if (!sel) return;
+    sel.innerHTML = '';
+
+    const noneOpt = document.createElement('option');
+    noneOpt.value = 'none';
+    noneOpt.innerText = 'None (No Store Name / Stamp)';
+    if (activeStoreProfileId === 'none') noneOpt.selected = true;
+    sel.appendChild(noneOpt);
+
+    for (const p of storeProfiles) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.innerText = getProfileDisplayTitle(p);
+      if (p.id === activeStoreProfileId) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+
+  function onModalStoreProfileChange() {
+    const sel = document.getElementById('modalStoreProfileSelect');
+    if (!sel) return;
+    activeStoreProfileId = sel.value || 'none';
+    refreshReceiptForActiveProfile();
+    updateMainButtonUI();
+  }
+
+  function refreshReceiptForActiveProfile() {
+    if (isFpPipelineRun && lastParsedFpData) {
+      docSourceCanvas = renderSynthesizedFpReceipt(lastParsedFpData, activeStoreProfileId);
+    }
+    if (docSourceCanvas) {
+      rebuildCompositePreview(false);
+    }
+  }
+
+  // ============================================================================
   // STRONG 1-BIT MONOCHROME RLE COMPRESSOR FOR VIEWER READY-TO-PRINT IMAGES
   // ============================================================================
 
-  // Compresses `printCanvas` (384px wide = 48 bytes/row 1-bit monochrome) using:
-  // - Row-Repeat RLE (`0xFF, count`) for identical/blank rows
-  // - PackBits Byte RLE (`0xFE, count, byteVal`) for repeated byte runs
   function encodeCanvasToRle1BitB64(canvasEl) {
     const w = PRINTER_WIDTH;
     const h = canvasEl.height;
@@ -1060,7 +1456,6 @@
     let y = 0;
     while (y < h) {
       const cur = rows[y];
-      // Encode single row with byte-level RLE
       let i = 0;
       while (i < 48) {
         let run = 1;
@@ -1073,7 +1468,6 @@
           i++;
         }
       }
-      // Count consecutive identical rows following this row
       let rep = 0;
       while (y + 1 + rep < h && rep < 250 && rowsEqual(cur, rows[y + 1 + rep])) {
         rep++;
@@ -1159,14 +1553,13 @@
     return outCanvas;
   }
 
-  // ============================================================================
+// ============================================================================
   // PEER-TO-PEER REMOTE BILLU SYNC + LIVE PRINTER STATUS & PRINT TELEMETRY
   // ============================================================================
 
   let mqttClient = null;
   let qrScannerStream = null;
   let qrScanRaf = null;
-  // peerId -> { lastSeen, name, printerConnected, printerName, queueCount, isPrinting }
   let activeOnlinePeers = new Map();
   let processedRemoteMsgIds = new Set();
 
@@ -1509,7 +1902,11 @@
       isFpPipelineRun = false;
       currentOrderMeta = { orderNo: msg.orderLabel || 'Remote Print', orderCode: '', isHistory: false };
       docSourceCanvas = rleCanvas;
-      rebuildCompositePreview(true);
+      // Incoming RLE image already has the sender's store header & stamp baked in, so set active profile to 'none' for this print
+      const prevProf = activeStoreProfileId;
+      activeStoreProfileId = 'none';
+      rebuildCompositePreview(true, true);
+      activeStoreProfileId = prevProf;
       updateMainButtonUI();
 
       if (autoPrintRemote) {
@@ -1517,6 +1914,7 @@
           kind: 'rle_image',
           rleB64: msg.b64,
           label: msg.orderLabel || 'Remote Viewer Print',
+          storeProfileId: 'none',
           fromPeerId: senderId
         });
         await drainPrintQueue(!document.hidden);
@@ -1524,7 +1922,7 @@
     }
   }
 
-  // Sends the currently rendered `printCanvas` compressed with Strong 1-Bit RLE (~4-8 KB)
+  // Sends the exact rendered `printCanvas` (including Store Header, Margins, and Stamp) compressed via 1-Bit RLE
   async function sendRenderedViewerRleToPeer(specificPeerId = null) {
     if (!docSourceCanvas) {
       showToast('⚠️ Load a receipt or document in the viewer first', 'warn');
@@ -1539,7 +1937,7 @@
 
     const rleB64 = encodeCanvasToRle1BitB64(printCanvasEl);
     const kbSize = (rleB64.length / 1024).toFixed(1);
-    const label = (isFpPipelineRun && currentOrderMeta.orderNo) ? `Order ${currentOrderMeta.orderNo}` : 'Viewer Receipt';
+    const label = (isFpPipelineRun && currentOrderMeta.orderNo) ? `Order ${currentOrderMeta.orderNo}` : 'Receipt';
 
     const ok = sendEncryptedToPeer(targetPeer, {
       type: 'REMOTE_PRINT_B64',
@@ -1549,10 +1947,10 @@
     });
 
     if (ok) {
-      showToast(`📡 Sent RLE Receipt (${kbSize} KB) to ${targetPeer.name}...`, 'info');
+      showToast(`📡 Sent ${label} (${kbSize} KB RLE) to ${targetPeer.name}`, 'info', true);
       return true;
     } else {
-      showToast('⚠️ Relay offline — check internet connection', 'error');
+      showToast('⚠️ Relay offline — check internet connection', 'error', true);
       return false;
     }
   }
@@ -1563,7 +1961,12 @@
     const validPeers = paired.filter(p => allowed.has(p.id));
     if (validPeers.length === 0) return null;
 
-    const targetId = explicitPeerId || localStorage.getItem('billu_default_target_peer') || validPeers[0].id;
+    const modalSel = document.getElementById('modalPeerSelect');
+    const targetId =
+      explicitPeerId ||
+      (modalSel && modalSel.value) ||
+      localStorage.getItem('billu_default_target_peer') ||
+      validPeers[0].id;
     return validPeers.find(p => p.id === targetId) || validPeers[0];
   }
 
@@ -1799,6 +2202,9 @@
     const sel = document.getElementById('modalPeerSelect');
     const stEl = document.getElementById('modalPeerPrinterStatus');
     if (!sel || !stEl) return;
+    if (sel.value) {
+      localStorage.setItem('billu_default_target_peer', sel.value);
+    }
     if (!sel.value) {
       stEl.innerText = '⚠️ No peer paired yet';
       stEl.style.color = '#FCA5A5';
@@ -1807,6 +2213,7 @@
     const st = getPeerStatusSummaryText(sel.value);
     stEl.innerText = st.text;
     stEl.style.color = st.color;
+    updateMainButtonUI();
   }
 
   function updateRemotePeerBadges() {
@@ -1853,14 +2260,16 @@
       const actions = document.createElement('div');
       actions.className = 'printer-card-actions';
 
-      const sendBtn = document.createElement('button');
-      sendBtn.className = 'printer-mini-btn';
-      sendBtn.style.background = isAllowedSlot ? 'var(--indigo)' : '#4B5563';
-      sendBtn.disabled = !isAllowedSlot;
-      sendBtn.innerText = '📡 Send RLE Receipt';
-      sendBtn.onclick = () => {
-        closeRemoteSyncOverlay();
-        sendRenderedViewerRleToPeer(p.id);
+      const selBtn = document.createElement('button');
+      selBtn.className = 'printer-mini-btn';
+      const isDefaultPeer = localStorage.getItem('billu_default_target_peer') === p.id;
+      selBtn.style.background = isDefaultPeer ? '#059669' : 'var(--indigo)';
+      selBtn.disabled = !isAllowedSlot;
+      selBtn.innerText = isDefaultPeer ? '✓ Selected Peer' : '👉 Select as Target';
+      selBtn.onclick = () => {
+        localStorage.setItem('billu_default_target_peer', p.id);
+        renderPairedPeersList();
+        showToast(`📡 Default target peer set to ${p.name}`, 'success');
       };
 
       const delBtn = document.createElement('button');
@@ -1870,7 +2279,7 @@
       delBtn.innerText = '✕ Remove';
       delBtn.onclick = () => removePairedPeer(p.id);
 
-      actions.appendChild(sendBtn);
+      actions.appendChild(selBtn);
       actions.appendChild(delBtn);
       card.appendChild(top);
       card.appendChild(actions);
@@ -1906,8 +2315,17 @@
   }
 
   // ============================================================================
-  // PEER ROUTING SETTINGS (FORWARD ALL VS PROMPT TO FORWARD)
+  // PEER ROUTING SETTINGS & SEGMENTED STATE CONTROLLER
   // ============================================================================
+
+  function setActiveRouteMode(mode) {
+    activeRouteMode = mode || 'local';
+    document.getElementById('segBtnLocal').classList.toggle('active-seg', activeRouteMode === 'local');
+    document.getElementById('segBtnPeer').classList.toggle('active-seg', activeRouteMode === 'peer');
+    document.getElementById('segBtnBoth').classList.toggle('active-seg', activeRouteMode === 'both');
+    document.getElementById('modalPeerTargetRow').style.display = (activeRouteMode === 'peer' || activeRouteMode === 'both') ? 'flex' : 'none';
+    updateMainButtonUI();
+  }
 
   function savePeerRoutingSettings() {
     const sel = document.getElementById('defaultTargetPeerSelect');
@@ -1915,6 +2333,7 @@
       localStorage.setItem('billu_default_target_peer', sel.value);
     }
     populatePeerDropdowns();
+    updateMainButtonUI();
   }
 
   function onToggleForwardAllToPeer() {
@@ -1923,26 +2342,24 @@
     if (fwdAll) {
       document.getElementById('fpPromptForwardToPeer').checked = false;
       localStorage.setItem('billu_prompt_forward_peer', '0');
-      showToast('📡 All incoming receipts will be forwarded to selected peer printer', 'success');
+      setActiveRouteMode('peer');
+      showToast('📡 All incoming receipts will forward to selected peer', 'success');
     } else {
+      setActiveRouteMode('local');
       showToast('🖨️ Local printing restored', 'info');
     }
   }
 
-  // Checking "Prompt to Forward to Selected Peer" automatically disables Silent Background Mode
-  // so MacroDroid opens Billu on screen with the 3-way routing prompt!
   function onTogglePromptForwardToPeer() {
     const promptPeer = document.getElementById('fpPromptForwardToPeer').checked;
     localStorage.setItem('billu_prompt_forward_peer', promptPeer ? '1' : '0');
     if (promptPeer) {
       document.getElementById('fpForwardAllToPeer').checked = false;
       localStorage.setItem('billu_forward_all_to_peer', '0');
-
-      // Auto-disable Silent Background Mode so Billu opens on screen for the prompt
       document.getElementById('fpSilentBgEnable').checked = false;
       localStorage.setItem('fp_silent_bg_enabled', '0');
       stopLocalB64BackgroundPoller();
-      showToast('❓ Prompt Mode ON (Silent Mode auto-disabled so Billu opens with routing prompt)', 'warn');
+      showToast('❓ Peer Prompt ON (Silent Mode paused so Billu opens with routing options)', 'warn');
     } else {
       showToast('Prompt to Forward disabled', 'info');
     }
@@ -2224,8 +2641,9 @@
       container.appendChild(card);
     }
   }
-// ============================================================================
-  // SELECTABLE-TEXT PDF 1.4 GENERATOR
+
+  // ============================================================================
+  // SELECTABLE-TEXT PDF 1.4 GENERATOR (USES SELECTED PROFILE'S STORE NAME)
   // ============================================================================
 
   function pdfCleanStr(str) {
@@ -2255,7 +2673,7 @@
     return out.length ? out : [''];
   }
 
-  function generateOrderTextPdfBlob(data) {
+  function generateOrderTextPdfBlob(data, storeProfileId = activeStoreProfileId) {
     const pageW = 164;
     const ops = [];
     let yCursor = 16;
@@ -2279,8 +2697,11 @@
       ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
     };
 
-    addCenterText((data.restaurant || localStorage.getItem('billu_detected_restaurant') || 'ORDER RECEIPT').toUpperCase(), yCursor, 12, true);
-    yCursor += 14;
+    const prof = getStoreProfileById(storeProfileId);
+    if (prof && prof.storeName && prof.storeName.trim()) {
+      addCenterText(prof.storeName.trim().toUpperCase(), yCursor, 12, true);
+      yCursor += 14;
+    }
 
     const dtStr = new Date().toLocaleString('en-GB', {
       day: '2-digit', month: 'short', year: 'numeric',
@@ -2424,7 +2845,7 @@
   }
 
   // ============================================================================
-  // ORDER RECEIPT PARSER & SYNTHESIZER
+  // ORDER RECEIPT PARSER & SYNTHESIZER (NO AUTO-GUESSED RESTAURANT NAMES)
   // ============================================================================
 
   function validateFoodpandaText(rawText) {
@@ -2465,9 +2886,9 @@
     return pairs;
   }
 
-function parseSingleScreenBlock(blockText) {
+  function parseSingleScreenBlock(blockText) {
     const res = {
-      restaurant: '', orderNo: '', orderCode: '', prepTime: '',
+      orderNo: '', orderCode: '', prepTime: '',
       orderReceivedTime: '', customer: '', isHistory: false,
       items: [], notes: [], discounts: [],
       subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
@@ -2486,8 +2907,6 @@ function parseSingleScreenBlock(blockText) {
 
         if (k === 'test_id_customer_name_text') {
           res.customer = trimmedV;
-        } else if (/vendor_name|restaurant_name|store_name/i.test(k)) {
-          res.restaurant = trimmedV.replace(/\s*\([A-Z0-9_-]{2,8}\)\s*$/i, '').trim();
         } else if (k === 'test_id_new_order_id') {
           const numMatch = trimmedV.match(/#\s*(\d{1,5})\b/);
           if (numMatch && !res.orderNo) res.orderNo = '#' + numMatch[1];
@@ -2503,7 +2922,6 @@ function parseSingleScreenBlock(blockText) {
           const pm = trimmedV.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
           if (pm) res.prepTime = pm[1];
         } else {
-          // Include all other fields so #1234 order numbers inside test_id_* keys are never skipped
           const splitLines = trimmedV.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           lines.push(...splitLines);
         }
@@ -2532,9 +2950,6 @@ function parseSingleScreenBlock(blockText) {
       if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
     }
 
-    // Extract the 4-char vendor prefix from the order code (e.g. "cvgi" from "cvgi-2643-jqby")
-    const vendorPrefix = res.orderCode ? res.orderCode.split('-')[0].toUpperCase() : '';
-
     if (!res.prepTime) {
       const prepMatch =
         fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i) ||
@@ -2547,36 +2962,13 @@ function parseSingleScreenBlock(blockText) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^You are closed|^You are outside/i.test(line)) {
+      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside/i.test(line)) {
         continue;
       }
-
-      // 1. Dynamic Restaurant Match: "Restaurant Name (CODE)" (matches store code in parentheses)
-      const storeHeaderMatch = line.match(/^(.+?)\s*\(([A-Z0-9]{3,6})\)$/);
-      if (
-        storeHeaderMatch &&
-        !stopWordsRe.test(line) &&
-        !/^(Regular|Large|Small|Medium|Mini|Half|Full)$/i.test(storeHeaderMatch[2])
-      ) {
-        const candidateName = storeHeaderMatch[1].trim();
-        const candidateCode = storeHeaderMatch[2].toUpperCase();
-        if (!res.restaurant || (vendorPrefix && candidateCode === vendorPrefix)) {
-          res.restaurant = candidateName;
-        }
+      // Ignore top app-bar store code lines like "Store Name (ABCD)" so they never leak into food item names
+      if (/^.+\([A-Z0-9]{4}\)$/.test(line) && !/\d+\s*[xX\u00D7*]/.test(line)) {
         continue;
       }
-
-      // 2. Dynamic Restaurant Match: Node immediately after "Back" in the top app bar
-      if (/^Back$/i.test(line)) {
-        const nextLine = lines[i + 1] || '';
-        if (nextLine && !stopWordsRe.test(nextLine) && nextLine.length >= 3 && nextLine.length <= 45 && !/[৳\d]{3,}/.test(nextLine)) {
-          if (!res.restaurant) {
-            res.restaurant = nextLine.replace(/\s*\([A-Z0-9_-]{2,8}\)\s*$/i, '').trim();
-          }
-        }
-        continue;
-      }
-
       if (/^Customer$/i.test(line)) {
         if (!res.customer && lines[i + 1] && !stopWordsRe.test(lines[i + 1])) {
           res.customer = lines[i + 1];
@@ -2675,7 +3067,7 @@ function parseSingleScreenBlock(blockText) {
         }
 
         const itemName = nameParts.join(' ').trim();
-        if (itemName && (!res.restaurant || itemName.toLowerCase() !== res.restaurant.toLowerCase())) {
+        if (itemName) {
           res.items.push({ qty, name: itemName, price });
         }
       }
@@ -2688,7 +3080,7 @@ function parseSingleScreenBlock(blockText) {
     const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
     const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
     const merged = {
-      restaurant: '', orderNo: '', orderCode: '', prepTime: '',
+      orderNo: '', orderCode: '', prepTime: '',
       orderReceivedTime: '', customer: '', isHistory: false,
       items: [], notes: [], discounts: [],
       subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
@@ -2699,7 +3091,6 @@ function parseSingleScreenBlock(blockText) {
     for (const block of rawBlocks) {
       const p = parseSingleScreenBlock(block);
 
-      if (p.restaurant) merged.restaurant = p.restaurant;
       if (p.isHistory) merged.isHistory = true;
       if (!merged.orderNo && p.orderNo) merged.orderNo = p.orderNo;
       if (!merged.orderCode && p.orderCode) merged.orderCode = p.orderCode;
@@ -2731,13 +3122,6 @@ function parseSingleScreenBlock(blockText) {
       }
     }
 
-    // Cache detected restaurant name for future scrolled captures, or fall back to cached name
-    if (merged.restaurant) {
-      localStorage.setItem('billu_detected_restaurant', merged.restaurant);
-    } else {
-      merged.restaurant = localStorage.getItem('billu_detected_restaurant') || 'Order Receipt';
-    }
-
     // Fallback to the 4-char suffix ONLY when the order does not have a #number
     if (!merged.orderNo && merged.orderCode) {
       const parts = merged.orderCode.split('-');
@@ -2760,7 +3144,7 @@ function parseSingleScreenBlock(blockText) {
     return merged;
   }
 
-  function renderSynthesizedFpReceipt(data) {
+  function renderSynthesizedFpReceipt(data, storeProfileId = activeStoreProfileId) {
     const isLargeFont = localStorage.getItem('fp_font_size_mode') === 'large';
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = PRINTER_WIDTH;
@@ -2800,12 +3184,16 @@ function parseSingleScreenBlock(blockText) {
       }
     };
 
-    ctx.font = '900 26px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText((data.restaurant || localStorage.getItem('billu_detected_restaurant') || 'ORDER RECEIPT').toUpperCase(), PRINTER_WIDTH / 2, y);
-    y += 32;
+    // If Store Name is given in the selected Store Profile, print it immediately before the receipt starts
+    // regardless of whether the profile's stamp position is Top ('before') or Bottom ('after')!
+    const prof = getStoreProfileById(storeProfileId);
+    if (prof && prof.storeName && prof.storeName.trim()) {
+      drawWrapped(prof.storeName.trim().toUpperCase(), PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, '900 26px system-ui, sans-serif', 32, 'center');
+      y += 2;
+    }
 
     ctx.font = '600 15px system-ui, sans-serif';
+    ctx.textAlign = 'center';
     const dt = new Date().toLocaleString('en-GB', {
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true,
@@ -3048,7 +3436,7 @@ function parseSingleScreenBlock(blockText) {
       const baseName = `FP_${orderTag}_${tsFile}`;
 
       const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
-      const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData) : null;
+      const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData, activeStoreProfileId) : null;
 
       const pngBuffer = pngBlob ? await pngBlob.arrayBuffer() : null;
       const pdfBuffer = pdfBlob ? await pdfBlob.arrayBuffer() : null;
@@ -3069,6 +3457,7 @@ function parseSingleScreenBlock(blockText) {
           pngBuffer,
           pdfBuffer,
           parsedData: lastParsedFpData,
+          storeProfileId: activeStoreProfileId,
           driveSynced: getSyncedDriveKeys().has(dedupeKey)
         };
         vault.unshift(entry);
@@ -3101,11 +3490,14 @@ function parseSingleScreenBlock(blockText) {
     const item = vault.find(v => v.id === entryId);
     if (!item) return;
 
+    if (item.storeProfileId) {
+      activeStoreProfileId = item.storeProfileId;
+    }
     if (item.parsedData) {
       lastParsedFpData = item.parsedData;
       isFpPipelineRun = true;
       currentOrderMeta = { orderNo: item.orderNo, orderCode: item.orderCode, isHistory: true };
-      docSourceCanvas = renderSynthesizedFpReceipt(item.parsedData);
+      docSourceCanvas = renderSynthesizedFpReceipt(item.parsedData, activeStoreProfileId);
       rebuildCompositePreview(true);
       updateMainButtonUI();
     } else if (item.pngBuffer) {
@@ -3238,8 +3630,16 @@ function parseSingleScreenBlock(blockText) {
     return (localStorage.getItem('fp_master_enabled') ?? '1') === '1';
   }
 
+  // Coherent Option Interaction:
+  // Silent Background interception is active ONLY when:
+  // 1. Master Pipeline is ON, 2. Silent Background checkbox is ON,
+  // 3. No Store Selection prompt is required, and 4. No Peer Routing prompt is required.
   function isSilentBgEnabled() {
-    return isFpMasterEnabled() && (localStorage.getItem('fp_silent_bg_enabled') ?? '1') === '1';
+    if (!isFpMasterEnabled()) return false;
+    if ((localStorage.getItem('fp_silent_bg_enabled') ?? '1') !== '1') return false;
+    if (needsStoreSelectionPrompt()) return false;
+    if (localStorage.getItem('billu_prompt_forward_peer') === '1') return false;
+    return true;
   }
 
   function saveFpMasterToggle() {
@@ -3266,9 +3666,11 @@ function parseSingleScreenBlock(blockText) {
     const enabled = document.getElementById('fpSilentBgEnable').checked;
     localStorage.setItem('fp_silent_bg_enabled', enabled ? '1' : '0');
     if (enabled && isFpMasterEnabled()) {
-      // If turning Silent Mode ON, uncheck "Prompt to Forward" so it doesn't conflict
+      // Automatically resolve conflicting prompt checkboxes so Silent Mode can run uninterrupted
       document.getElementById('fpPromptForwardToPeer').checked = false;
       localStorage.setItem('billu_prompt_forward_peer', '0');
+      document.getElementById('defaultStoreNoAskCheckbox').checked = true;
+      localStorage.setItem('billu_default_store_no_ask', '1');
       ensureAudioKeepAliveRunning();
       startLocalB64BackgroundPoller();
       showToast('🛡️ Silent Background Mode ON', 'success');
@@ -3443,7 +3845,7 @@ function parseSingleScreenBlock(blockText) {
   }
 
   // ============================================================================
-  // UNIFIED ORDER QUEUE DRAINER (SUPPORTS TEXT ORDERS, RLE IMAGES & PEER TELEMETRY)
+  // UNIFIED ORDER QUEUE DRAINER (AUTO-RETURNS EVEN WHEN QUEUED OFFLINE!)
   // ============================================================================
 
   async function drainPrintQueue(isForegroundFlow = false) {
@@ -3451,10 +3853,10 @@ function parseSingleScreenBlock(blockText) {
     isDrainingQueue = true;
 
     try {
-      for (let attempt = 1; attempt <= 4 && !writeChar && pendingPrintQueue.length > 0; attempt++) {
+      for (let attempt = 1; attempt <= 3 && !writeChar && pendingPrintQueue.length > 0; attempt++) {
         await attemptAutoReconnect(attempt > 1);
         if (writeChar) break;
-        if (attempt < 4) await delayMs(800);
+        if (attempt < 3) await delayMs(700);
       }
 
       if (!writeChar) {
@@ -3463,10 +3865,18 @@ function parseSingleScreenBlock(blockText) {
         playTone(300, 220);
         setTimeout(() => playTone(250, 260), 260);
         showToast(
-          `📥 ${pendingPrintQueue.length} receipt(s) queued — power ON printer or tap 📋 Queue to manage`,
+          `📥 ${pendingPrintQueue.length} receipt(s) queued — power ON printer to auto-print`,
           'warn',
           true
         );
+
+        // CRITICAL FIX: If Billu opened in the foreground (e.g. because Silent Mode was on
+        // while the printer was disconnected) AND "Auto-Return to Partner App" is checked,
+        // automatically return to the Partner App after queuing so the user is NEVER stranded in Billu!
+        const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
+        if (isForegroundFlow && !document.hidden && autoReturnEnabled) {
+          setTimeout(() => launchReturnApp(true), 550);
+        }
         return;
       }
 
@@ -3475,12 +3885,15 @@ function parseSingleScreenBlock(blockText) {
         updateFirstContactUI(false);
         renderQueueModalList();
         currentRemoteOriginPeerId = nextJob.fromPeerId || null;
+        if (nextJob.storeProfileId !== undefined) {
+          activeStoreProfileId = nextJob.storeProfileId;
+        }
 
         if (nextJob.kind === 'rle_image' && nextJob.rleB64) {
           isFpPipelineRun = false;
           currentOrderMeta = { orderNo: nextJob.label || 'Remote Print', orderCode: '', isHistory: false };
           docSourceCanvas = decodeRle1BitB64ToCanvas(nextJob.rleB64);
-          rebuildCompositePreview(true);
+          rebuildCompositePreview(true, true);
           updateMainButtonUI();
           await printCanvas(false);
           await delayMs(400);
@@ -3491,8 +3904,8 @@ function parseSingleScreenBlock(blockText) {
             isFpPipelineRun = true;
             lastParsedFpData = parsed;
             currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
-            docSourceCanvas = renderSynthesizedFpReceipt(parsed);
-            rebuildCompositePreview(true);
+            docSourceCanvas = renderSynthesizedFpReceipt(parsed, activeStoreProfileId);
+            rebuildCompositePreview(true, false);
             updateMainButtonUI();
             await printCanvas(isForegroundFlow || !document.hidden);
             await delayMs(400);
@@ -3509,22 +3922,26 @@ function parseSingleScreenBlock(blockText) {
   }
 
   // ============================================================================
-  // ORDER MODALS & PEER ROUTING WORKFLOW (PRINT HERE / AT PEER / BOTH)
+  // UNIFIED OPTIONS CARD & SINGLE MAIN PRINT BUTTON EXECUTION
   // ============================================================================
 
-  function showFpPrePrintModal(title, sub, showPeerRoutingMode = false) {
-    document.getElementById('fpPrePrintTitle').innerText = title || 'Print Order Receipt?';
-    document.getElementById('fpPrePrintSub').innerText = sub || 'Choose where to print this receipt';
+  function openViewerOptionsCard(customTitle = null, customSub = null) {
+    populateStoreProfileDropdown();
+    populatePeerDropdowns();
+    setActiveRouteMode(activeRouteMode);
+
+    document.getElementById('fpPrePrintTitle').innerText = customTitle || 'Receipt Store & Destination';
+    document.getElementById('fpPrePrintSub').innerText = customSub || 'Choose store profile & print destination, then tap the main Print button below.';
     document.getElementById('fpPrePrintCard').style.display = 'flex';
     document.getElementById('fpPostPrintCard').style.display = 'none';
     document.getElementById('fpErrorCard').style.display = 'none';
-
-    populatePeerDropdowns();
-    document.getElementById('modalPeerSelectBox').style.display = showPeerRoutingMode ? 'flex' : 'none';
-    document.getElementById('fpStandardPreActions').style.display = showPeerRoutingMode ? 'none' : 'flex';
-    document.getElementById('fpPeerRouteActions').style.display = showPeerRoutingMode ? 'flex' : 'none';
-
     document.getElementById('fpModalBackdrop').classList.add('active');
+    updateMainButtonUI();
+  }
+
+  function dismissPrePrintOptionsCard() {
+    hideFpModal();
+    updateMainButtonUI();
   }
 
   function showFpPostPrintModal() {
@@ -3548,77 +3965,6 @@ function parseSingleScreenBlock(blockText) {
 
   function hideFpModal() {
     document.getElementById('fpModalBackdrop').classList.remove('active');
-  }
-
-  function forwardRawOrderToPeer(rawText, orderLabel, explicitPeerId = null) {
-    const targetPeer = resolveTargetPeer(explicitPeerId);
-    if (!targetPeer) {
-      showToast('⚠️ No paired peer available — open "🔗 Peers" to scan a QR code', 'warn');
-      return false;
-    }
-    const b64 = encodeUtf8Base64(rawText);
-    const ok = sendEncryptedToPeer(targetPeer, {
-      type: 'REMOTE_PRINT_B64',
-      kind: 'fp_b64',
-      b64,
-      orderLabel: orderLabel || 'Order Receipt'
-    });
-    if (ok) {
-      showToast(`📡 Forwarded ${orderLabel || 'Order'} to ${targetPeer.name} (waiting for peer status...)`, 'info', true);
-      return true;
-    } else {
-      showToast(`⚠️ Could not reach ${targetPeer.name} — relay offline`, 'error', true);
-      return false;
-    }
-  }
-
-  async function onFpRouteChoice(choice) {
-    hideFpModal();
-    ensureAudioKeepAliveRunning();
-
-    if (choice === 'cancel') {
-      showToast('🛑 Print cancelled', 'warn');
-      return;
-    }
-
-    const modalSel = document.getElementById('modalPeerSelect');
-    const chosenPeerId = (modalSel && modalSel.value) || localStorage.getItem('billu_default_target_peer');
-    if (chosenPeerId) {
-      localStorage.setItem('billu_default_target_peer', chosenPeerId);
-    }
-
-    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
-    const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
-    const orderLbl = currentOrderMeta.orderNo ? `Order ${currentOrderMeta.orderNo}` : 'Order Receipt';
-
-    if (choice === 'peer') {
-      const sent = forwardRawOrderToPeer(lastRawFpText, orderLbl, chosenPeerId);
-      if (isFpPipelineRun) await archivePrintedReceiptToVault();
-      if (sent && autoReturnEnabled) {
-        setTimeout(() => launchReturnApp(true), 350);
-      }
-      return;
-    }
-
-    if (choice === 'both') {
-      forwardRawOrderToPeer(lastRawFpText, orderLbl, chosenPeerId);
-    }
-
-    // Local print path (for both 'local' and 'both'):
-    if (autoReturnEnabled && autoReturnTiming === 'before') {
-      launchReturnApp(false);
-    }
-
-    enqueuePrintJob({
-      kind: 'fp_text',
-      rawText: lastRawFpText,
-      label: orderLbl,
-      total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || ''
-    });
-    await drainPrintQueue(true);
-    if (!writeChar) {
-      await pairNewPrinter();
-    }
   }
 
   function onFpPostPrintChoice(goBack) {
@@ -3654,7 +4000,7 @@ function parseSingleScreenBlock(blockText) {
     document.getElementById('fpAutoReturnTimingBox').style.display = autoReturn ? 'flex' : 'none';
 
     if (lastParsedFpData && isFpPipelineRun) {
-      docSourceCanvas = renderSynthesizedFpReceipt(lastParsedFpData);
+      docSourceCanvas = renderSynthesizedFpReceipt(lastParsedFpData, activeStoreProfileId);
       rebuildCompositePreview(false);
     }
   }
@@ -3695,52 +4041,54 @@ function parseSingleScreenBlock(blockText) {
     isFpPipelineRun = true;
     lastParsedFpData = parsed;
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
+    activeStoreProfileId = getDefaultStoreProfileId();
+
     const orderLbl = parsed.orderNo ? `Order ${parsed.orderNo}` : 'Order Receipt';
     const orderTotal = parsed.total || parsed.subtotal || '';
 
     if (!isPrinting) {
-      docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+      docSourceCanvas = renderSynthesizedFpReceipt(parsed, activeStoreProfileId);
       rebuildCompositePreview(true);
-      updateMainButtonUI();
     }
 
-    // 1. Check if "Forward ALL receipt prints to selected peer" is enabled (and this order did not come from a peer)
     const forwardAllToPeer = !fromRemotePeer && localStorage.getItem('billu_forward_all_to_peer') === '1';
+    const promptForwardPeer = !fromRemotePeer && localStorage.getItem('billu_prompt_forward_peer') === '1';
+    const mustAskStore = !fromRemotePeer && needsStoreSelectionPrompt();
+    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
+
+    setActiveRouteMode(forwardAllToPeer ? 'peer' : 'local');
+    updateMainButtonUI();
+
+    // 1. If user needs to select a Store Profile, or Peer Route, or Manual Print confirmation -> Open the Options Card!
+    // (No extra print buttons inside the card; user picks options and taps the single bottom Print button)
+    if (!fromRemotePeer && (mustAskStore || promptForwardPeer || (!isSilentBgRun && !autoPrintOnOpen))) {
+      openViewerOptionsCard(
+        `${orderLbl} (${orderTotal})`,
+        `Confirm Store Profile & Destination below, then tap the bottom Print button.`
+      );
+      return { ok: true };
+    }
+
+    // 2. If "Forward All to Selected Peer" is enabled (and no Store Prompt was needed):
+    // Send the RLE-compressed composite receipt (which includes the Default Store Profile's header & stamp!)
     if (forwardAllToPeer) {
-      forwardRawOrderToPeer(rawText, orderLbl);
+      const sent = await sendRenderedViewerRleToPeer();
       await archivePrintedReceiptToVault();
       const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
-      if (!isSilentBgRun && !document.hidden && autoReturnEnabled) {
+      if (!isSilentBgRun && !document.hidden && autoReturnEnabled && sent) {
         setTimeout(() => launchReturnApp(true), 350);
       }
       return { ok: true };
     }
 
-    // 2. Check if "Prompt to forward to selected peer" is enabled (and this order did not come from a peer)
-    const promptForwardPeer = !fromRemotePeer && localStorage.getItem('billu_prompt_forward_peer') === '1';
-    if (promptForwardPeer) {
-      const title = `Route ${orderLbl}`;
-      const sub = `${parsed.items.length} item(s) • Total ${orderTotal}`;
-      showFpPrePrintModal(title, sub, true);
-      return { ok: true };
-    }
-
-    // 3. Standard Foreground Confirmation Prompt if Auto-Print is OFF
-    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
-    if (!isSilentBgRun && !fromRemotePeer && !autoPrintOnOpen) {
-      const title = `Print ${orderLbl}?`;
-      const sub = `${parsed.items.length} item(s) • Total ${orderTotal}`;
-      showFpPrePrintModal(title, sub, false);
-      return { ok: true };
-    }
-
-    // 4. Enqueue & Print Locally
+    // 3. Otherwise -> Enqueue & Print Locally (and auto-return if configured, even if queued while offline!)
     showToast(`🧾 ${orderLbl} loaded (${parsed.items.length} item(s) • ${orderTotal})`, 'info', isSilentBgRun);
     enqueuePrintJob({
       kind: 'fp_text',
       rawText,
       label: orderLbl,
       total: orderTotal,
+      storeProfileId: activeStoreProfileId,
       fromPeerId: senderPeerId
     });
     await drainPrintQueue(!isSilentBgRun);
@@ -3840,21 +4188,22 @@ function parseSingleScreenBlock(blockText) {
 
   function loadSampleFpOrder() {
     closeMenu();
-    const sampleOrder = `{"$2" :"Back","$3" :"Sample Kitchen (DEMO)","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"demo-1042-ab12","index:44" :"Order received","index:45" :"20:57","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Regular Combo Meal ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Standard delivery","test_id_web_view_collapsible_title" :"Order History"}`;
+    const sampleOrder = `{"$2" :"Back","index:30" :"#2643","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"cvgi-2643-jqby","index:44" :"Order received","index:45" :"20:57","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Koftah Bhuna Khichuri Combo - Regular ৳199.00","index:67" :"Subtotal ৳208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Platform delivery"}`;
 
     lastRawFpText = sampleOrder;
     const parsed = parseFoodpandaMultiScroll(sampleOrder);
     lastParsedFpData = parsed;
     isFpPipelineRun = true;
     currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
-    docSourceCanvas = renderSynthesizedFpReceipt(parsed);
+    activeStoreProfileId = getDefaultStoreProfileId();
+    docSourceCanvas = renderSynthesizedFpReceipt(parsed, activeStoreProfileId);
     rebuildCompositePreview(true);
     updateMainButtonUI();
     showToast(`🧪 Loaded sample receipt ${parsed.orderNo} (${parsed.total})`, 'info');
   }
 
   // ============================================================================
-  // VIEWPORT, SHARED-PROMISE BLE ENGINE, MARGINS & STAMP LOGIC
+  // VIEWPORT, SINGLE MAIN BUTTON CONTROLLER & BLE ENGINE
   // ============================================================================
 
   const viewportEl = document.getElementById('viewport');
@@ -3863,7 +4212,7 @@ function parseSingleScreenBlock(blockText) {
   const emptyStateEl = document.getElementById('emptyStateContainer');
   const fitScreenBtnEl = document.getElementById('fitScreenBtn');
   const printSomethingElseBtnEl = document.getElementById('printSomethingElseBtn');
-  const sendRemoteFabBtnEl = document.getElementById('sendRemoteFabBtn');
+  const openOptionsCardFabBtnEl = document.getElementById('openOptionsCardFabBtn');
 
   function applyTransform() {
     transformEl.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
@@ -3942,6 +4291,7 @@ function parseSingleScreenBlock(blockText) {
 
   function getSavedPrinterId() { return localStorage.getItem('cat_printer_id'); }
 
+  // Updates the SINGLE main action button at the bottom to reflect the exact selected Store & Route state!
   function updateMainButtonUI() {
     const btn = document.getElementById('mainActionBtn');
     const savedId = getSavedPrinterId();
@@ -3950,7 +4300,7 @@ function parseSingleScreenBlock(blockText) {
     renderPrinterManagerList();
     updateFirstContactUI(false);
 
-    btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-stop', 'state-disabled');
+    btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-peer', 'state-stop', 'state-disabled');
 
     if (isPrinting) {
       btn.disabled = false;
@@ -3966,19 +4316,38 @@ function parseSingleScreenBlock(blockText) {
     }
 
     btn.disabled = false;
+    const prof = getActiveStoreProfile();
+    const storeBadge = (prof && prof.storeName) ? ` [${prof.storeName}]` : '';
+
+    if (activeRouteMode === 'peer') {
+      const targetPeer = resolveTargetPeer();
+      const peerLbl = targetPeer ? targetPeer.name : 'Select Peer';
+      btn.classList.add('state-peer');
+      btn.innerHTML = `📡 Send to Peer (${peerLbl})${storeBadge}`;
+      return;
+    }
+
+    if (activeRouteMode === 'both') {
+      const targetPeer = resolveTargetPeer();
+      const peerLbl = targetPeer ? targetPeer.name : 'Peer';
+      btn.classList.add('state-connect');
+      btn.innerHTML = `🖨️+📡 Print Here & ${peerLbl}${storeBadge}`;
+      return;
+    }
 
     if (writeChar) {
       btn.classList.add('state-print');
-      btn.innerHTML = `Print (${labelStr})`;
+      btn.innerHTML = `🖨️ Print (${labelStr})${storeBadge}`;
     } else if (!savedId) {
       btn.classList.add('state-connect');
       btn.innerHTML = 'Connect Printer';
     } else {
       btn.classList.add('state-searching');
-      btn.innerHTML = `<span>Searching for ${labelStr}<span class="dots"></span> (Tap to Pair)</span>`;
+      btn.innerHTML = `<span>Searching for ${labelStr}<span class="dots"></span> (Tap to Print/Pair)</span>`;
     }
   }
 
+  // The SINGLE button that executes all printing / peer forwarding actions
   async function handleMainButtonClick() {
     ensureAudioKeepAliveRunning();
     if (isPrinting) {
@@ -3993,19 +4362,52 @@ function parseSingleScreenBlock(blockText) {
 
     const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
     const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
-    if (isFpPipelineRun && autoReturnEnabled && autoReturnTiming === 'before') {
+    const orderLbl = (isFpPipelineRun && currentOrderMeta.orderNo) ? `Order ${currentOrderMeta.orderNo}` : 'Receipt';
+
+    // Route 1: Peer Only
+    if (activeRouteMode === 'peer') {
+      const sent = await sendRenderedViewerRleToPeer();
+      if (isFpPipelineRun) await archivePrintedReceiptToVault();
+      if (sent && isFpPipelineRun && autoReturnEnabled) {
+        setTimeout(() => launchReturnApp(true), 350);
+      }
+      return;
+    }
+
+    // Route 2: Both (Send RLE to Peer first, then print locally)
+    if (activeRouteMode === 'both') {
+      await sendRenderedViewerRleToPeer();
+    }
+
+    // Route 3: Local Print (or Local half of 'both')
+    if (isFpPipelineRun && autoReturnEnabled && autoReturnTiming === 'before' && writeChar) {
       launchReturnApp(false);
     }
 
+    if (isFpPipelineRun && lastRawFpText) {
+      enqueuePrintJob({
+        kind: 'fp_text',
+        rawText: lastRawFpText,
+        label: orderLbl,
+        total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
+        storeProfileId: activeStoreProfileId
+      });
+      await drainPrintQueue(true);
+      if (!writeChar) {
+        await pairNewPrinter();
+      }
+      return;
+    }
+
     if (writeChar) {
-      await printCanvas(isFpPipelineRun);
+      await printCanvas(false);
       return;
     }
     const ok = await attemptAutoReconnect(false);
     if (!ok && !writeChar) {
       await pairNewPrinter();
     } else if (writeChar) {
-      await printCanvas(isFpPipelineRun);
+      await printCanvas(false);
     }
   }
 
@@ -4265,6 +4667,7 @@ function parseSingleScreenBlock(blockText) {
     overlay.classList.toggle('open');
     if (overlay.classList.contains('open')) {
       renderPrinterManagerList();
+      renderStoreProfilesList();
       populatePeerDropdowns();
     }
   }
@@ -4280,29 +4683,6 @@ function parseSingleScreenBlock(blockText) {
     localStorage.setItem('cat_margin_after_mm', afterVal);
     rebuildCompositePreview(false);
     showToast(`📏 Margins updated: ${beforeVal}mm top, ${afterVal}mm bottom`, 'info');
-  }
-
-  function saveStampSettings() {
-    const enabled = document.getElementById('stampEnabled').checked;
-    const pos = document.getElementById('stampPosition').value;
-    localStorage.setItem('cat_stamp_enabled', enabled ? '1' : '0');
-    localStorage.setItem('cat_stamp_pos', pos);
-    rebuildCompositePreview(true);
-    showToast(enabled ? `🏷️ Stamp enabled` : '🏷️ Stamp disabled', 'info');
-  }
-
-  async function handleStampFileSelect(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const buf = await file.arrayBuffer();
-    await idbSet('stampFile', { name: file.name, type: file.type, buffer: buf });
-    document.getElementById('stampFileName').innerText = file.name;
-    document.getElementById('stampEnabled').checked = true;
-    localStorage.setItem('cat_stamp_enabled', '1');
-
-    stampSourceCanvas = await renderFileToTrimmedCanvas(new File([buf], file.name, { type: file.type }));
-    rebuildCompositePreview(true);
-    showToast(`🏷️ Loaded stamp: ${file.name}`, 'success');
   }
 
   function saveReturnAppSetting() {
@@ -4387,6 +4767,7 @@ function parseSingleScreenBlock(blockText) {
 
     isFpPipelineRun = false;
     lastParsedFpData = null;
+    activeStoreProfileId = getDefaultStoreProfileId();
     await loadMainDocumentFile(file);
     e.target.value = '';
   }
@@ -4488,13 +4869,17 @@ function parseSingleScreenBlock(blockText) {
     rebuildCompositePreview(false);
   }
 
-  function rebuildCompositePreview(resetFitScreen = false) {
+  // Renders the composite preview using the active Store & Stamp Profile:
+  // - If `skipProfileOverlay` is true (used for incoming pre-rendered RLE images from peers), draws `docSourceCanvas` directly.
+  // - Otherwise, places the profile's Stamp Image at Top ('before') or Bottom ('after'), and if a manual file is open
+  //   with a Store Name profile, prints the Store Name immediately before the document starts!
+  function rebuildCompositePreview(resetFitScreen = false, skipProfileOverlay = false) {
     if (!docSourceCanvas) {
       emptyStateEl.style.display = 'flex';
       transformEl.style.display = 'none';
       fitScreenBtnEl.style.display = 'none';
       printSomethingElseBtnEl.style.display = 'none';
-      sendRemoteFabBtnEl.style.display = 'none';
+      openOptionsCardFabBtnEl.style.display = 'none';
       updateMainButtonUI();
       return;
     }
@@ -4503,21 +4888,25 @@ function parseSingleScreenBlock(blockText) {
     transformEl.style.display = 'block';
     fitScreenBtnEl.style.display = 'flex';
     printSomethingElseBtnEl.style.display = 'flex';
-    sendRemoteFabBtnEl.style.display = 'flex';
+    openOptionsCardFabBtnEl.style.display = 'flex';
 
     const threshold = parseInt(document.getElementById('brightnessSlider').value || '155', 10);
-    const marginBeforeMm = parseInt(localStorage.getItem('cat_margin_before_mm') ?? '4', 10);
-    const marginAfterMm = parseInt(localStorage.getItem('cat_margin_after_mm') ?? '4', 10);
+    const marginBeforeMm = skipProfileOverlay ? 0 : parseInt(localStorage.getItem('cat_margin_before_mm') ?? '4', 10);
+    const marginAfterMm = skipProfileOverlay ? 0 : parseInt(localStorage.getItem('cat_margin_after_mm') ?? '4', 10);
     const marginBeforePx = Math.max(0, Math.round(marginBeforeMm * PX_PER_MM));
     const marginAfterPx = Math.max(0, Math.round(marginAfterMm * PX_PER_MM));
 
-    const stampEnabled = localStorage.getItem('cat_stamp_enabled') === '1' && stampSourceCanvas;
-    const stampPos = localStorage.getItem('cat_stamp_pos') || 'after';
-    const stampGap = stampEnabled ? 16 : 0;
+    const prof = skipProfileOverlay ? null : getActiveStoreProfile();
+    const activeStampCanvas = (prof && prof.stampCanvas) ? prof.stampCanvas : null;
+    const stampPos = (prof && prof.stampPosition) ? prof.stampPosition : 'after';
+    const stampGap = activeStampCanvas ? 16 : 0;
+
+    // For manual files (non-FP pipeline), if the profile has a Store Name, render it right before the document starts
+    const extraStoreNameH = (!skipProfileOverlay && !isFpPipelineRun && prof && prof.storeName && prof.storeName.trim()) ? 40 : 0;
 
     const docH = docSourceCanvas.height;
-    const stampH = stampEnabled ? stampSourceCanvas.height : 0;
-    const totalHeight = Math.max(40, marginBeforePx + docH + stampH + stampGap + marginAfterPx);
+    const stampH = activeStampCanvas ? activeStampCanvas.height : 0;
+    const totalHeight = Math.max(40, marginBeforePx + extraStoreNameH + docH + stampH + stampGap + marginAfterPx);
 
     const compCanvas = document.createElement('canvas');
     compCanvas.width = PRINTER_WIDTH;
@@ -4528,17 +4917,26 @@ function parseSingleScreenBlock(blockText) {
 
     let yCursor = marginBeforePx;
 
-    if (stampEnabled && stampPos === 'before') {
-      compCtx.drawImage(stampSourceCanvas, 0, yCursor);
+    if (activeStampCanvas && stampPos === 'before') {
+      compCtx.drawImage(activeStampCanvas, 0, yCursor);
       yCursor += stampH + stampGap;
+    }
+
+    if (extraStoreNameH > 0) {
+      compCtx.fillStyle = '#000000';
+      compCtx.font = '900 26px system-ui, sans-serif';
+      compCtx.textAlign = 'center';
+      compCtx.textBaseline = 'top';
+      compCtx.fillText(prof.storeName.trim().toUpperCase(), PRINTER_WIDTH / 2, yCursor + 4);
+      yCursor += extraStoreNameH;
     }
 
     compCtx.drawImage(docSourceCanvas, 0, yCursor);
     yCursor += docH;
 
-    if (stampEnabled && stampPos === 'after') {
+    if (activeStampCanvas && stampPos === 'after') {
       yCursor += stampGap;
-      compCtx.drawImage(stampSourceCanvas, 0, yCursor);
+      compCtx.drawImage(activeStampCanvas, 0, yCursor);
     }
 
     const srcPixels = compCtx.getImageData(0, 0, PRINTER_WIDTH, totalHeight).data;
@@ -4846,12 +5244,15 @@ function parseSingleScreenBlock(blockText) {
     document.getElementById('marginBeforeMmInput').value = localStorage.getItem('cat_margin_before_mm') ?? legacyMargin;
     document.getElementById('marginAfterMmInput').value = localStorage.getItem('cat_margin_after_mm') ?? legacyMargin;
 
-    document.getElementById('stampEnabled').checked = localStorage.getItem('cat_stamp_enabled') === '1';
-    document.getElementById('stampPosition').value = localStorage.getItem('cat_stamp_pos') || 'after';
+    document.getElementById('defaultStoreNoAskCheckbox').checked = isDefaultStoreNoAskEnabled();
 
     document.getElementById('fpSilentBgEnable').checked = (localStorage.getItem('fp_silent_bg_enabled') ?? '1') === '1';
     document.getElementById('fpForwardAllToPeer').checked = localStorage.getItem('billu_forward_all_to_peer') === '1';
     document.getElementById('fpPromptForwardToPeer').checked = localStorage.getItem('billu_prompt_forward_peer') === '1';
+
+    if (localStorage.getItem('billu_forward_all_to_peer') === '1') {
+      activeRouteMode = 'peer';
+    }
 
     document.getElementById('fpAutoPrintOnOpen').checked = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
     document.getElementById('fpAutoReturn').checked = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
@@ -4876,21 +5277,13 @@ function parseSingleScreenBlock(blockText) {
     document.getElementById('customAppIcon').value = localStorage.getItem('cat_return_icon') || '';
     document.getElementById('customAppPkg').value = localStorage.getItem('cat_return_pkg') || '';
 
+    await loadStoreProfilesFromDB();
     applyFpMasterUI();
     renderPrinterManagerList();
     updateRemotePeerBadges();
     populatePeerDropdowns();
     initRemoteSyncEngine();
     await refreshVaultCount();
-
-    try {
-      const savedStamp = await idbGet('stampFile');
-      if (savedStamp && savedStamp.buffer) {
-        document.getElementById('stampFileName').innerText = savedStamp.name;
-        const stampFile = new File([savedStamp.buffer], savedStamp.name, { type: savedStamp.type });
-        stampSourceCanvas = await renderFileToTrimmedCanvas(stampFile);
-      }
-    } catch (e) {}
 
     try {
       const savedQueueJson = sessionStorage.getItem('billu_relaunch_queue_v4');
@@ -4900,12 +5293,15 @@ function parseSingleScreenBlock(blockText) {
         if (Array.isArray(restoredList) && restoredList.length > 0) {
           pendingPrintQueue = restoredList;
           const firstJob = pendingPrintQueue[0];
+          if (firstJob && firstJob.storeProfileId) {
+            activeStoreProfileId = firstJob.storeProfileId;
+          }
           if (firstJob && firstJob.rawText) {
             const previewParsed = parseFoodpandaMultiScroll(firstJob.rawText);
             lastParsedFpData = previewParsed;
             isFpPipelineRun = true;
             currentOrderMeta = { orderNo: previewParsed.orderNo, orderCode: previewParsed.orderCode, isHistory: previewParsed.isHistory };
-            docSourceCanvas = renderSynthesizedFpReceipt(previewParsed);
+            docSourceCanvas = renderSynthesizedFpReceipt(previewParsed, activeStoreProfileId);
           } else if (firstJob && firstJob.rleB64) {
             docSourceCanvas = decodeRle1BitB64ToCanvas(firstJob.rleB64);
           }
