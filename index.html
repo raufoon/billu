@@ -429,7 +429,7 @@
 
     <div class="opt-row" style="background:#111827; border:1px solid #374151;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v4.2.0</span>
+        <span id="menuVersionLabel" style="font-weight:800; color:#10B981; font-size:12px;">v4.2.1</span>
         <span id="menuUpdatedLabel" style="color:#9CA3AF; font-size:11px;">Updated</span>
       </div>
       <div style="display:flex; gap:6px;">
@@ -442,14 +442,14 @@
       </div>
     </div>
 
-    <!-- NATIVE APK ACCESSIBILITY ORDER READER STATUS CARD (SHOWN AUTOMATICALLY IN APK) -->
+    <!-- NATIVE APK ACCESSIBILITY ORDER READER STATUS CARD (SHOWN IN APK) -->
     <div id="nativeApkControlBox" class="opt-row" style="display:none; background:#111827; border:1px solid #10B981;">
       <div class="opt-row-inline">
-        <span style="font-weight:800; color:#34D399; font-size:13px;">🤖 Native APK Order Reader</span>
+        <span style="font-weight:800; color:#34D399; font-size:13px;">🐱 Native APK Order Reader</span>
         <span id="nativeAccStatusBadge" style="font-size:11px; font-weight:800; color:#F59E0B;">Checking...</span>
       </div>
       <div style="font-size:11px; color:#9CA3AF;">
-        Replaces MacroDroid with a native, ad-free floating <b>🐼</b> button and notification action.
+        Displays the floating <b>🐱</b> Cat button exclusively inside the Partner App.
       </div>
       <button type="button" class="opt-btn" style="background:var(--green); color:#FFFFFF; padding:8px;" onclick="openNativeAccessibilitySettings()">
         ⚙️ Enable / Check "Billu Order Reader" in Android Settings
@@ -701,7 +701,7 @@
         <span class="big-title">Open Document or Image</span>
         <span class="big-sub">Supports PDF, PNG, JPG, and Order Logs</span>
       </button>
-      <div class="version-pill" id="homeVersionBadge">Billu v4.2.0</div>
+      <div class="version-pill" id="homeVersionBadge">Billu v4.2.1</div>
     </div>
 
     <div id="canvasTransform">
@@ -715,7 +715,7 @@
   </div>
 
 <script>
-  const APP_VERSION = 'v4.2.0';
+  const APP_VERSION = 'v4.2.1';
   const APP_UPDATED_DHAKA = '07 Nov 2026';
 
   const PRINTER_WIDTH = 384;
@@ -727,7 +727,6 @@
     '0000ff00-0000-1000-8000-00805f9b34fb'
   ];
 
-  // Native APK Bridge Detection (`window.BilluNative`)
   function hasNativeBridge() {
     return typeof window.BilluNative !== 'undefined' && Boolean(window.BilluNative.isNativeApp());
   }
@@ -787,6 +786,17 @@
   function isAppCurrentlyHidden() {
     if (hasNativeBridge()) return !window.isNativeUiVisible;
     return document.hidden;
+  }
+
+  function syncNativeSilentModePrefs() {
+    if (!hasNativeBridge()) return;
+    try {
+      const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
+      const customPkg = mode === 'custom' ? (localStorage.getItem('cat_return_pkg') || '') : '';
+      if (typeof window.BilluNative.syncSilentModeState === 'function') {
+        window.BilluNative.syncSilentModeState(isSilentBgEnabled(), customPkg);
+      }
+    } catch (e) {}
   }
 
   // ============================================================================
@@ -890,7 +900,6 @@
       osTitle = `🟢 Printer Connected (${pLabel})`;
       osBody = `Print service ready.${qCount > 0 ? ' ' + qCount + ' queued.' : ''}`;
     } else if (hasNativeBridge() && savedId) {
-      // In the Native APK, OS-level MAC auto-connect is always armed even without "First Contact"!
       hasMadeFirstContact = true;
       bar.classList.add('ss-standby');
       txt.innerText = `🟡 Standby (${pLabel} Off — Turn ON printer anytime to auto-print)`;
@@ -1145,6 +1154,9 @@
         const keys = await caches.keys();
         for (const k of keys) await caches.delete(k);
       }
+      if (!hasNativeBridge()) {
+        await fetch(window.location.pathname, { cache: 'reload' });
+      }
     } catch (e) {}
     window.location.reload();
   }
@@ -1284,6 +1296,7 @@
     } else {
       showToast('🏷️ Default store profile will be used automatically', 'success');
     }
+    syncNativeSilentModePrefs();
   }
 
   function toggleAddProfileForm(editId = null) {
@@ -1397,6 +1410,7 @@
     renderStoreProfilesList();
     populateStoreProfileDropdown();
     refreshReceiptForActiveProfile();
+    syncNativeSilentModePrefs();
     showToast('✅ Store profile saved', 'success');
   }
 
@@ -1424,6 +1438,7 @@
     renderStoreProfilesList();
     populateStoreProfileDropdown();
     refreshReceiptForActiveProfile();
+    syncNativeSilentModePrefs();
     showToast('🗑️ Store profile deleted', 'info');
   }
 
@@ -1665,10 +1680,8 @@
     return outCanvas;
   }
 
-  // === END OF PART 1 OF index.html (Reply "Continue" for Part 2 + Setup Guide) ===
-
-// ============================================================================
-  // PEER-TO-PEER REMOTE SYNC + TELEMETRY + NATIVE BLE BRIDGE WRAPPER
+  // ============================================================================
+  // PEER-TO-PEER REMOTE BILLU SYNC + LIVE PRINTER STATUS & PRINT TELEMETRY
   // ============================================================================
 
   let mqttClient = null;
@@ -2093,8 +2106,3185 @@
     return btoa(chunks.join(''));
   }
 
+  function getMyPairingUri() {
+    const me = getMyNodeIdentity();
+    return `BILLU1:${me.id}:${me.key}:${encodeURIComponent(me.name)}`;
+  }
+
+  function renderMyQrCode() {
+    const box = document.getElementById('qrDisplayBox');
+    if (!box || typeof QRCode === 'undefined') return;
+    box.innerHTML = '';
+    const me = getMyNodeIdentity();
+    new QRCode(box, {
+      text: getMyPairingUri(),
+      width: 170,
+      height: 170,
+      colorDark: '#000000',
+      colorLight: '#FFFFFF',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('myNodeIdLabel').innerText = `Node ID: ${me.id} • Key: ${me.key.slice(0, 8)}...`;
+  }
+
+  function regenerateMyPrivateKey() {
+    if (!confirm('Regenerate your Private Key? Existing paired peers using your old key will be disconnected.')) return;
+    localStorage.removeItem('billu_node_id');
+    localStorage.removeItem('billu_private_key');
+    savePairedPeers([]);
+    activeOnlinePeers.clear();
+    renderMyQrCode();
+    renderPairedPeersList();
+    initRemoteSyncEngine();
+    showToast('🔑 New Private Key & QR generated', 'success');
+  }
+
+  async function copyMyPairingKey() {
+    try {
+      await navigator.clipboard.writeText(getMyPairingUri());
+      showToast('📋 Pairing key copied to clipboard', 'success');
+    } catch (e) {
+      prompt('Copy your Pairing Key:', getMyPairingUri());
+    }
+  }
+
+  function pastePeerPairingKey() {
+    const input = prompt('Paste the Pairing Key from the other Billu app:');
+    if (input && input.trim()) {
+      processScannedPairingUri(input.trim());
+    }
+  }
+
+  function processScannedPairingUri(uri) {
+    const m = String(uri || '').trim().match(/^BILLU1:([A-Z0-9-]+):([a-fA-F0-9]+):(.*)$/);
+    if (!m) {
+      showToast('⚠️ Invalid Billu QR / Pairing Key', 'error');
+      return false;
+    }
+    const [, peerId, peerKey, rawName] = m;
+    const peerName = decodeURIComponent(rawName || peerId);
+    const me = getMyNodeIdentity();
+
+    if (peerId === me.id) {
+      showToast('⚠️ Cannot pair with your own device QR', 'warn');
+      return false;
+    }
+
+    const paired = getPairedPeers();
+    const maxP = getMaxConcurrentPeers();
+    let existing = paired.find(p => p.id === peerId);
+
+    if (!existing && paired.length >= maxP) {
+      showToast(`⚠️ Max Concurrent Peers limit (${maxP}) reached. Increase limit or remove a peer first.`, 'error');
+      return false;
+    }
+
+    if (!existing) {
+      existing = { id: peerId, key: peerKey, name: peerName, addedAt: Date.now() };
+      paired.push(existing);
+    } else {
+      existing.key = peerKey;
+      existing.name = peerName;
+    }
+    if (!localStorage.getItem('billu_default_target_peer')) {
+      localStorage.setItem('billu_default_target_peer', peerId);
+    }
+    savePairedPeers(paired);
+    stopQrCameraScanner();
+    renderPairedPeersList();
+
+    sendEncryptedToPeer(existing, {
+      type: 'PAIR_REQUEST',
+      sharedKey: peerKey,
+      fromName: me.name,
+      telemetry: getMyPrinterTelemetrySnapshot()
+    });
+    showToast(`🔗 Connecting to ${peerName}...`, 'info');
+    return true;
+  }
+
+  async function toggleQrCameraScanner() {
+    const box = document.getElementById('qrVideoContainer');
+    if (qrScannerStream) {
+      stopQrCameraScanner();
+      return;
+    }
+    try {
+      qrScannerStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      const video = document.getElementById('qrVideo');
+      video.srcObject = qrScannerStream;
+      await video.play();
+      box.style.display = 'block';
+      scanQrFrameLoop();
+    } catch (err) {
+      showToast('⚠️ Camera access denied — use Copy/Paste Key instead', 'warn');
+    }
+  }
+
+  function stopQrCameraScanner() {
+    if (qrScanRaf) cancelAnimationFrame(qrScanRaf);
+    qrScanRaf = null;
+    if (qrScannerStream) {
+      qrScannerStream.getTracks().forEach(t => t.stop());
+      qrScannerStream = null;
+    }
+    const box = document.getElementById('qrVideoContainer');
+    if (box) box.style.display = 'none';
+  }
+
+  function scanQrFrameLoop() {
+    if (!qrScannerStream) return;
+    const video = document.getElementById('qrVideo');
+    const canvas = document.getElementById('qrScanCanvas');
+    if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR !== 'undefined') {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+      if (code && code.data && code.data.startsWith('BILLU1:')) {
+        processScannedPairingUri(code.data);
+        return;
+      }
+    }
+    qrScanRaf = requestAnimationFrame(scanQrFrameLoop);
+  }
+
+  function removePairedPeer(peerId) {
+    const next = getPairedPeers().filter(p => p.id !== peerId);
+    activeOnlinePeers.delete(peerId);
+    savePairedPeers(next);
+    renderPairedPeersList();
+    showToast('🗑️ Disconnected peer', 'info');
+  }
+
+  function getPeerStatusSummaryText(peerId) {
+    const info = activeOnlinePeers.get(peerId);
+    const isAppOnline = info && (Date.now() - info.lastSeen < 35000);
+    if (!isAppOnline) return { text: '⚪ Peer App Offline', color: '#9CA3AF' };
+    if (info.printerConnected) {
+      return {
+        text: `🟢 Printer Ready (${info.printerName || 'Connected'})${info.isPrinting ? ' • 🖨️ Printing...' : ''}`,
+        color: '#34D399'
+      };
+    }
+    return {
+      text: `🔴 Printer Offline (App Online${info.queueCount ? ' • ' + info.queueCount + ' Queued' : ''})`,
+      color: '#FBBF24'
+    };
+  }
+
+  function populatePeerDropdowns() {
+    const paired = getPairedPeers();
+    const allowed = getAllowedActivePeerIds();
+    const validPeers = paired.filter(p => allowed.has(p.id));
+    const savedDefault = localStorage.getItem('billu_default_target_peer') || (validPeers[0] && validPeers[0].id) || '';
+
+    const selects = [
+      document.getElementById('defaultTargetPeerSelect'),
+      document.getElementById('modalPeerSelect')
+    ];
+
+    for (const sel of selects) {
+      if (!sel) continue;
+      const prevVal = sel.value || savedDefault;
+      sel.innerHTML = '';
+      if (validPeers.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.innerText = 'No Paired Peers';
+        sel.appendChild(opt);
+      } else {
+        for (const p of validPeers) {
+          const st = getPeerStatusSummaryText(p.id);
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.innerText = `${p.name} (${st.text.slice(0, 18)})`;
+          if (p.id === prevVal) opt.selected = true;
+          sel.appendChild(opt);
+        }
+      }
+    }
+
+    const defStatusEl = document.getElementById('defaultTargetPeerStatus');
+    if (defStatusEl) {
+      if (validPeers.length === 0) {
+        defStatusEl.innerText = 'Pair a peer via QR to enable remote routing';
+        defStatusEl.style.color = '#9CA3AF';
+      } else {
+        const chosenId = (document.getElementById('defaultTargetPeerSelect') && document.getElementById('defaultTargetPeerSelect').value) || savedDefault;
+        const st = getPeerStatusSummaryText(chosenId);
+        defStatusEl.innerText = st.text;
+        defStatusEl.style.color = st.color;
+      }
+    }
+
+    onModalPeerSelectChange();
+  }
+
+  function onModalPeerSelectChange() {
+    const sel = document.getElementById('modalPeerSelect');
+    const stEl = document.getElementById('modalPeerPrinterStatus');
+    if (!sel || !stEl) return;
+    if (sel.value) {
+      localStorage.setItem('billu_default_target_peer', sel.value);
+    }
+    if (!sel.value) {
+      stEl.innerText = '⚠️ No peer paired yet';
+      stEl.style.color = '#FCA5A5';
+      return;
+    }
+    const st = getPeerStatusSummaryText(sel.value);
+    stEl.innerText = st.text;
+    stEl.style.color = st.color;
+    updateMainButtonUI();
+  }
+
+  function updateRemotePeerBadges() {
+    const paired = getPairedPeers();
+    const maxP = getMaxConcurrentPeers();
+    const activeCount = Math.min(paired.length, maxP);
+    const topBadge = document.getElementById('topPeerCount');
+    if (topBadge) topBadge.innerText = String(activeCount);
+    const slotLbl = document.getElementById('activePeerSlotsLabel');
+    if (slotLbl) slotLbl.innerText = `${activeCount} / ${maxP} Active Slots`;
+  }
+
+  function renderPairedPeersList() {
+    updateRemotePeerBadges();
+    populatePeerDropdowns();
+    const container = document.getElementById('peerListContainer');
+    if (!container) return;
+    const paired = getPairedPeers();
+    const allowed = getAllowedActivePeerIds();
+
+    if (paired.length === 0) {
+      container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:16px;">No peers paired yet. Scan another Billu app\'s QR code above to link.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    for (const p of paired) {
+      const isAllowedSlot = allowed.has(p.id);
+      const st = getPeerStatusSummaryText(p.id);
+
+      const card = document.createElement('div');
+      card.className = 'printer-card' + (isAllowedSlot ? ' active-printer' : '');
+
+      const top = document.createElement('div');
+      top.className = 'printer-card-top';
+      top.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span style="font-weight:800; font-size:13px; color:#FFFFFF;">${!isAllowedSlot ? '⛔ [Over Limit] ' : ''}${p.name}</span>
+          <span style="font-size:11px; font-weight:700; color:${st.color};">${st.text}</span>
+        </div>
+        <span class="printer-mac-badge">${p.id}</span>
+      `;
+
+      const actions = document.createElement('div');
+      actions.className = 'printer-card-actions';
+
+      const selBtn = document.createElement('button');
+      selBtn.className = 'printer-mini-btn';
+      const isDefaultPeer = localStorage.getItem('billu_default_target_peer') === p.id;
+      selBtn.style.background = isDefaultPeer ? '#059669' : 'var(--indigo)';
+      selBtn.disabled = !isAllowedSlot;
+      selBtn.innerText = isDefaultPeer ? '✓ Selected Peer' : '👉 Select as Target';
+      selBtn.onclick = () => {
+        localStorage.setItem('billu_default_target_peer', p.id);
+        renderPairedPeersList();
+        showToast(`📡 Default target peer set to ${p.name}`, 'success');
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'printer-mini-btn';
+      delBtn.style.background = '#7F1D1D';
+      delBtn.style.flex = '0 0 80px';
+      delBtn.innerText = '✕ Remove';
+      delBtn.onclick = () => removePairedPeer(p.id);
+
+      actions.appendChild(selBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(top);
+      card.appendChild(actions);
+      container.appendChild(card);
+    }
+  }
+
+  function openRemoteSyncOverlay() {
+    closeMenu();
+    renderMyQrCode();
+    renderPairedPeersList();
+    document.getElementById('remoteSyncOverlay').classList.add('open');
+    pingAllPairedPeers();
+  }
+
+  function closeRemoteSyncOverlay() {
+    stopQrCameraScanner();
+    document.getElementById('remoteSyncOverlay').classList.remove('open');
+  }
+
+  function saveRemoteSettings() {
+    const name = document.getElementById('myNodeNameInput').value.trim() || 'Billu-Terminal';
+    const maxP = Math.max(1, Math.min(10, parseInt(document.getElementById('maxConcurrentPeersInput').value || '2', 10)));
+    const autoPrint = document.getElementById('remoteAutoPrintIncoming').checked;
+
+    localStorage.setItem('billu_node_name', name);
+    localStorage.setItem('billu_max_peers', String(maxP));
+    localStorage.setItem('billu_remote_autoprint', autoPrint ? '1' : '0');
+
+    renderMyQrCode();
+    renderPairedPeersList();
+    showToast(`🔗 Remote settings saved (Max ${maxP} peer(s))`, 'success');
+  }
+
   // ============================================================================
-  // NATIVE BLE COMMAND WRAPPER (`writeBle`) — USES `BilluNative` IN APK
+  // PEER ROUTING SETTINGS & SEGMENTED STATE CONTROLLER
+  // ============================================================================
+
+  function setActiveRouteMode(mode) {
+    activeRouteMode = mode || 'local';
+    document.getElementById('segBtnLocal').classList.toggle('active-seg', activeRouteMode === 'local');
+    document.getElementById('segBtnPeer').classList.toggle('active-seg', activeRouteMode === 'peer');
+    document.getElementById('segBtnBoth').classList.toggle('active-seg', activeRouteMode === 'both');
+    document.getElementById('modalPeerTargetRow').style.display = (activeRouteMode === 'peer' || activeRouteMode === 'both') ? 'flex' : 'none';
+    updateMainButtonUI();
+  }
+
+  function savePeerRoutingSettings() {
+    const sel = document.getElementById('defaultTargetPeerSelect');
+    if (sel && sel.value) {
+      localStorage.setItem('billu_default_target_peer', sel.value);
+    }
+    populatePeerDropdowns();
+    updateMainButtonUI();
+  }
+
+  function onToggleForwardAllToPeer() {
+    const fwdAll = document.getElementById('fpForwardAllToPeer').checked;
+    localStorage.setItem('billu_forward_all_to_peer', fwdAll ? '1' : '0');
+    if (fwdAll) {
+      document.getElementById('fpPromptForwardToPeer').checked = false;
+      localStorage.setItem('billu_prompt_forward_peer', '0');
+      setActiveRouteMode('peer');
+      showToast('📡 All incoming receipts will forward to selected peer', 'success');
+    } else {
+      setActiveRouteMode('local');
+      showToast('🖨️ Local printing restored', 'info');
+    }
+    syncNativeSilentModePrefs();
+  }
+
+  function onTogglePromptForwardToPeer() {
+    const promptPeer = document.getElementById('fpPromptForwardToPeer').checked;
+    localStorage.setItem('billu_prompt_forward_peer', promptPeer ? '1' : '0');
+    if (promptPeer) {
+      document.getElementById('fpForwardAllToPeer').checked = false;
+      localStorage.setItem('billu_forward_all_to_peer', '0');
+      document.getElementById('fpSilentBgEnable').checked = false;
+      localStorage.setItem('fp_silent_bg_enabled', '0');
+      stopLocalB64BackgroundPoller();
+      showToast('❓ Peer Prompt ON (Silent Mode paused so Billu opens with routing options)', 'warn');
+    } else {
+      showToast('Prompt to Forward disabled', 'info');
+    }
+    syncNativeSilentModePrefs();
+  }
+
+  // ============================================================================
+  // 24H+ KEEP-AWAKE ANTI-SLEEP MICRO-JOG
+  // ============================================================================
+
+  function isPrinterKeepAwakeEnabled() {
+    return (localStorage.getItem('cat_printer_keep_awake') ?? '1') === '1';
+  }
+
+  function saveKeepAwakeSetting() {
+    const enabled = document.getElementById('printerKeepAwakeEnable').checked;
+    localStorage.setItem('cat_printer_keep_awake', enabled ? '1' : '0');
+    lastPrinterAntiSleepTime = Date.now();
+    showToast(enabled ? '🔋 24h+ Keep-Awake enabled (10m micro-jog)' : '🔋 24h+ Keep-Awake disabled', 'info');
+  }
+
+  async function sendAntiSleepMicroJog(manualTest = false) {
+    const conn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+    if (!conn || isPrinting || isConnecting || isJogging) {
+      if (manualTest && !conn) showToast('⚠️ Connect printer first to test micro-jog', 'warn');
+      return;
+    }
+    isJogging = true;
+    try {
+      if (manualTest) showToast('🔋 Testing 1mm out-and-in anti-sleep jog...', 'info');
+      const emptyRow = new Uint8Array(48);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]));
+      await printRowSleep(25);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA2, emptyRow));
+      await printRowSleep(20);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA1, [0x08, 0x00]));
+      await printRowSleep(120);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA0, [0x08, 0x00]));
+      await printRowSleep(80);
+      if (isPrinting) return;
+      await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]));
+      lastPrinterAntiSleepTime = Date.now();
+      if (manualTest) showToast('✅ Micro-jog complete (printer sleep timer reset)', 'success');
+    } catch (e) {
+    } finally {
+      isJogging = false;
+    }
+  }
+
+  // ============================================================================
+  // MULTI-PRINTER REGISTRY (SUPPORTS BOTH WEB BLUETOOTH & NATIVE MAC ADDRESSES)
+  // ============================================================================
+
+  function computeMacTag(deviceId, hwName = '') {
+    const macInId = String(deviceId || '').match(/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/);
+    if (macInId) return macInId[0].toUpperCase();
+    const macInName = String(hwName || '').match(/([0-9A-Fa-f]{2}[:-]){2,5}[0-9A-Fa-f]{2}/);
+    if (macInName) return macInName[0].toUpperCase();
+
+    const str = String(deviceId || '000000');
+    let h1 = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h1 ^= str.charCodeAt(i);
+      h1 = Math.imul(h1, 0x01000193) >>> 0;
+    }
+    const b1 = ((h1 >>> 16) & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    const b2 = ((h1 >>> 8) & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    const b3 = (h1 & 0xFF).toString(16).padStart(2, '0').toUpperCase();
+    return `${b1}:${b2}:${b3}`;
+  }
+
+  function getPrinterRegistry() {
+    try {
+      const raw = localStorage.getItem('cat_printer_registry');
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function savePrinterRegistry(list) {
+    localStorage.setItem('cat_printer_registry', JSON.stringify(list));
+  }
+
+  function registerOrUpdatePrinter(device) {
+    if (!device || !device.id) return null;
+    if (device.gatt) cachedBleDeviceMap.set(device.id, device);
+    const list = getPrinterRegistry();
+    const macTag = computeMacTag(device.id, device.name);
+    let entry = list.find(p => p.id === device.id);
+    if (!entry) {
+      entry = {
+        id: device.id,
+        hwName: device.name || 'Thermal Printer',
+        customName: '',
+        macTag,
+        lastConnected: Date.now()
+      };
+      list.push(entry);
+    } else {
+      if (device.name) entry.hwName = device.name;
+      entry.macTag = macTag;
+      entry.lastConnected = Date.now();
+    }
+    savePrinterRegistry(list);
+    localStorage.setItem('cat_printer_id', entry.id);
+    localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    renderPrinterManagerList();
+    return entry;
+  }
+
+  function getPrinterDisplayLabel(deviceOrId) {
+    const id = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId && deviceOrId.id);
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === id);
+    if (entry) {
+      const title = entry.customName ? `${entry.customName} (${entry.hwName})` : entry.hwName;
+      return `${title} [${entry.macTag}]`;
+    }
+    if (deviceOrId && typeof deviceOrId === 'object') {
+      const mac = computeMacTag(deviceOrId.id, deviceOrId.name);
+      return `${deviceOrId.name || 'Printer'} [${mac}]`;
+    }
+    if (typeof deviceOrId === 'string' && deviceOrId.length > 0) {
+      return `Printer [${deviceOrId}]`;
+    }
+    return 'None';
+  }
+
+  function renameSavedPrinter(printerId) {
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    if (!entry) return;
+    const nextName = prompt(
+      `Enter a label for ${entry.hwName} [${entry.macTag}]:`,
+      entry.customName || entry.hwName
+    );
+    if (nextName === null) return;
+    entry.customName = nextName.trim();
+    savePrinterRegistry(list);
+    if (getSavedPrinterId() === printerId) {
+      localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    }
+    renderPrinterManagerList();
+    updateMainButtonUI();
+    showToast(`✏️ Renamed printer to ${getPrinterDisplayLabel(printerId)}`, 'success');
+  }
+
+  async function selectAndConnectPrinterFromList(printerId) {
+    const list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    if (!entry) return;
+
+    hardAbortPendingBle();
+    localStorage.setItem('cat_printer_id', entry.id);
+    localStorage.setItem('cat_printer_name', entry.customName || entry.hwName);
+    renderPrinterManagerList();
+    updateMainButtonUI();
+
+    showToast(`🔍 Connecting to ${getPrinterDisplayLabel(entry.id)}...`, 'info');
+    if (hasNativeBridge()) {
+      window.BilluNative.connectToMac(entry.id);
+      return;
+    }
+    const ok = await attemptAutoReconnect(false);
+    if (!ok) {
+      showToast(`⚠️ Could not reach ${getPrinterDisplayLabel(entry.id)}`, 'warn');
+    }
+  }
+
+  async function removeSingleSavedPrinter(printerId) {
+    let list = getPrinterRegistry();
+    const entry = list.find(p => p.id === printerId);
+    list = list.filter(p => p.id !== printerId);
+    savePrinterRegistry(list);
+    cachedBleDeviceMap.delete(printerId);
+
+    if (hasNativeBridge() && getSavedPrinterId() === printerId) {
+      try { if (typeof window.BilluNative.forgetPrinter === 'function') window.BilluNative.forgetPrinter(); } catch (e) {}
+    }
+
+    try {
+      if (!hasNativeBridge() && navigator.bluetooth && navigator.bluetooth.getDevices) {
+        const devs = await navigator.bluetooth.getDevices();
+        const match = devs.find(d => d.id === printerId);
+        if (match) {
+          if (match.gatt) match.gatt.disconnect();
+          if (typeof match.forget === 'function') await match.forget().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    if (getSavedPrinterId() === printerId) {
+      writeChar = null;
+      activeBleDevice = null;
+      if (list.length > 0) {
+        const next = list[list.length - 1];
+        localStorage.setItem('cat_printer_id', next.id);
+        localStorage.setItem('cat_printer_name', next.customName || next.hwName);
+      } else {
+        localStorage.removeItem('cat_printer_id');
+        localStorage.removeItem('cat_printer_name');
+      }
+    }
+
+    renderPrinterManagerList();
+    updateMainButtonUI();
+    showToast(`🗑️ Removed printer ${entry ? entry.hwName : ''}`, 'info');
+  }
+
+  async function forgetAllPrinters() {
+    if (!confirm('Forget all saved Bluetooth printers?')) return;
+    hardAbortPendingBle();
+    cachedBleDeviceMap.clear();
+    hasMadeFirstContact = false;
+
+    if (hasNativeBridge()) {
+      try { if (typeof window.BilluNative.forgetPrinter === 'function') window.BilluNative.forgetPrinter(); } catch (e) {}
+    }
+
+    try {
+      if (!hasNativeBridge() && navigator.bluetooth && navigator.bluetooth.getDevices) {
+        const devs = await navigator.bluetooth.getDevices();
+        for (const d of devs) {
+          if (d.gatt) d.gatt.disconnect();
+          if (typeof d.forget === 'function') await d.forget().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    localStorage.removeItem('cat_printer_id');
+    localStorage.removeItem('cat_printer_name');
+    savePrinterRegistry([]);
+    renderPrinterManagerList();
+    updateMainButtonUI();
+    showToast('🗑️ All saved printers removed', 'warn');
+  }
+
+  function renderPrinterManagerList() {
+    const container = document.getElementById('savedPrintersList');
+    if (!container) return;
+    const list = getPrinterRegistry();
+    const activeId = getSavedPrinterId();
+    const hasConn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+
+    if (list.length === 0) {
+      container.innerHTML = '<div style="color:#9CA3AF; font-size:12px; text-align:center; padding:6px;">No printers paired yet.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    for (const p of list) {
+      const isAct = p.id === activeId;
+      const isConn = isAct && hasConn;
+      const card = document.createElement('div');
+      card.className = 'printer-card' + (isAct ? ' active-printer' : '');
+
+      const top = document.createElement('div');
+      top.className = 'printer-card-top';
+      const displayTitle = p.customName ? `${p.customName} (${p.hwName})` : p.hwName;
+      top.innerHTML = `
+        <div style="font-weight:800; font-size:12px; color:#FFFFFF; word-break:break-word;">
+          ${isConn ? '🟢 ' : (isAct ? '🟡 ' : '⚪ ')}${displayTitle}
+        </div>
+        <span class="printer-mac-badge">${p.macTag}</span>
+      `;
+
+      const actions = document.createElement('div');
+      actions.className = 'printer-card-actions';
+
+      const connBtn = document.createElement('button');
+      connBtn.className = 'printer-mini-btn';
+      connBtn.style.background = isConn ? '#059669' : '#2563EB';
+      connBtn.innerText = isConn ? '✓ Connected' : (isAct ? '🔌 Reconnect' : '👉 Connect');
+      connBtn.onclick = () => selectAndConnectPrinterFromList(p.id);
+
+      const renBtn = document.createElement('button');
+      renBtn.className = 'printer-mini-btn';
+      renBtn.innerText = '✏️ Rename';
+      renBtn.onclick = () => renameSavedPrinter(p.id);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'printer-mini-btn';
+      delBtn.style.background = '#7F1D1D';
+      delBtn.style.flex = '0 0 34px';
+      delBtn.innerText = '✕';
+      delBtn.onclick = () => removeSingleSavedPrinter(p.id);
+
+      actions.appendChild(connBtn);
+      actions.appendChild(renBtn);
+      actions.appendChild(delBtn);
+
+      card.appendChild(top);
+      card.appendChild(actions);
+      container.appendChild(card);
+    }
+  }
+  // === END OF PART 1 OF index.html (Reply "Continue" for Part 2 of 2) ===
+
+// ============================================================================
+  // SELECTABLE-TEXT PDF 1.4 GENERATOR
+  // ============================================================================
+
+  function pdfCleanStr(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/৳/g, 'Tk ')
+      .replace(/[\u2022•]/g, '-')
+      .replace(/[^\x20-\x7E]/g, '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
+  }
+
+  function wrapPdfLine(text, maxChars) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const out = [];
+    let cur = '';
+    for (const w of words) {
+      if ((cur + ' ' + w).trim().length > maxChars && cur) {
+        out.push(cur.trim());
+        cur = w;
+      } else {
+        cur = (cur + ' ' + w).trim();
+      }
+    }
+    if (cur) out.push(cur.trim());
+    return out.length ? out : [''];
+  }
+
+  function generateOrderTextPdfBlob(data, storeProfileId = activeStoreProfileId) {
+    const pageW = 164;
+    const ops = [];
+    let yCursor = 16;
+
+    const addText = (txt, x, yTop, size = 9, bold = false) => {
+      ops.push({ type: 'text', txt: pdfCleanStr(txt), x, yTop, size, bold });
+    };
+    const addCenterText = (txt, yTop, size = 9, bold = false) => {
+      const clean = pdfCleanStr(txt);
+      const estW = clean.length * size * (bold ? 0.56 : 0.52);
+      const x = Math.max(6, (pageW - estW) / 2);
+      ops.push({ type: 'text', txt: clean, x, yTop, size, bold });
+    };
+    const addRightText = (txt, yTop, size = 9, bold = false) => {
+      const clean = pdfCleanStr(txt);
+      const estW = clean.length * size * (bold ? 0.56 : 0.52);
+      const x = Math.max(6, pageW - 6 - estW);
+      ops.push({ type: 'text', txt: clean, x, yTop, size, bold });
+    };
+    const addRule = (yTop, thick = false) => {
+      ops.push({ type: 'line', yTop, w: thick ? 1.5 : 0.6 });
+    };
+
+    const prof = getStoreProfileById(storeProfileId);
+    if (prof && prof.storeName && prof.storeName.trim()) {
+      addCenterText(prof.storeName.trim().toUpperCase(), yCursor, 12, true);
+      yCursor += 14;
+    }
+
+    const dtStr = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: 'Asia/Dhaka'
+    });
+    addCenterText(dtStr, yCursor, 7.5, false);
+    yCursor += 10;
+
+    if (data.isHistory) {
+      addCenterText('[ ORDER HISTORY / REPRINT ]', yCursor, 7, true);
+      yCursor += 10;
+    }
+
+    addRule(yCursor, true);
+    yCursor += 18;
+
+    if (data.orderNo) {
+      addCenterText(data.orderNo, yCursor, 20, true);
+      yCursor += 16;
+    }
+    if (data.orderCode) {
+      addCenterText(data.orderCode, yCursor, 9.5, true);
+      yCursor += 10;
+    }
+
+    if (data.customer || data.prepTime || data.orderReceivedTime) {
+      addRule(yCursor, false);
+      yCursor += 12;
+      if (data.customer) {
+        for (const l of wrapPdfLine('Customer: ' + data.customer, 26)) {
+          addText(l, 6, yCursor, 8.5, true);
+          yCursor += 11;
+        }
+      }
+      if (data.prepTime) {
+        addText('Ready By: ' + data.prepTime, 6, yCursor, 8.5, true);
+        yCursor += 11;
+      } else if (data.orderReceivedTime) {
+        addText('Ordered At: ' + data.orderReceivedTime, 6, yCursor, 8, false);
+        yCursor += 11;
+      }
+    }
+
+    addRule(yCursor, false);
+    yCursor += 13;
+
+    for (const item of (data.items || [])) {
+      addText(item.qty || '1x', 6, yCursor, 9, true);
+      if (item.price) addRightText(item.price, yCursor, 9, true);
+      const wrappedName = wrapPdfLine(item.name || '', 17);
+      for (const nl of wrappedName) {
+        addText(nl, 24, yCursor, 8.5, false);
+        yCursor += 11;
+      }
+      yCursor += 3;
+    }
+
+    for (const note of (data.notes || [])) {
+      yCursor += 2;
+      for (const nl of wrapPdfLine('! ' + note + ' !', 24)) {
+        addCenterText(nl, yCursor, 8, true);
+        yCursor += 11;
+      }
+    }
+
+    addRule(yCursor, false);
+    yCursor += 13;
+
+    if (data.subtotal && data.subtotal !== data.total) {
+      addText('Subtotal', 6, yCursor, 8.5, false);
+      addRightText(data.subtotal, yCursor, 8.5, false);
+      yCursor += 12;
+    }
+    if (data.vat) {
+      addText('VAT', 6, yCursor, 8.5, false);
+      addRightText(data.vat, yCursor, 8.5, false);
+      yCursor += 12;
+    }
+    for (const d of (data.discounts || [])) {
+      addText(d.label, 6, yCursor, 8, false);
+      addRightText(d.amount, yCursor, 8, false);
+      yCursor += 11;
+    }
+
+    const finalTotal = data.total || data.subtotal || '';
+    if (finalTotal) {
+      addText('TOTAL', 6, yCursor, 11, true);
+      addRightText(finalTotal, yCursor, 11, true);
+      yCursor += 14;
+    }
+
+    if (data.payment || data.deliveryType) {
+      addRule(yCursor, false);
+      yCursor += 12;
+      const payStr = [data.payment, data.deliveryType].filter(Boolean).join(' - ');
+      for (const pl of wrapPdfLine(payStr, 26)) {
+        addCenterText(pl, yCursor, 8, true);
+        yCursor += 10;
+      }
+    }
+
+    addRule(yCursor, true);
+    const pageH = Math.max(200, yCursor + 20);
+
+    const streamLines = [];
+    for (const op of ops) {
+      const pdfY = (pageH - op.yTop).toFixed(1);
+      if (op.type === 'text') {
+        const fontRef = op.bold ? '/F2' : '/F1';
+        streamLines.push(`BT ${fontRef} ${op.size} Tf ${op.x.toFixed(1)} ${pdfY} Td (${op.txt}) Tj ET`);
+      } else if (op.type === 'line') {
+        streamLines.push(`${op.w} w 6 ${pdfY} m ${(pageW - 6).toFixed(1)} ${pdfY} l S`);
+      }
+    }
+
+    const contentStream = streamLines.join('\n');
+    const objects = [
+      `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
+      `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`,
+      `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n`,
+      `4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n`,
+      `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n`,
+      `6 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream\nendobj\n`
+    ];
+
+    let pdf = `%PDF-1.4\n`;
+    const offsets = [0];
+    for (const obj of objects) {
+      offsets.push(pdf.length);
+      pdf += obj;
+    }
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    for (let i = 1; i <= objects.length; i++) {
+      pdf += String(offsets[i]).padStart(10, '0') + ` 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([pdf], { type: 'application/pdf' });
+  }
+
+  // ============================================================================
+  // FIXED PARSER (HANDLES COMMAS >= 1,000, LEADING '5' PRICES & INLINE ITEMS)
+  // ============================================================================
+
+  function validateFoodpandaText(rawText) {
+    if (!rawText || rawText.trim().length < 8) {
+      return { valid: false, reason: 'Empty screen capture text' };
+    }
+    if (/Failed to generate|Select printer settings|Was the test print successful/i.test(rawText)) {
+      return { valid: false, reason: 'Ignored printer settings screen' };
+    }
+    const hasOrderNo = /#\d{1,5}\b/.test(rawText);
+    const hasCode = /[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/i.test(rawText);
+    const hasItems = /(?:^|["\s])\d+\s*[xX\u00D7*](?:["\s]|$)/m.test(rawText);
+    const hasPrices = /(?:Subtotal|Total|Order details|৳\s*[\d,]+|\d+\.\d{2})/i.test(rawText);
+
+    if (!hasOrderNo && !hasCode && !hasItems && !hasPrices) {
+      return { valid: false, reason: 'No order ID, items, or price breakdown found' };
+    }
+    return { valid: true };
+  }
+
+  function extractKeyValuePairsRobust(text) {
+    const pairs = [];
+    const kvRegex = /"([^"]*)"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+    let m;
+    while ((m = kvRegex.exec(text)) !== null) {
+      const k = m[1];
+      const v = m[2]
+        .replace(/\\u000a|\\n/gi, '\n')
+        .replace(/\\u00d7/gi, '×')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+      pairs.push([k, v]);
+    }
+    if (pairs.length > 0) return pairs;
+
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        const obj = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+        if (obj && typeof obj === 'object') return Object.entries(obj);
+      } catch (e) {}
+    }
+    return pairs;
+  }
+
+  function normalizePriceNumber(numStr) {
+    if (!numStr) return '';
+    return String(numStr).replace(/,/g, '').trim();
+  }
+
+  function parseSingleScreenBlock(blockText) {
+    const res = {
+      orderNo: '', orderCode: '', prepTime: '',
+      orderReceivedTime: '', customer: '', isHistory: false,
+      items: [], notes: [], discounts: [],
+      subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
+    };
+
+    if (!blockText) return res;
+    const working = blockText.replace(/===FP_AUTO===|===TS:\d+===/g, '').trim();
+    let rawLines = [];
+
+    const kvPairs = extractKeyValuePairsRobust(working);
+    if (kvPairs.length > 0) {
+      for (const [k, v] of kvPairs) {
+        if (typeof v !== 'string') continue;
+        const trimmedV = v.trim();
+        if (!trimmedV) continue;
+
+        if (k === 'test_id_customer_name_text') {
+          res.customer = trimmedV;
+        } else if (k === 'test_id_new_order_id') {
+          const numMatch = trimmedV.match(/#\s*(\d{1,5})\b/);
+          if (numMatch && !res.orderNo) res.orderNo = '#' + numMatch[1];
+          const codeMatch = trimmedV.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
+          if (codeMatch) {
+            res.orderCode = codeMatch[1].toLowerCase();
+          } else if (!numMatch) {
+            res.orderCode = trimmedV.toLowerCase();
+          }
+        } else if (k === 'test_id_web_view_collapsible_title' && /Order History/i.test(trimmedV)) {
+          res.isHistory = true;
+        } else if (k === 'test_id_prep_time_adjustment_proof_banner') {
+          const pm = trimmedV.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i);
+          if (pm) res.prepTime = pm[1];
+        } else {
+          const splitLines = trimmedV.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          rawLines.push(...splitLines);
+        }
+      }
+    }
+
+    if (rawLines.length === 0) {
+      rawLines = working
+        .split(/\r?\n/)
+        .map(l => l.replace(/^\s*(?:\[\d+\]|\d+|[a-zA-Z0-9_.\/:-]+)\s*[:=]\s*/, '').trim())
+        .filter(Boolean);
+    }
+
+    const lines = [];
+    for (const rl of rawLines) {
+      const splitMultiItems = rl.replace(/(\d[\d,]*\.\d{2})\s+(?=\d+\s*[xX\u00D7*]\s+)/g, '$1\n').split('\n');
+      for (const s of splitMultiItems) {
+        if (s.trim()) lines.push(s.trim());
+      }
+    }
+
+    const fullBlock = lines.join('\n');
+    if (/Order History|COMPLETED|Order timeline/i.test(fullBlock)) {
+      res.isHistory = true;
+    }
+
+    if (!res.orderNo) {
+      const noMatch = fullBlock.match(/#\s*(\d{1,5})\b/);
+      if (noMatch) res.orderNo = '#' + noMatch[1];
+    }
+
+    if (!res.orderCode) {
+      const codeMatch = fullBlock.match(/\b([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
+      if (codeMatch) res.orderCode = codeMatch[1].toLowerCase();
+    }
+
+    if (!res.prepTime) {
+      const prepMatch =
+        fullBlock.match(/ready at\s+(?:[0-2]?\d:[0-5]\d\s+)?([0-2]?\d:[0-5]\d)/i) ||
+        fullBlock.match(/Committed preparation time:\s*([0-2]?\d:[0-5]\d)/i);
+      if (prepMatch) res.prepTime = prepMatch[1];
+    }
+
+    const priceNumPattern = /(?:৳|Tk\.?|BDT)?\s*(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})\b/i;
+    const standalonePriceRe = /^(?:৳|Tk\.?|BDT)?\s*((\d{1,3}(?:,\d{3})+|\d+)\.\d{2})$/i;
+    const trailingPriceRe = /^(.+?)\s+(?:৳|Tk\.?|BDT)?\s*((\d{1,3}(?:,\d{3})+|\d+)\.\d{2})$/i;
+
+    const extractPriceAfterKeyword = (startIdx) => {
+      for (let k = startIdx; k <= Math.min(lines.length - 1, startIdx + 2); k++) {
+        const m = lines[k].match(priceNumPattern);
+        if (m) return '৳' + normalizePriceNumber(m[1] + '.' + m[2]);
+      }
+      return '';
+    };
+
+    const stopWordsRe = /^(?:\d+\s*[xX\u00D7*](?:\s|$)|Subtotal|VAT|Total|Delivery Fee|Discount|Voucher|PLEASE|DO NOT|Decline|Ready for|Online Payment|Cash On|Paid with|Payment method|Delivery type|Need help|Contact help|help centre|to get support|Order timeline|Order details|Order received|Order accepted|Rider|Picked up|In delivery|Order delivered|Estimated delivery|Accepted in|Committed preparation|Customer|Google|Engineering|Modify|Back|COMPLETED|PAYABLE|Order History|You are closed|You are outside|Updated Preparation|The order needs)/i;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      if (/^Updated Preparation Time|^The order needs to be ready|^Google Map$|^Back$|^You are closed|^You are outside|^৳$|^Tk$/i.test(line)) {
+        continue;
+      }
+      if (/^.+\([A-Z0-9]{4}\)$/.test(line) && !/\d+\s*[xX\u00D7*]/.test(line)) {
+        continue;
+      }
+      if (/^Customer$/i.test(line)) {
+        if (!res.customer && lines[i + 1] && !stopWordsRe.test(lines[i + 1])) {
+          res.customer = lines[i + 1];
+        }
+        continue;
+      }
+      if (/^Order received$/i.test(line) && lines[i + 1] && /^[0-2]?\d:[0-5]\d$/.test(lines[i + 1])) {
+        res.orderReceivedTime = lines[i + 1];
+        continue;
+      }
+      if (/DO NOT PROVIDE CUTLERY|PROVIDE CUTLERY/i.test(line)) {
+        if (!res.notes.includes(line.toUpperCase())) res.notes.push(line.toUpperCase());
+        continue;
+      }
+      if (/^(?:Delivery Fee Discount|Discount\/Voucher)/i.test(line)) {
+        const discPrice = extractPriceAfterKeyword(i);
+        if (discPrice) {
+          const isNeg = (lines[i + 1] && lines[i + 1].trim().startsWith('-')) || line.includes('-');
+          res.discounts.push({ label: line, amount: (isNeg ? '-' : '') + discPrice });
+        }
+        continue;
+      }
+      if (/^Subtotal\b/i.test(line)) {
+        const p = extractPriceAfterKeyword(i);
+        if (p) res.subtotal = p;
+        continue;
+      }
+      if (/^VAT\b/i.test(line)) {
+        const p = extractPriceAfterKeyword(i);
+        if (p) res.vat = p;
+        continue;
+      }
+      if (/^Total\b/i.test(line)) {
+        const p = extractPriceAfterKeyword(i);
+        if (p) res.total = p;
+        continue;
+      }
+      if (/^Payment method$/i.test(line) && lines[i + 1]) {
+        if (!/^(Delivery type|Need help)/i.test(lines[i + 1])) {
+          res.payment = lines[i + 1];
+        } else if (lines[i + 2]) {
+          res.payment = lines[i + 2];
+        }
+        continue;
+      }
+      if (/^Delivery type$/i.test(line) && lines[i + 1]) {
+        if (!/^(Online|Cash|Need help)/i.test(lines[i + 1])) {
+          res.deliveryType = lines[i + 1];
+        } else if (lines[i + 2] && !/^Need help/i.test(lines[i + 2])) {
+          res.deliveryType = lines[i + 2];
+        }
+        continue;
+      }
+      if (/Paid with|Online Payment|Cash On Delivery|Cash on/i.test(line)) {
+        if (line.length > res.payment.length) res.payment = line;
+        continue;
+      }
+
+      const itemStart = line.match(/^(\d+)\s*[xX\u00D7*](?:\s+(.*))?$/);
+      if (itemStart) {
+        const qty = itemStart[1] + 'x';
+        let remainder = (itemStart[2] || '').trim();
+        let price = '';
+        const nameParts = [];
+
+        const inlineMatch = remainder.match(trailingPriceRe);
+        if (inlineMatch) {
+          remainder = inlineMatch[1].trim();
+          price = '৳' + normalizePriceNumber(inlineMatch[2]);
+        }
+        if (remainder) nameParts.push(remainder);
+
+        while (!price && i + 1 < lines.length) {
+          const next = lines[i + 1];
+          if (stopWordsRe.test(next)) break;
+          if (/^(?:৳|Tk\.?|BDT)$/i.test(next)) {
+            i++;
+            continue;
+          }
+
+          const pOnly = next.match(standalonePriceRe);
+          if (pOnly) {
+            price = '৳' + normalizePriceNumber(pOnly[1]);
+            i++;
+            break;
+          }
+
+          const trailingP = next.match(trailingPriceRe);
+          if (trailingP) {
+            nameParts.push(trailingP[1].trim());
+            price = '৳' + normalizePriceNumber(trailingP[2]);
+            i++;
+            break;
+          }
+
+          if (!/^(?:pro|COMPLETED|PAYABLE|￼)$/i.test(next)) {
+            nameParts.push(next);
+          }
+          i++;
+        }
+
+        const itemName = nameParts.join(' ').replace(/\s+/g, ' ').trim();
+        if (itemName) {
+          res.items.push({ qty, name: itemName, price });
+        }
+      }
+    }
+
+    return res;
+  }
+
+  function parseFoodpandaMultiScroll(rawText) {
+    const cleanedText = String(rawText || '').replace(/===TS:\d+===/g, '');
+    const rawBlocks = cleanedText.split(/===SCREEN_BREAK===|\n(?=\{""\s*:)/).filter(b => b.trim().length > 0);
+    const merged = {
+      orderNo: '', orderCode: '', prepTime: '',
+      orderReceivedTime: '', customer: '', isHistory: false,
+      items: [], notes: [], discounts: [],
+      subtotal: '', vat: '', total: '', payment: '', deliveryType: ''
+    };
+    const seenDiscounts = new Set();
+
+    for (const block of rawBlocks) {
+      const p = parseSingleScreenBlock(block);
+
+      if (p.isHistory) merged.isHistory = true;
+      if (!merged.orderNo && p.orderNo) merged.orderNo = p.orderNo;
+      if (!merged.orderCode && p.orderCode) merged.orderCode = p.orderCode;
+      if (!merged.prepTime && p.prepTime) merged.prepTime = p.prepTime;
+      if (!merged.orderReceivedTime && p.orderReceivedTime) merged.orderReceivedTime = p.orderReceivedTime;
+      if (!merged.customer && p.customer) merged.customer = p.customer;
+      if (!merged.subtotal && p.subtotal) merged.subtotal = p.subtotal;
+      if (!merged.vat && p.vat) merged.vat = p.vat;
+      if (!merged.total && p.total) merged.total = p.total;
+      if (p.payment && p.payment.length > merged.payment.length) merged.payment = p.payment;
+      if (!merged.deliveryType && p.deliveryType) merged.deliveryType = p.deliveryType;
+
+      for (const n of p.notes) {
+        if (!merged.notes.includes(n)) merged.notes.push(n);
+      }
+      for (const d of p.discounts) {
+        const dKey = d.label + '|' + d.amount;
+        if (!seenDiscounts.has(dKey)) {
+          seenDiscounts.add(dKey);
+          merged.discounts.push(d);
+        }
+      }
+      for (const it of p.items) {
+        const normName = it.name.toLowerCase().replace(/\s+/g, ' ').trim();
+        const existingItem = merged.items.find(
+          ex => ex.qty === it.qty && ex.name.toLowerCase().replace(/\s+/g, ' ').trim() === normName &&
+          (!ex.price || !it.price || ex.price === it.price)
+        );
+        if (!existingItem) {
+          merged.items.push(it);
+        } else if (!existingItem.price && it.price) {
+          existingItem.price = it.price;
+        }
+      }
+    }
+
+    if (!merged.orderNo && merged.orderCode) {
+      const parts = merged.orderCode.split('-');
+      merged.orderNo = '#' + parts[parts.length - 1].toUpperCase();
+    }
+
+    if (!merged.subtotal && !merged.total && merged.items.length > 0) {
+      let sum = 0;
+      for (const it of merged.items) {
+        const num = parseFloat((it.price || '').replace(/[^\d.]/g, ''));
+        if (!isNaN(num)) sum += num;
+      }
+      if (sum > 0) merged.subtotal = '৳' + sum.toFixed(2);
+    }
+
+    if (!merged.total && merged.subtotal) {
+      merged.total = merged.subtotal;
+    }
+
+    return merged;
+  }
+
+  function renderSynthesizedFpReceipt(data, storeProfileId = activeStoreProfileId) {
+    const isLargeFont = localStorage.getItem('fp_font_size_mode') === 'large';
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = PRINTER_WIDTH;
+    tempCanvas.height = 2600;
+    const ctx = tempCanvas.getContext('2d');
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, PRINTER_WIDTH, tempCanvas.height);
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+
+    let y = 10;
+    const drawLine = (thick = false) => {
+      y += 6;
+      ctx.fillRect(0, y, PRINTER_WIDTH, thick ? 4 : 2);
+      y += thick ? 10 : 8;
+    };
+
+    const drawWrapped = (text, x, maxW, font, lineH, align = 'left') => {
+      ctx.font = font;
+      ctx.textAlign = align;
+      const words = text.split(/\s+/);
+      let line = '';
+      for (let i = 0; i < words.length; i++) {
+        const test = line + words[i] + ' ';
+        if (ctx.measureText(test).width > maxW && i > 0) {
+          ctx.fillText(line.trim(), x, y);
+          line = words[i] + ' ';
+          y += lineH;
+        } else {
+          line = test;
+        }
+      }
+      if (line.trim()) {
+        ctx.fillText(line.trim(), x, y);
+        y += lineH;
+      }
+    };
+
+    const prof = getStoreProfileById(storeProfileId);
+    if (prof && prof.storeName && prof.storeName.trim()) {
+      drawWrapped(prof.storeName.trim().toUpperCase(), PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, '900 26px system-ui, sans-serif', 32, 'center');
+      y += 2;
+    }
+
+    ctx.font = '600 15px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    const dt = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+      timeZone: 'Asia/Dhaka'
+    });
+    ctx.fillText(dt, PRINTER_WIDTH / 2, y);
+    y += 20;
+
+    if (data.isHistory) {
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.fillText('[ ORDER HISTORY / REPRINT ]', PRINTER_WIDTH / 2, y);
+      y += 18;
+    }
+
+    drawLine(true);
+
+    if (data.orderNo) {
+      ctx.font = '900 46px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.orderNo, PRINTER_WIDTH / 2, y);
+      y += 50;
+    }
+    if (data.orderCode) {
+      ctx.font = 'bold 20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.orderCode, PRINTER_WIDTH / 2, y);
+      y += 26;
+    }
+
+    if (data.customer || data.prepTime || data.orderReceivedTime) {
+      drawLine(false);
+      if (data.customer) {
+        drawWrapped('Customer: ' + data.customer, 4, PRINTER_WIDTH - 8, 'bold 20px system-ui, sans-serif', 25, 'left');
+        y += 2;
+      }
+      if (data.prepTime) {
+        ctx.font = 'bold 19px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Ready By: ' + data.prepTime, 4, y);
+        y += 24;
+      } else if (data.orderReceivedTime) {
+        ctx.font = 'bold 18px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Ordered At: ' + data.orderReceivedTime, 4, y);
+        y += 24;
+      }
+    }
+
+    drawLine(false);
+
+    const itemFont = isLargeFont ? '900 24px system-ui, sans-serif' : 'bold 21px system-ui, sans-serif';
+    const itemLineH = isLargeFont ? 28 : 25;
+
+    for (const item of data.items) {
+      ctx.font = '900 22px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.qty, 4, y);
+
+      if (item.price) {
+        ctx.textAlign = 'right';
+        ctx.fillText(item.price, PRINTER_WIDTH - 4, y);
+      }
+      drawWrapped(item.name, 48, PRINTER_WIDTH - 148, itemFont, itemLineH, 'left');
+      y += 6;
+    }
+
+    for (const note of data.notes) {
+      y += 4;
+      ctx.fillRect(4, y, PRINTER_WIDTH - 8, 34);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 17px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('! ' + note + ' !', PRINTER_WIDTH / 2, y + 8);
+      ctx.fillStyle = '#000000';
+      y += 40;
+    }
+
+    drawLine(false);
+
+    const drawTotalRow = (label, val, isGrand = false) => {
+      if (!val) return;
+      ctx.font = isGrand ? '900 26px system-ui, sans-serif' : 'bold 20px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, 4, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(val, PRINTER_WIDTH - 4, y);
+      y += isGrand ? 32 : 26;
+    };
+
+    if (data.subtotal && data.subtotal !== data.total) {
+      drawTotalRow('Subtotal', data.subtotal, false);
+    }
+    if (data.vat) {
+      drawTotalRow('VAT', data.vat, false);
+    }
+    drawTotalRow('Total', data.total || data.subtotal, true);
+
+    if (data.payment || data.deliveryType) {
+      drawLine(false);
+      const footerLine = [
+        data.payment ? `${data.payment}` : '',
+        data.deliveryType ? `${data.deliveryType}` : ''
+      ].filter(Boolean).join(' • ');
+      drawWrapped(footerLine, PRINTER_WIDTH / 2, PRINTER_WIDTH - 12, 'bold 17px system-ui, sans-serif', 22, 'center');
+    }
+
+    drawLine(true);
+
+    const exactH = Math.max(80, Math.min(tempCanvas.height, Math.ceil(y + 10)));
+    const sliced = document.createElement('canvas');
+    sliced.width = PRINTER_WIDTH;
+    sliced.height = exactH;
+    sliced.getContext('2d').drawImage(tempCanvas, 0, 0, PRINTER_WIDTH, exactH, 0, 0, PRINTER_WIDTH, exactH);
+    return cropWhiteTopBottom(sliced);
+  }
+
+  // ============================================================================
+  // VAULT + GOOGLE DRIVE ARCHIVING WITH RAW SCREEN DATA (.TXT) + FULL BACKUP
+  // ============================================================================
+
+  function getSyncedDriveKeys() {
+    try {
+      const raw = localStorage.getItem('fp_gdrive_synced_keys');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function markDriveKeySynced(dedupeKey) {
+    if (!dedupeKey) return;
+    const set = getSyncedDriveKeys();
+    set.add(dedupeKey);
+    localStorage.setItem('fp_gdrive_synced_keys', JSON.stringify(Array.from(set).slice(-500)));
+  }
+
+  async function arrayBufferToBase64(buffer) {
+    const blob = new Blob([buffer]);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || '').split(',')[1] || '');
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function syncVaultEntryToGoogleDrive(entry, silentIfNoUrl = true) {
+    const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
+    const folderId = (localStorage.getItem('fp_gdrive_folder_id') || '').trim();
+    if (!webhookUrl || !webhookUrl.startsWith('https://')) {
+      if (!silentIfNoUrl) showToast('⚠️ Configure Google Apps Script URL in Settings first', 'warn');
+      return false;
+    }
+
+    const dedupeKey = entry.dedupeKey || entry.baseName;
+    if (entry.driveSynced || getSyncedDriveKeys().has(dedupeKey)) {
+      entry.driveSynced = true;
+      if (!silentIfNoUrl) showToast(`☁️ ${entry.orderNo} already synced`, 'info');
+      return true;
+    }
+
+    try {
+      showToast(`☁️ Uploading ${entry.orderNo} (PNG + PDF + Raw) to Drive...`, 'info');
+      const payload = {
+        folderId,
+        dedupeKey,
+        baseName: entry.baseName,
+        orderNo: entry.orderNo,
+        orderCode: entry.orderCode,
+        rawText: entry.rawText || '',
+        rawBase64: entry.rawText ? encodeUtf8Base64(entry.rawText) : '',
+        pngBase64: entry.pngBuffer ? await arrayBufferToBase64(entry.pngBuffer) : '',
+        pdfBase64: entry.pdfBuffer ? await arrayBufferToBase64(entry.pdfBuffer) : ''
+      };
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      markDriveKeySynced(dedupeKey);
+      entry.driveSynced = true;
+
+      const vault = (await idbGet('fpInternalVault')) || [];
+      const target = vault.find(v => v.id === entry.id || v.dedupeKey === dedupeKey);
+      if (target) {
+        target.driveSynced = true;
+        await idbSet('fpInternalVault', vault);
+      }
+
+      showToast(`☁️ Synced ${entry.orderNo} to Google Drive`, 'success', true);
+      return true;
+    } catch (err) {
+      showToast(`⚠️ Cloud sync failed for ${entry.orderNo}`, 'warn');
+      return false;
+    }
+  }
+
+  async function syncAllUnsyncedToDrive() {
+    const webhookUrl = (localStorage.getItem('fp_gdrive_webhook') || '').trim();
+    if (!webhookUrl) {
+      showToast('⚠️ Configure Google Apps Script URL in Settings first', 'warn');
+      return;
+    }
+    const vault = (await idbGet('fpInternalVault')) || [];
+    const unsynced = vault.filter(v => !v.driveSynced && !getSyncedDriveKeys().has(v.dedupeKey || v.baseName));
+    if (unsynced.length === 0) {
+      showToast('☁️ All receipts are already synced', 'success');
+      return;
+    }
+    showToast(`☁️ Syncing ${unsynced.length} receipt(s)...`, 'info');
+    for (const item of unsynced) {
+      await syncVaultEntryToGoogleDrive(item, false);
+    }
+    if (document.getElementById('vaultOverlay').classList.contains('open')) {
+      await openVault();
+    }
+  }
+
+  async function refreshVaultCount() {
+    try {
+      const vault = (await idbGet('fpInternalVault')) || [];
+      const badge = document.getElementById('vaultCountBadge');
+      if (badge) badge.innerText = String(vault.length);
+    } catch (e) {}
+  }
+
+  async function archivePrintedReceiptToVault() {
+    try {
+      const now = new Date();
+      const dhakaDateKey = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+      const dhakaTime = now.toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'Asia/Dhaka'
+      });
+
+      const orderTag = [currentOrderMeta.orderNo, currentOrderMeta.orderCode].filter(Boolean).join('_') || `Order_${Date.now()}`;
+      const dedupeKey = `FP_${orderTag}_${dhakaDateKey}`;
+      const tsFile = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const baseName = `FP_${orderTag}_${tsFile}`;
+
+      const pngBlob = await new Promise(r => printCanvasEl.toBlob(r, 'image/png'));
+      const pdfBlob = lastParsedFpData ? generateOrderTextPdfBlob(lastParsedFpData, activeStoreProfileId) : null;
+
+      const pngBuffer = pngBlob ? await pngBlob.arrayBuffer() : null;
+      const pdfBuffer = pdfBlob ? await pdfBlob.arrayBuffer() : null;
+
+      const vault = (await idbGet('fpInternalVault')) || [];
+      let entry = vault.find(v => v.dedupeKey === dedupeKey);
+
+      if (!entry) {
+        entry = {
+          id: Date.now(),
+          dedupeKey,
+          orderNo: currentOrderMeta.orderNo || '#Order',
+          orderCode: currentOrderMeta.orderCode || '',
+          customer: (lastParsedFpData && lastParsedFpData.customer) || '',
+          total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
+          dhakaTime,
+          baseName,
+          pngBuffer,
+          pdfBuffer,
+          rawText: lastRawFpText || '',
+          parsedData: lastParsedFpData,
+          storeProfileId: activeStoreProfileId,
+          driveSynced: getSyncedDriveKeys().has(dedupeKey)
+        };
+        vault.unshift(entry);
+        await idbSet('fpInternalVault', vault.slice(0, 150));
+        await refreshVaultCount();
+      } else if (!entry.rawText && lastRawFpText) {
+        entry.rawText = lastRawFpText;
+        await idbSet('fpInternalVault', vault);
+      }
+
+      syncVaultEntryToGoogleDrive(entry, true).catch(() => {});
+    } catch (e) {}
+  }
+
+  async function reprintLastReceipt() {
+    closeMenu();
+    if (docSourceCanvas) {
+      showToast('🖨️ Reprinting current receipt...', 'info');
+      await handleMainButtonClick();
+      return;
+    }
+    const vault = (await idbGet('fpInternalVault')) || [];
+    if (vault.length === 0) {
+      showToast('⚠️ No archived receipt available', 'warn');
+      return;
+    }
+    await reprintVaultItem(vault[0].id);
+  }
+
+  async function reprintVaultItem(entryId) {
+    closeVault();
+    const vault = (await idbGet('fpInternalVault')) || [];
+    const item = vault.find(v => v.id === entryId);
+    if (!item) return;
+
+    if (item.storeProfileId) {
+      activeStoreProfileId = item.storeProfileId;
+    }
+    if (item.parsedData) {
+      lastParsedFpData = item.parsedData;
+      isFpPipelineRun = true;
+      currentOrderMeta = { orderNo: item.orderNo, orderCode: item.orderCode, isHistory: true };
+      docSourceCanvas = renderSynthesizedFpReceipt(item.parsedData, activeStoreProfileId);
+      rebuildCompositePreview(true);
+      updateMainButtonUI();
+    } else if (item.pngBuffer) {
+      const f = new File([item.pngBuffer], `${item.baseName}.png`, { type: 'image/png' });
+      await loadMainDocumentFile(f);
+    }
+
+    showToast(`🖨️ Reprinting ${item.orderNo}...`, 'info');
+    const conn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+    if (!conn) await attemptAutoReconnect(false);
+    const connAfter = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+    if (connAfter) {
+      await printCanvas(false);
+    } else {
+      showToast('⚠️ Connect printer to complete reprint', 'warn');
+    }
+  }
+
+  async function openVault() {
+    closeMenu();
+    const listEl = document.getElementById('vaultList');
+    listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:24px;">Loading archive...</div>';
+    document.getElementById('vaultOverlay').classList.add('open');
+
+    const vault = (await idbGet('fpInternalVault')) || [];
+    if (vault.length === 0) {
+      listEl.innerHTML = '<div style="color:#9CA3AF; text-align:center; padding:32px;">No archived receipts yet.</div>';
+      return;
+    }
+
+    const syncedSet = getSyncedDriveKeys();
+    listEl.innerHTML = '';
+
+    for (const item of vault) {
+      const isSynced = item.driveSynced || syncedSet.has(item.dedupeKey || item.baseName);
+      const row = document.createElement('div');
+      row.className = 'vault-item';
+
+      const top = document.createElement('div');
+      top.className = 'vault-top';
+
+      const info = document.createElement('div');
+      info.className = 'vault-info';
+      info.innerHTML = `
+        <div style="font-weight:900; color:#FFFFFF; font-size:15px;">${item.orderNo} ${item.total ? '• ' + item.total : ''}</div>
+        <div style="color:#D1D5DB;">${item.customer || item.orderCode || ''}</div>
+        <div style="color:#9CA3AF; font-size:11px;">${item.dhakaTime}</div>
+      `;
+
+      const syncBadge = document.createElement('span');
+      syncBadge.style.cssText = `font-size:11px; font-weight:800; padding:3px 8px; border-radius:99px; ${isSynced ? 'background:#065F46; color:#A7F3D0;' : 'background:#374151; color:#FDE68A;'}`;
+      syncBadge.innerText = isSynced ? '☁️ Synced' : '⏳ Local';
+
+      top.appendChild(info);
+      top.appendChild(syncBadge);
+
+      const btns = document.createElement('div');
+      btns.className = 'vault-btns';
+
+      const repBtn = document.createElement('button');
+      repBtn.className = 'vault-pill-btn';
+      repBtn.style.background = '#D97706';
+      repBtn.innerText = '🖨️ Reprint';
+      repBtn.onclick = () => reprintVaultItem(item.id);
+      btns.appendChild(repBtn);
+
+      if (item.pdfBuffer) {
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'vault-pill-btn';
+        pdfBtn.style.background = '#2563EB';
+        pdfBtn.innerText = '📄 PDF';
+        pdfBtn.onclick = () => downloadVaultFile(item.pdfBuffer, `${item.baseName}.pdf`, 'application/pdf');
+        btns.appendChild(pdfBtn);
+      }
+
+      if (item.pngBuffer) {
+        const pngBtn = document.createElement('button');
+        pngBtn.className = 'vault-pill-btn';
+        pngBtn.style.background = '#10B981';
+        pngBtn.innerText = '🖼️ PNG';
+        pngBtn.onclick = () => downloadVaultFile(item.pngBuffer, `${item.baseName}.png`, 'image/png');
+        btns.appendChild(pngBtn);
+      }
+
+      if (item.rawText) {
+        const rawBtn = document.createElement('button');
+        rawBtn.className = 'vault-pill-btn';
+        rawBtn.style.background = '#374151';
+        rawBtn.innerText = '📝 Raw .TXT';
+        rawBtn.onclick = () => {
+          const rawBuf = new TextEncoder().encode(item.rawText);
+          downloadVaultFile(rawBuf, `${item.baseName}_raw.txt`, 'text/plain;charset=utf-8');
+        };
+        btns.appendChild(rawBtn);
+      }
+
+      if (!isSynced) {
+        const upBtn = document.createElement('button');
+        upBtn.className = 'vault-pill-btn';
+        upBtn.style.background = '#4F46E5';
+        upBtn.innerText = '☁️ Sync';
+        upBtn.onclick = async () => {
+          await syncVaultEntryToGoogleDrive(item, false);
+          await openVault();
+        };
+        btns.appendChild(upBtn);
+      }
+
+      row.appendChild(top);
+      row.appendChild(btns);
+      listEl.appendChild(row);
+    }
+  }
+
+  function closeVault() {
+    document.getElementById('vaultOverlay').classList.remove('open');
+  }
+
+  async function clearVault() {
+    if (!confirm('Clear local receipt archive?')) return;
+    await idbSet('fpInternalVault', []);
+    await refreshVaultCount();
+    await openVault();
+    showToast('🗑️ Archive cleared', 'info');
+  }
+
+  async function downloadVaultFile(buffer, fileName, mimeType) {
+    if (hasNativeBridge() && typeof window.BilluNative.saveDownloadBase64 === 'function') {
+      try {
+        const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        const b64 = uint8ToBase64(u8);
+        window.BilluNative.saveDownloadBase64(b64, fileName, mimeType);
+        return;
+      } catch (e) {}
+    }
+    const blob = new Blob([buffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  async function exportFullBilluBackup() {
+    try {
+      showToast('📦 Preparing full backup...', 'info');
+      const lsData = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) lsData[k] = localStorage.getItem(k);
+      }
+      const profilesRaw = (await idbGet('billuStoreProfilesV41')) || [];
+      const serializedProfiles = [];
+      for (const p of profilesRaw) {
+        serializedProfiles.push({
+          ...p,
+          stampBuffer: null,
+          stampBase64: p.stampBuffer ? await arrayBufferToBase64(p.stampBuffer) : ''
+        });
+      }
+      const backupObj = {
+        version: APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        localStorage: lsData,
+        storeProfiles: serializedProfiles
+      };
+      const jsonBytes = new TextEncoder().encode(JSON.stringify(backupObj, null, 2));
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadVaultFile(jsonBytes, `Billu_Backup_${dateStr}.json`, 'application/json');
+      showToast('✅ Backup saved!', 'success');
+    } catch (err) {
+      showToast('⚠️ Backup export failed: ' + err.message, 'error');
+    }
+  }
+
+  async function importFullBilluBackup(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const backupObj = JSON.parse(text);
+      if (!backupObj || !backupObj.localStorage) throw new Error('Invalid backup file');
+
+      for (const [k, v] of Object.entries(backupObj.localStorage)) {
+        if (typeof v === 'string') localStorage.setItem(k, v);
+      }
+
+      if (Array.isArray(backupObj.storeProfiles)) {
+        const restoredProfiles = [];
+        for (const p of backupObj.storeProfiles) {
+          let buf = null;
+          if (p.stampBase64) {
+            const bin = atob(p.stampBase64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            buf = bytes.buffer;
+          }
+          restoredProfiles.push({
+            id: p.id,
+            storeName: p.storeName || '',
+            stampPosition: p.stampPosition || 'after',
+            stampFileName: p.stampFileName || '',
+            stampFileType: p.stampFileType || '',
+            stampBuffer: buf
+          });
+        }
+        await idbSet('billuStoreProfilesV41', restoredProfiles);
+      }
+
+      showToast('✅ Backup restored! Reloading...', 'success');
+      setTimeout(() => window.location.reload(), 700);
+    } catch (err) {
+      showToast('⚠️ Import failed: ' + err.message, 'error');
+    }
+    e.target.value = '';
+  }
+
+  // ============================================================================
+  // BACKGROUND ENGINE + PREFLIGHT-FREE LOCALHOST POLLER + 24H+ ANTI-SLEEP
+  // ============================================================================
+
+  function isFpMasterEnabled() {
+    return (localStorage.getItem('fp_master_enabled') ?? '1') === '1';
+  }
+
+  function isSilentBgEnabled() {
+    if (!isFpMasterEnabled()) return false;
+    if ((localStorage.getItem('fp_silent_bg_enabled') ?? '1') !== '1') return false;
+    if (needsStoreSelectionPrompt()) return false;
+    if (localStorage.getItem('billu_prompt_forward_peer') === '1') return false;
+    return true;
+  }
+
+  function saveFpMasterToggle() {
+    const enabled = document.getElementById('fpMasterEnable').checked;
+    localStorage.setItem('fp_master_enabled', enabled ? '1' : '0');
+    applyFpMasterUI();
+    syncNativeSilentModePrefs();
+    showToast(enabled ? '🧾 Partner App Order Pipeline Enabled' : '🧾 Partner App Order Pipeline Disabled', 'info');
+  }
+
+  function applyFpMasterUI() {
+    const enabled = isFpMasterEnabled();
+    document.getElementById('fpMasterEnable').checked = enabled;
+    document.getElementById('fpPipelineSubOptions').style.display = enabled ? 'flex' : 'none';
+    applyReturnAppUI();
+
+    if (!hasNativeBridge() && isSilentBgEnabled()) {
+      startLocalB64BackgroundPoller();
+    } else {
+      stopLocalB64BackgroundPoller();
+    }
+    syncNativeSilentModePrefs();
+  }
+
+  function saveSilentBgSetting() {
+    const enabled = document.getElementById('fpSilentBgEnable').checked;
+    localStorage.setItem('fp_silent_bg_enabled', enabled ? '1' : '0');
+    if (enabled && isFpMasterEnabled()) {
+      document.getElementById('fpPromptForwardToPeer').checked = false;
+      localStorage.setItem('billu_prompt_forward_peer', '0');
+      document.getElementById('defaultStoreNoAskCheckbox').checked = true;
+      localStorage.setItem('billu_default_store_no_ask', '1');
+      ensureAudioKeepAliveRunning();
+      if (!hasNativeBridge()) startLocalB64BackgroundPoller();
+      showToast('🛡️ Silent Background Mode ON', 'success');
+    } else {
+      stopLocalB64BackgroundPoller();
+      showToast('📱 Silent Background Mode OFF (Billu will open on screen)', 'info');
+    }
+    syncNativeSilentModePrefs();
+  }
+
+  function createInfrasonicWavUrl() {
+    const sampleRate = 8000;
+    const numSamples = 8000;
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+    const writeStr = (offset, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      const sample = Math.round(Math.sin(2 * Math.PI * 1 * (i / sampleRate)) * 450);
+      view.setInt16(44 + i * 2, sample, true);
+    }
+    return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+  }
+
+  function startBackgroundWorkerAndLock() {
+    if (!bgWebLockActive && navigator.locks && navigator.locks.request) {
+      bgWebLockActive = true;
+      navigator.locks.request('billu_bg_persistence_lock', () => new Promise(() => {})).catch(() => {
+        bgWebLockActive = false;
+      });
+    }
+
+    if (!bgWorker) {
+      try {
+        const blob = new Blob([`setInterval(() => postMessage('tick'), 300);`], { type: 'application/javascript' });
+        bgWorker = new Worker(URL.createObjectURL(blob));
+        bgWorker.onmessage = () => onBackgroundHeartbeatTick();
+      } catch (e) {}
+    }
+  }
+
+  function onBackgroundHeartbeatTick() {
+    const now = Date.now();
+
+    if (!hasNativeBridge() && isSilentBgEnabled() && !isPrinting && now - lastAudioPollTime > 280) {
+      lastAudioPollTime = now;
+      pollLocalhostB64Once();
+    }
+
+    if (!isPrinting && !isDrainingQueue && !isConnecting && !isJogging) {
+      const hasConn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+      if (hasConn) {
+        if (isPrinterKeepAwakeEnabled() && now - lastPrinterAntiSleepTime > 600000) {
+          lastPrinterAntiSleepTime = now;
+          lastBlePingTime = now;
+          sendAntiSleepMicroJog(false);
+        } else if ((isAppCurrentlyHidden() || isSilentBgEnabled()) && now - lastBlePingTime > 3500) {
+          lastBlePingTime = now;
+          writeBle(makePacket(0xA3, [0x00])).catch(() => {});
+        }
+      } else if (!hasNativeBridge() && !writeChar && getSavedPrinterId()) {
+        if (now - lastConnectEndTime > 1500 && now - lastBlePingTime > 1800) {
+          lastBlePingTime = now;
+          attemptAutoReconnect(true);
+        }
+      }
+    }
+  }
+
+  function ensureAudioKeepAliveRunning() {
+    startBackgroundWorkerAndLock();
+    if (hasNativeBridge()) return;
+    try {
+      if (!silentHtmlAudio) {
+        silentHtmlAudio = new Audio(createInfrasonicWavUrl());
+        silentHtmlAudio.loop = true;
+        silentHtmlAudio.volume = 0.05;
+      }
+      if (silentHtmlAudio.paused) {
+        silentHtmlAudio.play().catch(() => {});
+      }
+
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      if (!audioScriptNode) {
+        audioOscNode = audioCtx.createOscillator();
+        audioOscNode.frequency.value = 1;
+        audioGainNode = audioCtx.createGain();
+        audioGainNode.gain.value = 0.02;
+
+        audioScriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+        audioScriptNode.onaudioprocess = () => onBackgroundHeartbeatTick();
+
+        audioOscNode.connect(audioGainNode);
+        audioGainNode.connect(audioScriptNode);
+        audioScriptNode.connect(audioCtx.destination);
+        audioOscNode.start();
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener('pointerdown', () => {
+    ensureAudioKeepAliveRunning();
+  }, { passive: true });
+
+  function startLocalB64BackgroundPoller() {
+    if (hasNativeBridge()) return;
+    if (localLoopbackTimer) clearInterval(localLoopbackTimer);
+    localLoopbackTimer = setInterval(() => {
+      if (!isSilentBgEnabled() || isPrinting) return;
+      pollLocalhostB64Once();
+    }, 280);
+  }
+
+  function stopLocalB64BackgroundPoller() {
+    if (localLoopbackTimer) {
+      clearInterval(localLoopbackTimer);
+      localLoopbackTimer = null;
+    }
+  }
+
+  window.onBilluBgOrder = async function(b64String) {
+    if (!isFpMasterEnabled() || !b64String) return;
+    const fpKey = getB64Fingerprint(b64String);
+    if (fpKey === localStorage.getItem('fp_last_processed_b64')) return;
+    localStorage.setItem('fp_last_processed_b64', fpKey);
+
+    try {
+      const decodedText = decodeBase64Utf8(b64String);
+      if (decodedText && decodedText.trim().length > 8) {
+        await prepareFoodpandaOrderFromText(decodedText, true, false, null);
+      }
+    } catch (e) {}
+  };
+
+  function pollLocalhostB64Once() {
+    if (hasNativeBridge() || isLoopbackPolling || !isSilentBgEnabled()) return;
+    isLoopbackPolling = true;
+
+    const s = document.createElement('script');
+    let fallbackTimer = null;
+    const done = () => {
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      isLoopbackPolling = false;
+      s.onload = null;
+      s.onerror = null;
+      s.remove();
+    };
+    s.onload = done;
+    s.onerror = done;
+    s.src = `http://127.0.0.1:18999/poll.js?t=${Date.now()}`;
+    document.body.appendChild(s);
+    fallbackTimer = setTimeout(done, 260);
+  }
+
+  // ============================================================================
+  // UNIFIED ORDER QUEUE DRAINER (AUTO-RETURNS EVEN WHEN QUEUED OFFLINE)
+  // ============================================================================
+
+  async function drainPrintQueue(isForegroundFlow = false) {
+    if (isDrainingQueue || isPrinting || pendingPrintQueue.length === 0) return;
+    isDrainingQueue = true;
+
+    try {
+      for (let attempt = 1; attempt <= 3 && pendingPrintQueue.length > 0; attempt++) {
+        const isConn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+        if (isConn) break;
+        await attemptAutoReconnect(attempt > 1);
+        const isConnAfter = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+        if (isConnAfter) break;
+        if (attempt < 3) await delayMs(700);
+      }
+
+      const readyNow = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+      if (!readyNow) {
+        updateFirstContactUI(true);
+        renderQueueModalList();
+        playTone(300, 220);
+        setTimeout(() => playTone(250, 260), 260);
+        showToast(
+          `📥 ${pendingPrintQueue.length} receipt(s) queued — power ON printer to auto-print`,
+          'warn',
+          true
+        );
+
+        const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
+        if (isForegroundFlow && !isAppCurrentlyHidden() && autoReturnEnabled) {
+          setTimeout(() => launchReturnApp(true), 600);
+        }
+        return;
+      }
+
+      while (pendingPrintQueue.length > 0 && !isPrinting) {
+        const stillConn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+        if (!stillConn) break;
+
+        const nextJob = pendingPrintQueue.shift();
+        updateFirstContactUI(false);
+        renderQueueModalList();
+        currentRemoteOriginPeerId = nextJob.fromPeerId || null;
+        if (nextJob.storeProfileId !== undefined) {
+          activeStoreProfileId = nextJob.storeProfileId;
+        }
+
+        if (nextJob.kind === 'rle_image' && nextJob.rleB64) {
+          isFpPipelineRun = false;
+          currentOrderMeta = { orderNo: nextJob.label || 'Remote Print', orderCode: '', isHistory: false };
+          docSourceCanvas = decodeRle1BitB64ToCanvas(nextJob.rleB64);
+          rebuildCompositePreview(true, true);
+          updateMainButtonUI();
+          await printCanvas(false);
+          await delayMs(400);
+        } else if (nextJob.rawText) {
+          const parsed = parseFoodpandaMultiScroll(nextJob.rawText);
+          if (parsed.items.length > 0 || parsed.total || parsed.subtotal) {
+            lastRawFpText = nextJob.rawText;
+            isFpPipelineRun = true;
+            lastParsedFpData = parsed;
+            currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
+            docSourceCanvas = renderSynthesizedFpReceipt(parsed, activeStoreProfileId);
+            rebuildCompositePreview(true, false);
+            updateMainButtonUI();
+            await printCanvas(isForegroundFlow || !isAppCurrentlyHidden());
+            await delayMs(400);
+          }
+        }
+        currentRemoteOriginPeerId = null;
+      }
+      updateFirstContactUI(true);
+      renderQueueModalList();
+    } finally {
+      currentRemoteOriginPeerId = null;
+      isDrainingQueue = false;
+    }
+  }
+
+  // ============================================================================
+  // UNIFIED OPTIONS CARD & SINGLE MAIN PRINT BUTTON EXECUTION
+  // ============================================================================
+
+  function openViewerOptionsCard(customTitle = null, customSub = null) {
+    populateStoreProfileDropdown();
+    populatePeerDropdowns();
+    setActiveRouteMode(activeRouteMode);
+
+    document.getElementById('fpPrePrintTitle').innerText = customTitle || 'Receipt Store & Destination';
+    document.getElementById('fpPrePrintSub').innerText = customSub || 'Choose store profile & print destination, then tap the main Print button below.';
+    document.getElementById('fpPrePrintCard').style.display = 'flex';
+    document.getElementById('fpPostPrintCard').style.display = 'none';
+    document.getElementById('fpErrorCard').style.display = 'none';
+    document.getElementById('fpModalBackdrop').classList.add('active');
+    updateMainButtonUI();
+  }
+
+  function dismissPrePrintOptionsCard() {
+    hideFpModal();
+    updateMainButtonUI();
+  }
+
+  function showFpPostPrintModal() {
+    document.getElementById('fpPrePrintCard').style.display = 'none';
+    document.getElementById('fpErrorCard').style.display = 'none';
+    document.getElementById('fpPostPrintCard').style.display = 'flex';
+    document.getElementById('fpModalBackdrop').classList.add('active');
+  }
+
+  function showFpErrorModal(title, sub, detailText) {
+    document.getElementById('fpErrorTitle').innerText = title || 'Data Load Error';
+    document.getElementById('fpErrorSub').innerText = sub || 'Unable to parse order data.';
+    document.getElementById('fpErrorDetails').innerText = detailText || 'No details available.';
+    document.getElementById('fpPrePrintCard').style.display = 'none';
+    document.getElementById('fpPostPrintCard').style.display = 'none';
+    document.getElementById('fpErrorCard').style.display = 'flex';
+    document.getElementById('fpModalBackdrop').classList.add('active');
+    showToast(`⚠️ ${title || 'Data error'}`, 'error', true);
+    playTone(240, 350);
+  }
+
+  function hideFpModal() {
+    document.getElementById('fpModalBackdrop').classList.remove('active');
+  }
+
+  function onFpPostPrintChoice(goBack) {
+    hideFpModal();
+    ensureAudioKeepAliveRunning();
+
+    if (goBack) {
+      launchReturnApp(false);
+    } else {
+      showToast('Stayed in Billu', 'info');
+    }
+  }
+
+  function saveFpPromptSettings() {
+    const autoPrint = document.getElementById('fpAutoPrintOnOpen').checked;
+    const autoReturn = document.getElementById('fpAutoReturn').checked;
+    const returnTiming = document.getElementById('fpAutoReturnTiming').value;
+    const copies = document.getElementById('fpPrintCopies').value;
+    const fontMode = document.getElementById('fpFontSizeMode').value;
+    const voice = document.getElementById('fpVoiceSpeak').checked;
+    const gdriveUrl = document.getElementById('gdriveWebhookInput').value.trim();
+    const gdriveFolder = document.getElementById('gdriveFolderIdInput').value.trim();
+
+    localStorage.setItem('fp_auto_print_on_open', autoPrint ? '1' : '0');
+    localStorage.setItem('fp_auto_return', autoReturn ? '1' : '0');
+    localStorage.setItem('fp_auto_return_timing', returnTiming);
+    localStorage.setItem('fp_print_copies', copies);
+    localStorage.setItem('fp_font_size_mode', fontMode);
+    localStorage.setItem('fp_voice_speak', voice ? '1' : '0');
+    localStorage.setItem('fp_gdrive_webhook', gdriveUrl);
+    localStorage.setItem('fp_gdrive_folder_id', gdriveFolder);
+
+    document.getElementById('fpAutoReturnTimingBox').style.display = autoReturn ? 'flex' : 'none';
+
+    if (lastParsedFpData && isFpPipelineRun) {
+      docSourceCanvas = renderSynthesizedFpReceipt(lastParsedFpData, activeStoreProfileId);
+      rebuildCompositePreview(false);
+    }
+    syncNativeSilentModePrefs();
+  }
+
+  function triggerPrintSomethingElse() {
+    hideFpModal();
+    isFpPipelineRun = false;
+    document.getElementById('manualFileInput').click();
+  }
+
+  async function prepareFoodpandaOrderFromText(rawText, isSilentBgRun = false, fromRemotePeer = false, senderPeerId = null) {
+    const v = validateFoodpandaText(rawText);
+    if (!v.valid) {
+      if (!isSilentBgRun) {
+        showFpErrorModal(
+          'Invalid Order Text',
+          v.reason,
+          'Decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
+        );
+      }
+      return { ok: false, reason: v.reason };
+    }
+
+    const parsed = parseFoodpandaMultiScroll(rawText);
+    if (parsed.items.length === 0 && !parsed.total && !parsed.subtotal) {
+      const msg = 'Decoded text contained 0 items and no price total.';
+      if (!isSilentBgRun) {
+        showFpErrorModal(
+          '0 Items Parsed',
+          msg,
+          'Decoded text (' + String(rawText || '').length + ' chars):\n' + String(rawText || '').slice(0, 4000)
+        );
+      }
+      return { ok: false, reason: msg };
+    }
+
+    lastRawFpText = rawText;
+    isFpPipelineRun = true;
+    lastParsedFpData = parsed;
+    currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: parsed.isHistory };
+    activeStoreProfileId = getDefaultStoreProfileId();
+
+    const orderLbl = parsed.orderNo ? `Order ${parsed.orderNo}` : 'Order Receipt';
+    const orderTotal = parsed.total || parsed.subtotal || '';
+
+    if (!isPrinting) {
+      docSourceCanvas = renderSynthesizedFpReceipt(parsed, activeStoreProfileId);
+      rebuildCompositePreview(true);
+    }
+
+    const forwardAllToPeer = !fromRemotePeer && localStorage.getItem('billu_forward_all_to_peer') === '1';
+    const promptForwardPeer = !fromRemotePeer && localStorage.getItem('billu_prompt_forward_peer') === '1';
+    const mustAskStore = !fromRemotePeer && needsStoreSelectionPrompt();
+    const autoPrintOnOpen = (localStorage.getItem('fp_auto_print_on_open') ?? '1') === '1';
+
+    setActiveRouteMode(forwardAllToPeer ? 'peer' : 'local');
+    updateMainButtonUI();
+
+    if (!fromRemotePeer && (mustAskStore || promptForwardPeer || (!isSilentBgRun && !autoPrintOnOpen))) {
+      if (hasNativeBridge()) {
+        try { window.BilluNative.bringBilluToFront(); } catch (e) {}
+      }
+      openViewerOptionsCard(
+        `${orderLbl} (${orderTotal})`,
+        `Confirm Store Profile & Destination below, then tap the bottom Print button.`
+      );
+      return { ok: true };
+    }
+
+    if (forwardAllToPeer) {
+      const sent = await sendRenderedViewerRleToPeer();
+      await archivePrintedReceiptToVault();
+      const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
+      if (!isSilentBgRun && !isAppCurrentlyHidden() && autoReturnEnabled && sent) {
+        setTimeout(() => launchReturnApp(true), 350);
+      }
+      return { ok: true };
+    }
+
+    showToast(`🧾 ${orderLbl} loaded (${parsed.items.length} item(s) • ${orderTotal})`, 'info', isSilentBgRun);
+    enqueuePrintJob({
+      kind: 'fp_text',
+      rawText,
+      label: orderLbl,
+      total: orderTotal,
+      storeProfileId: activeStoreProfileId,
+      fromPeerId: senderPeerId
+    });
+    await drainPrintQueue(!isSilentBgRun);
+    return { ok: true };
+  }
+
+  function decodeBase64Utf8(b64Input) {
+    let b64 = decodeURIComponent(b64Input).trim().replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4 !== 0) b64 += '=';
+    const binStr = atob(b64);
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function getB64Fingerprint(b64) {
+    const clean = String(b64 || '').trim();
+    return `${clean.length}:${clean.slice(0, 64)}:${clean.slice(-64)}`;
+  }
+
+  async function checkUrlForFpPayload() {
+    if (!isFpMasterEnabled()) return false;
+
+    const rawHref = window.location.href;
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash || '';
+
+    if (params.has('reset') || params.has('relaunch')) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+
+    if (hash === '#stay' || hash === '#return_stay') {
+      history.replaceState(null, '', window.location.pathname);
+      return false;
+    }
+
+    const hasB64Key = params.has('fp_b64') || hash.includes('fp_b64=');
+    const isFpAutoTrigger = params.get('fp_auto') === '1' || hash.includes('fp_auto=1') || hasB64Key;
+
+    if (!isFpAutoTrigger) return false;
+
+    let b64 = params.get('fp_b64') || '';
+    if (!b64 && hash.includes('fp_b64=')) {
+      b64 = hash.split('fp_b64=')[1] || '';
+      if (b64.includes('&')) b64 = b64.split('&')[0];
+    }
+
+    history.replaceState(null, '', window.location.pathname);
+
+    const trimmedB64 = (b64 || '').trim();
+
+    if (trimmedB64 && trimmedB64.length > 20) {
+      const fpKey = getB64Fingerprint(trimmedB64);
+      if (fpKey === localStorage.getItem('fp_last_processed_b64')) {
+        return false;
+      }
+      localStorage.setItem('fp_last_processed_b64', fpKey);
+    }
+
+    let b64ErrorReason = '';
+    let b64DiagnosticDetail = `Received URL:\n${rawHref.slice(0, 1000)}`;
+
+    if (hasB64Key) {
+      if (!trimmedB64) {
+        b64ErrorReason = 'Base64 payload (fp_b64) in URL was empty.';
+      } else if (trimmedB64 === 'GONE' || trimmedB64 === 'PRINTED_IN_BG') {
+        return false;
+      } else if (/\{lv=|\[lv=|file_state/i.test(trimmedB64)) {
+        b64ErrorReason = `Unexpanded macro variable received: "${trimmedB64}"`;
+      } else {
+        try {
+          const decodedText = decodeBase64Utf8(trimmedB64);
+          b64DiagnosticDetail = `Base64 length: ${trimmedB64.length} | Decoded length: ${decodedText.length}\nDecoded Text:\n${decodedText.slice(0, 4000)}`;
+          if (!decodedText || decodedText.trim().length < 8) {
+            b64ErrorReason = 'Base64 decoded to an empty string.';
+          } else {
+            const res = await prepareFoodpandaOrderFromText(decodedText, false, false, null);
+            if (res.ok) return true;
+            b64ErrorReason = res.reason;
+          }
+        } catch (err) {
+          b64ErrorReason = 'Invalid Base64 string: ' + err.message;
+          b64DiagnosticDetail = `Raw fp_b64 (${trimmedB64.length} chars):\n${trimmedB64.slice(0, 2000)}`;
+        }
+      }
+    } else {
+      b64ErrorReason = 'No fp_b64 parameter found in URL.';
+    }
+
+    showFpErrorModal('Order Data Load Failed', b64ErrorReason, b64DiagnosticDetail);
+    return true;
+  }
+
+  window.addEventListener('hashchange', () => {
+    checkUrlForFpPayload();
+  });
+
+  function loadSampleFpOrder() {
+    closeMenu();
+    const sampleOrder = `{"$2" :"Back","index:30" :"#2643","index:35" :"COMPLETED","index:37" :"PAYABLE","index:39" :"cvgi-2643-jqby","index:44" :"Order received","index:45" :"20:57","index:50" :"Committed preparation time: 21:13","index:62" :"Order details","index:64" :"1× Koftah Bhuna Khichuri Combo - Regular ৳1,199.00","index:67" :"Subtotal ৳1,208.95","index:69" :"Payment method","index:70" :"Online","index:71" :"Delivery type","index:72" :"Platform delivery"}`;
+
+    lastRawFpText = sampleOrder;
+    const parsed = parseFoodpandaMultiScroll(sampleOrder);
+    lastParsedFpData = parsed;
+    isFpPipelineRun = true;
+    currentOrderMeta = { orderNo: parsed.orderNo, orderCode: parsed.orderCode, isHistory: true };
+    activeStoreProfileId = getDefaultStoreProfileId();
+    docSourceCanvas = renderSynthesizedFpReceipt(parsed, activeStoreProfileId);
+    rebuildCompositePreview(true);
+    updateMainButtonUI();
+    showToast(`🧪 Loaded sample receipt ${parsed.orderNo} (${parsed.total})`, 'info');
+  }
+
+  // ============================================================================
+  // VIEWPORT, SINGLE MAIN BUTTON CONTROLLER & HYBRID BLE ENGINE (PWA + APK)
+  // ============================================================================
+
+  const viewportEl = document.getElementById('viewport');
+  const transformEl = document.getElementById('canvasTransform');
+  const printCanvasEl = document.getElementById('printCanvas');
+  const emptyStateEl = document.getElementById('emptyStateContainer');
+  const fitScreenBtnEl = document.getElementById('fitScreenBtn');
+  const printSomethingElseBtnEl = document.getElementById('printSomethingElseBtn');
+  const openOptionsCardFabBtnEl = document.getElementById('openOptionsCardFabBtn');
+
+  function applyTransform() {
+    transformEl.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
+  }
+
+  function fitScreen() {
+    if (!docSourceCanvas) return;
+    const vw = viewportEl.clientWidth;
+    const vh = viewportEl.clientHeight;
+    const cw = printCanvasEl.width || 384;
+    const ch = printCanvasEl.height || 300;
+    const pad = 20;
+
+    const scaleX = (vw - pad * 2) / cw;
+    const scaleY = (vh - pad * 2) / ch;
+    viewScale = Math.max(0.1, Math.min(scaleX, scaleY));
+
+    viewPanX = (vw - cw * viewScale) / 2;
+    viewPanY = (vh - ch * viewScale) / 2;
+    applyTransform();
+  }
+
+  function getDistance(p1, p2) { return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
+  function getCenter(p1, p2) { return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }; }
+
+  viewportEl.addEventListener('pointerdown', (e) => {
+    if (!docSourceCanvas || e.target.closest('#bigChooseFileBtn')) return;
+    viewportEl.setPointerCapture(e.pointerId);
+    activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activeTouches.size === 2) {
+      const pts = Array.from(activeTouches.values());
+      lastPinchDist = getDistance(pts[0], pts[1]);
+      lastPinchCenter = getCenter(pts[0], pts[1]);
+    }
+  });
+
+  viewportEl.addEventListener('pointermove', (e) => {
+    if (!activeTouches.has(e.pointerId)) return;
+    const prev = activeTouches.get(e.pointerId);
+    const curr = { x: e.clientX, y: e.clientY };
+    activeTouches.set(e.pointerId, curr);
+
+    if (activeTouches.size === 1) {
+      viewPanX += curr.x - prev.x;
+      viewPanY += curr.y - prev.y;
+      applyTransform();
+    } else if (activeTouches.size === 2) {
+      const pts = Array.from(activeTouches.values());
+      const dist = getDistance(pts[0], pts[1]);
+      const center = getCenter(pts[0], pts[1]);
+      if (lastPinchDist && lastPinchDist > 0) {
+        const rect = viewportEl.getBoundingClientRect();
+        const cx = center.x - rect.left;
+        const cy = center.y - rect.top;
+        const scaleFactor = dist / lastPinchDist;
+        const nextScale = Math.min(5, Math.max(0.15, viewScale * scaleFactor));
+        const actualFactor = nextScale / viewScale;
+
+        viewPanX = cx - (cx - viewPanX) * actualFactor + (center.x - lastPinchCenter.x);
+        viewPanY = cy - (cy - viewPanY) * actualFactor + (center.y - lastPinchCenter.y);
+        viewScale = nextScale;
+        applyTransform();
+      }
+      lastPinchDist = dist;
+      lastPinchCenter = center;
+    }
+  });
+
+  function onPointerUpOrCancel(e) {
+    activeTouches.delete(e.pointerId);
+    if (activeTouches.size < 2) { lastPinchDist = null; lastPinchCenter = null; }
+  }
+  viewportEl.addEventListener('pointerup', onPointerUpOrCancel);
+  viewportEl.addEventListener('pointercancel', onPointerUpOrCancel);
+  window.addEventListener('resize', fitScreen);
+
+  function getSavedPrinterId() {
+    if (hasNativeBridge()) {
+      const nativeMac = window.BilluNative.getSavedMac();
+      if (nativeMac) return nativeMac;
+    }
+    return localStorage.getItem('cat_printer_id');
+  }
+
+  function updateMainButtonUI() {
+    const btn = document.getElementById('mainActionBtn');
+    const savedId = getSavedPrinterId();
+    const labelStr = savedId ? getPrinterDisplayLabel(savedId) : 'None';
+    const hasConn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+
+    document.getElementById('savedPrinterLabel').innerText = `Active: ${labelStr}`;
+    renderPrinterManagerList();
+    updateFirstContactUI(false);
+
+    btn.classList.remove('state-connect', 'state-searching', 'state-print', 'state-peer', 'state-stop', 'state-disabled');
+
+    if (isPrinting) {
+      btn.disabled = false;
+      btn.classList.add('state-stop');
+      return;
+    }
+
+    if (!docSourceCanvas) {
+      btn.classList.add('state-disabled');
+      btn.disabled = true;
+      btn.innerHTML = 'Print';
+      return;
+    }
+
+    btn.disabled = false;
+    const prof = getActiveStoreProfile();
+    const storeBadge = (prof && prof.storeName) ? ` [${prof.storeName}]` : '';
+
+    if (activeRouteMode === 'peer') {
+      const targetPeer = resolveTargetPeer();
+      const peerLbl = targetPeer ? targetPeer.name : 'Select Peer';
+      btn.classList.add('state-peer');
+      btn.innerHTML = `📡 Send to Peer (${peerLbl})${storeBadge}`;
+      return;
+    }
+
+    if (activeRouteMode === 'both') {
+      const targetPeer = resolveTargetPeer();
+      const peerLbl = targetPeer ? targetPeer.name : 'Peer';
+      btn.classList.add('state-connect');
+      btn.innerHTML = `🖨️+📡 Print Here & ${peerLbl}${storeBadge}`;
+      return;
+    }
+
+    if (hasConn) {
+      btn.classList.add('state-print');
+      btn.innerHTML = `🖨️ Print (${labelStr})${storeBadge}`;
+    } else if (!savedId) {
+      btn.classList.add('state-connect');
+      btn.innerHTML = 'Connect Printer';
+    } else {
+      btn.classList.add('state-searching');
+      btn.innerHTML = `<span>Searching for ${labelStr}<span class="dots"></span> (Tap to Print/Pair)</span>`;
+    }
+  }
+
+  async function handleMainButtonClick() {
+    ensureAudioKeepAliveRunning();
+    if (isPrinting) {
+      cancelPrintRequested = true;
+      showToast('🛑 Stopping print job...', 'warn');
+      document.getElementById('mainActionBtn').innerText = '🛑 Stopping...';
+      return;
+    }
+
+    hideFpModal();
+    if (!docSourceCanvas) return;
+
+    const autoReturnEnabled = (localStorage.getItem('fp_auto_return') ?? '1') === '1';
+    const autoReturnTiming = localStorage.getItem('fp_auto_return_timing') || 'after';
+    const orderLbl = (isFpPipelineRun && currentOrderMeta.orderNo) ? `Order ${currentOrderMeta.orderNo}` : 'Receipt';
+
+    if (activeRouteMode === 'peer') {
+      const sent = await sendRenderedViewerRleToPeer();
+      if (isFpPipelineRun) await archivePrintedReceiptToVault();
+      if (sent && isFpPipelineRun && autoReturnEnabled) {
+        setTimeout(() => launchReturnApp(true), 350);
+      }
+      return;
+    }
+
+    if (activeRouteMode === 'both') {
+      await sendRenderedViewerRleToPeer();
+    }
+
+    const hasConn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+    if (isFpPipelineRun && autoReturnEnabled && autoReturnTiming === 'before' && hasConn) {
+      launchReturnApp(false);
+    }
+
+    if (isFpPipelineRun && lastRawFpText) {
+      enqueuePrintJob({
+        kind: 'fp_text',
+        rawText: lastRawFpText,
+        label: orderLbl,
+        total: (lastParsedFpData && (lastParsedFpData.total || lastParsedFpData.subtotal)) || '',
+        storeProfileId: activeStoreProfileId
+      });
+      await drainPrintQueue(true);
+      const connAfter = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+      if (!connAfter) {
+        await pairNewPrinter();
+      }
+      return;
+    }
+
+    if (hasConn) {
+      await printCanvas(false);
+      return;
+    }
+    const ok = await attemptAutoReconnect(false);
+    const connNow = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+    if (!ok && !connNow) {
+      await pairNewPrinter();
+    } else if (connNow) {
+      await printCanvas(false);
+    }
+  }
+
+  function hardAbortPendingBle() {
+    connectGeneration++;
+    isConnecting = false;
+    activeConnectPromise = null;
+    lastConnectEndTime = Date.now();
+    if (adAbortController) {
+      try { adAbortController.abort(); } catch (e) {}
+      adAbortController = null;
+    }
+    if (!hasNativeBridge() && !writeChar && activeBleDevice && activeBleDevice.gatt) {
+      try { activeBleDevice.gatt.disconnect(); } catch (e) {}
+    }
+  }
+
+  async function pairNewPrinter() {
+    if (hasNativeBridge()) {
+      window.BilluNative.scanAndPickPrinter();
+      return;
+    }
+    try {
+      hardAbortPendingBle();
+      showToast('🔍 Select printer from Bluetooth list...', 'info');
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BLE_SERVICES
+      });
+
+      registerOrUpdatePrinter(device);
+      updateMainButtonUI();
+      await connectToBleDevice(device);
+    } catch (err) {
+      showToast('Pairing cancelled', 'info');
+      updateMainButtonUI();
+    }
+  }
+
+  function connectToBleDevice(device) {
+    if (hasNativeBridge()) return Promise.resolve(window.BilluNative.isConnected());
+    if (writeChar) return Promise.resolve(true);
+    if (isConnecting && activeConnectPromise) return activeConnectPromise;
+
+    isConnecting = true;
+    const myGen = ++connectGeneration;
+    const dispLabel = getPrinterDisplayLabel(device);
+    const timeoutMs = document.hidden ? 10500 : 3800;
+    let timeoutHandle = null;
+
+    activeConnectPromise = (async () => {
+      try {
+        activeBleDevice = device;
+        device.removeEventListener('gattserverdisconnected', onBleDisconnected);
+        device.addEventListener('gattserverdisconnected', onBleDisconnected);
+
+        setStatus(`Connecting to ${dispLabel}...`);
+
+        const connectPromise = (async () => {
+          const server = await device.gatt.connect();
+          if (myGen !== connectGeneration) {
+            try { device.gatt.disconnect(); } catch (e) {}
+            return null;
+          }
+          await delayMs(150);
+          const services = await server.getPrimaryServices();
+          let foundChar = null;
+          for (const service of services) {
+            const chars = await service.getCharacteristics();
+            for (const c of chars) {
+              if (c.uuid.includes('ae01') || c.uuid.includes('ff02') || c.properties.writeWithoutResponse || c.properties.write) {
+                foundChar = c;
+                if (c.uuid.includes('ae01')) break;
+              }
+            }
+            if (foundChar && foundChar.uuid.includes('ae01')) break;
+          }
+          return foundChar;
+        })();
+
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('GATT_TIMEOUT')), timeoutMs);
+        });
+
+        const foundChar = await Promise.race([connectPromise, timeoutPromise]);
+        clearTimeout(timeoutHandle);
+
+        if (myGen !== connectGeneration || !foundChar) {
+          if (!foundChar && device.gatt) {
+            try { device.gatt.disconnect(); } catch (e) {}
+          }
+          return false;
+        }
+
+        writeChar = foundChar;
+        hasMadeFirstContact = true;
+        lastPrinterAntiSleepTime = Date.now();
+        registerOrUpdatePrinter(device);
+        showToast(`🟢 Connected to ${getPrinterDisplayLabel(device)}`, 'success', true);
+        playTone(880, 140);
+        updateMainButtonUI();
+        updateFirstContactUI(true);
+
+        if (pendingPrintQueue.length > 0 && !isPrinting && !isDrainingQueue) {
+          hideFpModal();
+          setTimeout(() => drainPrintQueue(!document.hidden), 250);
+        }
+
+        return true;
+      } catch (err) {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (myGen === connectGeneration) {
+          writeChar = null;
+          try {
+            if (device && device.gatt) device.gatt.disconnect();
+          } catch (e) {}
+          updateMainButtonUI();
+        }
+        return false;
+      } finally {
+        if (myGen === connectGeneration) {
+          isConnecting = false;
+          activeConnectPromise = null;
+          lastConnectEndTime = Date.now();
+        }
+      }
+    })();
+
+    return activeConnectPromise;
+  }
+
+  function onBleDisconnected() {
+    if (hasNativeBridge()) return;
+    if (!writeChar && isConnecting) return;
+    const dispLabel = activeBleDevice ? getPrinterDisplayLabel(activeBleDevice) : 'Printer';
+    writeChar = null;
+    isConnecting = false;
+    activeConnectPromise = null;
+    lastConnectEndTime = Date.now();
+    if (!isPrinting) {
+      showToast(`🟡 ${dispLabel} disconnected — reconnecting...`, 'warn', true);
+      updateMainButtonUI();
+      updateFirstContactUI(true);
+    }
+    setTimeout(() => {
+      if (!writeChar && !isConnecting && !isPrinting) {
+        attemptAutoReconnect(true);
+      }
+    }, 800);
+  }
+
+  function ensureWatchingAdvertisements(target) {
+    if (hasNativeBridge() || !target || !target.watchAdvertisements || document.hidden) return;
+    try {
+      if (!target._hasAdListener) {
+        target._hasAdListener = true;
+        target.addEventListener('advertisementreceived', () => {
+          if (!writeChar && !isConnecting && getSavedPrinterId() === target.id) {
+            connectToBleDevice(target);
+          }
+        });
+      }
+      if (adAbortController) {
+        try { adAbortController.abort(); } catch (e) {}
+      }
+      adAbortController = new AbortController();
+      target.watchAdvertisements({ signal: adAbortController.signal }).catch(() => {});
+    } catch (e) {}
+  }
+
+  // Hybrid Auto-Reconnect: Supports both Native APK MAC Reconnect and Browser PWA Web Bluetooth Reconnect!
+  async function attemptAutoReconnect(silentToast = true) {
+    if (hasNativeBridge()) {
+      if (window.BilluNative.isConnected()) {
+        writeChar = { nativeBridge: true };
+        return true;
+      }
+      const mac = window.BilluNative.getSavedMac() || getSavedPrinterId();
+      if (mac) {
+        return Boolean(window.BilluNative.connectToMac(mac));
+      }
+      return false;
+    }
+
+    const savedId = getSavedPrinterId();
+    if (!savedId) return false;
+    if (writeChar) return true;
+    if (isPrinting) return Boolean(writeChar);
+    if (isConnecting && activeConnectPromise) {
+      return await activeConnectPromise;
+    }
+
+    try {
+      let target = cachedBleDeviceMap.get(savedId) || (activeBleDevice && activeBleDevice.id === savedId ? activeBleDevice : null);
+
+      if ((!target || !document.hidden) && navigator.bluetooth && navigator.bluetooth.getDevices) {
+        const devices = await navigator.bluetooth.getDevices();
+        if (devices && devices.length > 0) {
+          for (const d of devices) cachedBleDeviceMap.set(d.id, d);
+          const list = getPrinterRegistry();
+          const activeEntry = list.find(p => p.id === savedId);
+
+          target =
+            devices.find(d => d.id === savedId) ||
+            (activeEntry && activeEntry.hwName && devices.filter(d => d.name === activeEntry.hwName).pop()) ||
+            devices[devices.length - 1];
+        }
+      }
+
+      if (!target) {
+        if (!silentToast) {
+          showToast('⚠️ Bluetooth permission reset — tap below to pair', 'warn');
+        }
+        return false;
+      }
+
+      if (target.id !== savedId) {
+        registerOrUpdatePrinter(target);
+      } else {
+        cachedBleDeviceMap.set(target.id, target);
+      }
+
+      const targetLabel = getPrinterDisplayLabel(target);
+      if (!silentToast) {
+        showToast(`🔍 Searching for ${targetLabel}...`, 'info');
+      }
+
+      if (!document.hidden) {
+        ensureWatchingAdvertisements(target);
+      }
+      return await connectToBleDevice(target);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function startAutoReconnectLoop() {
+    startBackgroundWorkerAndLock();
+    if (reconnectTimer) clearInterval(reconnectTimer);
+    attemptAutoReconnect(false);
+    reconnectTimer = setInterval(() => {
+      onBackgroundHeartbeatTick();
+    }, 3000);
+  }
+
+  document.addEventListener('visibilitychange', async () => {
+    if (hasNativeBridge()) {
+      updateNativeApkSettingsCard();
+      return;
+    }
+    if (document.visibilityState === 'hidden') {
+      if (adAbortController) {
+        try { adAbortController.abort(); } catch (e) {}
+        adAbortController = null;
+      }
+      startBackgroundWorkerAndLock();
+      updateFirstContactUI(true);
+      if (!writeChar && !isConnecting && getSavedPrinterId()) {
+        setTimeout(() => attemptAutoReconnect(true), 400);
+      }
+      return;
+    }
+
+    if (document.visibilityState === 'visible') {
+      if (!isPrinting) {
+        await checkUrlForFpPayload();
+      }
+      if (!writeChar && !isConnecting) {
+        await delayMs(150);
+        if (!writeChar && !isPrinting) {
+          attemptAutoReconnect(false);
+        }
+      }
+    }
+  });
+
+  function toggleMenu() {
+    ensureAudioKeepAliveRunning();
+    const overlay = document.getElementById('optionsOverlay');
+    overlay.classList.toggle('open');
+    if (overlay.classList.contains('open')) {
+      updateNativeApkSettingsCard();
+      renderPrinterManagerList();
+      renderStoreProfilesList();
+      populatePeerDropdowns();
+    }
+  }
+
+  function closeMenu() {
+    document.getElementById('optionsOverlay').classList.remove('open');
+  }
+
+  function saveMarginSettings() {
+    const beforeVal = Math.max(0, parseInt(document.getElementById('marginBeforeMmInput').value || '0', 10));
+    const afterVal = Math.max(0, parseInt(document.getElementById('marginAfterMmInput').value || '0', 10));
+    localStorage.setItem('cat_margin_before_mm', beforeVal);
+    localStorage.setItem('cat_margin_after_mm', afterVal);
+    rebuildCompositePreview(false);
+    showToast(`📏 Margins updated: ${beforeVal}mm top, ${afterVal}mm bottom`, 'info');
+  }
+
+  function saveReturnAppSetting() {
+    const mode = document.getElementById('returnAppSelect').value;
+    const customName = document.getElementById('customAppName').value.trim() || 'Partner App';
+    const customIcon = document.getElementById('customAppIcon').value.trim() || '↩️';
+    const customPkg = document.getElementById('customAppPkg').value.trim();
+
+    localStorage.setItem('cat_return_mode', mode);
+    localStorage.setItem('cat_return_name', customName);
+    localStorage.setItem('cat_return_icon', customIcon);
+    localStorage.setItem('cat_return_pkg', customPkg);
+    applyReturnAppUI();
+    syncNativeSilentModePrefs();
+  }
+
+  function applyReturnAppUI() {
+    const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
+    const btn = document.getElementById('returnAppBtn');
+    const customBox = document.getElementById('customAppFields');
+    document.getElementById('returnAppSelect').value = mode;
+    customBox.style.display = mode === 'custom' ? 'flex' : 'none';
+
+    if (mode === 'none' || (mode === 'foodpanda' && !isFpMasterEnabled())) {
+      btn.style.display = 'none';
+    } else if (mode === 'foodpanda') {
+      btn.style.display = 'flex';
+      document.getElementById('returnAppIcon').innerText = '↩️';
+      document.getElementById('returnAppLabel').innerText = 'Partner App';
+    } else if (mode === 'custom') {
+      btn.style.display = 'flex';
+      document.getElementById('returnAppIcon').innerText = localStorage.getItem('cat_return_icon') || '📱';
+      document.getElementById('returnAppLabel').innerText = localStorage.getItem('cat_return_name') || 'Partner App';
+    }
+  }
+
+  function launchReturnApp(showModalIfBlocked = false) {
+    hideFpModal();
+    ensureAudioKeepAliveRunning();
+    updateFirstContactUI(true);
+
+    const mode = localStorage.getItem('cat_return_mode') || 'foodpanda';
+    let pkg = 'com.deliveryhero.pandaportal';
+    if (mode === 'custom') pkg = localStorage.getItem('cat_return_pkg') || 'com.deliveryhero.pandaportal';
+    if (!pkg) return;
+
+    if (hasNativeBridge()) {
+      try {
+        const launched = window.BilluNative.launchAppPackage(pkg);
+        if (launched) return;
+      } catch (e) {}
+    }
+
+    const cleanBaseUrl = window.location.href.split('#')[0];
+    const stayHereFallback = encodeURIComponent(cleanBaseUrl + '#stay');
+    const intentUrl = `intent://partner.foodpanda.com/#Intent;scheme=https;package=${pkg};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${stayHereFallback};end`;
+
+    try {
+      const a = document.createElement('a');
+      a.href = intentUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 200);
+    } catch (e) {
+      window.location.href = intentUrl;
+    }
+
+    if (showModalIfBlocked) {
+      setTimeout(() => {
+        if (!isAppCurrentlyHidden() && !isPrinting) {
+          showFpPostPrintModal();
+        }
+      }, 450);
+    }
+  }
+
+  async function handleManualFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    closeMenu();
+    hideFpModal();
+
+    if (file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain') {
+      const txt = await file.text();
+      await prepareFoodpandaOrderFromText(txt, false, false, null);
+      e.target.value = '';
+      return;
+    }
+
+    isFpPipelineRun = false;
+    lastParsedFpData = null;
+    activeStoreProfileId = getDefaultStoreProfileId();
+    await loadMainDocumentFile(file);
+    e.target.value = '';
+  }
+
+  async function loadMainDocumentFile(file) {
+    showToast(`📂 Loading ${file.name}...`, 'info');
+    docSourceCanvas = await renderFileToTrimmedCanvas(file);
+    rebuildCompositePreview(true);
+    updateMainButtonUI();
+    showToast(`✅ Loaded: ${file.name}`, 'success');
+  }
+
+  async function renderFileToTrimmedCanvas(file) {
+    let rawCanvas;
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      if (typeof pdfjsLib === 'undefined') {
+        throw new Error('PDF library still loading — try again in 2 seconds');
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pageCanvases = [];
+      let totalHeight = 0;
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const unscaled = page.getViewport({ scale: 1 });
+        const scale = PRINTER_WIDTH / unscaled.width;
+        const viewport = page.getViewport({ scale });
+
+        const c = document.createElement('canvas');
+        c.width = PRINTER_WIDTH;
+        c.height = Math.floor(viewport.height);
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, c.width, c.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        pageCanvases.push(c);
+        totalHeight += c.height;
+      }
+
+      rawCanvas = document.createElement('canvas');
+      rawCanvas.width = PRINTER_WIDTH;
+      rawCanvas.height = Math.max(10, totalHeight);
+      const finalCtx = rawCanvas.getContext('2d');
+      let yOffset = 0;
+      for (const pc of pageCanvases) {
+        finalCtx.drawImage(pc, 0, yOffset);
+        yOffset += pc.height;
+      }
+    } else {
+      const bitmap = await createImageBitmap(file);
+      const targetHeight = Math.max(10, Math.floor(bitmap.height * (PRINTER_WIDTH / bitmap.width)));
+      rawCanvas = document.createElement('canvas');
+      rawCanvas.width = PRINTER_WIDTH;
+      rawCanvas.height = targetHeight;
+      const ctx = rawCanvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, PRINTER_WIDTH, targetHeight);
+      ctx.drawImage(bitmap, 0, 0, PRINTER_WIDTH, targetHeight);
+    }
+
+    return cropWhiteTopBottom(rawCanvas);
+  }
+
+  function cropWhiteTopBottom(srcCanvas) {
+    const ctx = srcCanvas.getContext('2d');
+    const h = srcCanvas.height;
+    const pixels = ctx.getImageData(0, 0, PRINTER_WIDTH, h).data;
+    let minRow = 0;
+    let maxRow = h - 1;
+
+    topScan: for (let y = 0; y < h; y++) {
+      for (let x = 0; x < PRINTER_WIDTH; x++) {
+        const idx = (y * PRINTER_WIDTH + x) * 4;
+        const lum = pixels[idx] * 0.299 + pixels[idx + 1] * 0.587 + pixels[idx + 2] * 0.114;
+        if (lum < 242) { minRow = y; break topScan; }
+      }
+    }
+    bottomScan: for (let y = h - 1; y >= minRow; y--) {
+      for (let x = 0; x < PRINTER_WIDTH; x++) {
+        const idx = (y * PRINTER_WIDTH + x) * 4;
+        const lum = pixels[idx] * 0.299 + pixels[idx + 1] * 0.587 + pixels[idx + 2] * 0.114;
+        if (lum < 242) { maxRow = y; break bottomScan; }
+      }
+    }
+
+    const croppedH = Math.max(10, maxRow - minRow + 1);
+    const out = document.createElement('canvas');
+    out.width = PRINTER_WIDTH;
+    out.height = croppedH;
+    out.getContext('2d').drawImage(srcCanvas, 0, minRow, PRINTER_WIDTH, croppedH, 0, 0, PRINTER_WIDTH, croppedH);
+    return out;
+  }
+
+  function onBrightnessChange() {
+    const val = document.getElementById('brightnessSlider').value;
+    localStorage.setItem('cat_brightness', val);
+    rebuildCompositePreview(false);
+  }
+
+  function rebuildCompositePreview(resetFitScreen = false, skipProfileOverlay = false) {
+    if (!docSourceCanvas) {
+      emptyStateEl.style.display = 'flex';
+      transformEl.style.display = 'none';
+      fitScreenBtnEl.style.display = 'none';
+      printSomethingElseBtnEl.style.display = 'none';
+      openOptionsCardFabBtnEl.style.display = 'none';
+      updateMainButtonUI();
+      return;
+    }
+
+    emptyStateEl.style.display = 'none';
+    transformEl.style.display = 'block';
+    fitScreenBtnEl.style.display = 'flex';
+    printSomethingElseBtnEl.style.display = 'flex';
+    openOptionsCardFabBtnEl.style.display = 'flex';
+
+    const threshold = parseInt(document.getElementById('brightnessSlider').value || '155', 10);
+    const marginBeforeMm = skipProfileOverlay ? 0 : parseInt(localStorage.getItem('cat_margin_before_mm') ?? '4', 10);
+    const marginAfterMm = skipProfileOverlay ? 0 : parseInt(localStorage.getItem('cat_margin_after_mm') ?? '4', 10);
+    const marginBeforePx = Math.max(0, Math.round(marginBeforeMm * PX_PER_MM));
+    const marginAfterPx = Math.max(0, Math.round(marginAfterMm * PX_PER_MM));
+
+    const prof = skipProfileOverlay ? null : getActiveStoreProfile();
+    const activeStampCanvas = (prof && prof.stampCanvas) ? prof.stampCanvas : null;
+    const stampPos = (prof && prof.stampPosition) ? prof.stampPosition : 'after';
+    const stampGap = activeStampCanvas ? 16 : 0;
+
+    const extraStoreNameH = (!skipProfileOverlay && !isFpPipelineRun && prof && prof.storeName && prof.storeName.trim()) ? 40 : 0;
+
+    const docH = docSourceCanvas.height;
+    const stampH = activeStampCanvas ? activeStampCanvas.height : 0;
+    const totalHeight = Math.max(40, marginBeforePx + extraStoreNameH + docH + stampH + stampGap + marginAfterPx);
+
+    const compCanvas = document.createElement('canvas');
+    compCanvas.width = PRINTER_WIDTH;
+    compCanvas.height = totalHeight;
+    const compCtx = compCanvas.getContext('2d');
+    compCtx.fillStyle = '#FFFFFF';
+    compCtx.fillRect(0, 0, PRINTER_WIDTH, totalHeight);
+
+    let yCursor = marginBeforePx;
+
+    if (activeStampCanvas && stampPos === 'before') {
+      compCtx.drawImage(activeStampCanvas, 0, yCursor);
+      yCursor += stampH + stampGap;
+    }
+
+    if (extraStoreNameH > 0) {
+      compCtx.fillStyle = '#000000';
+      compCtx.font = '900 26px system-ui, sans-serif';
+      compCtx.textAlign = 'center';
+      compCtx.textBaseline = 'top';
+      compCtx.fillText(prof.storeName.trim().toUpperCase(), PRINTER_WIDTH / 2, yCursor + 4);
+      yCursor += extraStoreNameH;
+    }
+
+    compCtx.drawImage(docSourceCanvas, 0, yCursor);
+    yCursor += docH;
+
+    if (activeStampCanvas && stampPos === 'after') {
+      yCursor += stampGap;
+      compCtx.drawImage(activeStampCanvas, 0, yCursor);
+    }
+
+    const srcPixels = compCtx.getImageData(0, 0, PRINTER_WIDTH, totalHeight).data;
+    printCanvasEl.width = PRINTER_WIDTH;
+    printCanvasEl.height = totalHeight;
+    const dstCtx = printCanvasEl.getContext('2d');
+    const dstImg = dstCtx.createImageData(PRINTER_WIDTH, totalHeight);
+    const dstPixels = dstImg.data;
+
+    for (let i = 0; i < srcPixels.length; i += 4) {
+      const lum = srcPixels[i] * 0.299 + srcPixels[i + 1] * 0.587 + srcPixels[i + 2] * 0.114;
+      const v = lum < threshold ? 0 : 255;
+      dstPixels[i] = v;
+      dstPixels[i + 1] = v;
+      dstPixels[i + 2] = v;
+      dstPixels[i + 3] = 255;
+    }
+    dstCtx.putImageData(dstImg, 0, 0);
+
+    if (resetFitScreen) fitScreen();
+  }
+
+  // ============================================================================
+  // BLE PACKET WRITER & THERMAL PRINT LOOP (WORKS IN BOTH APK AND PWA)
   // ============================================================================
 
   function crc8(payload) {
@@ -2123,7 +5313,6 @@
     return pkt;
   }
 
-  // Converts a Uint8Array packet to a standard Base64 string for the native Java bridge
   function uint8ToBase64(u8Arr) {
     let bin = '';
     for (let i = 0; i < u8Arr.length; i += 8192) {
@@ -2154,7 +5343,11 @@
         if (/in progress/i.test(err.message) && writeChar) {
           await printRowSleep(25);
           if (writeChar.nativeBridge) return;
-          await writeChar.writeValueWithoutResponse(pkt);
+          if (writeChar.properties && writeChar.properties.writeWithoutResponse) {
+            await writeChar.writeValueWithoutResponse(pkt);
+          } else {
+            await writeChar.writeValue(pkt);
+          }
         } else {
           throw err;
         }
@@ -2164,35 +5357,15 @@
     return nextOp;
   }
 
-  async function attemptAutoReconnect(silentToast = true) {
-    if (hasNativeBridge()) {
-      const mac = window.BilluNative.getSavedMac();
-      if (mac) {
-        return window.BilluNative.connectToMac(mac);
-      }
-      return false;
-    }
-
-    const savedId = getSavedPrinterId();
-    if (!savedId) return false;
-    if (writeChar) return true;
-    if (isPrinting) return Boolean(writeChar);
-    if (isConnecting && activeConnectPromise) {
-      return await activeConnectPromise;
-    }
-    return false;
-  }
-
   async function feedPaper5mm() {
     if (isPrinting) return;
-    const conn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+    let conn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
     if (!conn) {
-      const ok = await attemptAutoReconnect(false);
-      if (!ok) {
-        if (hasNativeBridge()) {
-          window.BilluNative.scanAndPickPrinter();
-          return;
-        }
+      await attemptAutoReconnect(false);
+      conn = hasNativeBridge() ? window.BilluNative.isConnected() : Boolean(writeChar);
+      if (!conn) {
+        await pairNewPrinter();
+        return;
       }
     }
 
@@ -2349,6 +5522,9 @@
 
       if (cancelPrintRequested) {
         await writeBle(makePacket(0xA6, [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17])).catch(() => {});
+        if (!hasNativeBridge() && activeBleDevice && activeBleDevice.gatt) {
+          activeBleDevice.gatt.disconnect();
+        }
         if (originPeerId) {
           sendPeerPrintTelemetry(originPeerId, 'print_cancelled', jobTitle, 'Stopped on peer printer');
         }
@@ -2402,13 +5578,29 @@
     document.getElementById('menuUpdatedLabel').innerText = APP_UPDATED_DHAKA;
     document.getElementById('homeVersionBadge').innerText = `Billu ${APP_VERSION} • ${APP_UPDATED_DHAKA}`;
 
+    const legacyId = localStorage.getItem('cat_printer_id');
+    const legacyName = localStorage.getItem('cat_printer_name');
+    if (legacyId && getPrinterRegistry().length === 0) {
+      savePrinterRegistry([{
+        id: legacyId,
+        hwName: legacyName || 'Thermal Printer',
+        customName: '',
+        macTag: computeMacTag(legacyId, legacyName),
+        lastConnected: Date.now()
+      }]);
+    }
+
     if (hasNativeBridge()) {
-      writeChar = { nativeBridge: true };
       const savedMac = window.BilluNative.getSavedMac();
       const savedName = window.BilluNative.getSavedName();
       if (savedMac) {
         registerOrUpdatePrinter({ id: savedMac, name: savedName || 'Thermal Printer' });
-        window.BilluNative.connectToMac(savedMac);
+        if (window.BilluNative.isConnected()) {
+          writeChar = { nativeBridge: true };
+          hasMadeFirstContact = true;
+        } else {
+          window.BilluNative.connectToMac(savedMac);
+        }
       }
     }
 
@@ -2459,6 +5651,7 @@
     initRemoteSyncEngine();
     await refreshVaultCount();
     updateNativeApkSettingsCard();
+    syncNativeSilentModePrefs();
 
     try {
       const savedQueueJson = sessionStorage.getItem('billu_relaunch_queue_v4');
@@ -2487,9 +5680,7 @@
     rebuildCompositePreview(true);
     updateMainButtonUI();
     updateFirstContactUI(true);
-    if (!hasNativeBridge()) {
-      startAutoReconnectLoop();
-    }
+    startAutoReconnectLoop();
 
     const handledByUrl = await checkUrlForFpPayload();
     if (handledByUrl) return;

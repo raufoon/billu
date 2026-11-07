@@ -131,19 +131,17 @@ class BilluBridgeService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
 
-    // Native Bluetooth LE State
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var activeGatt: BluetoothGatt? = null
     @Volatile var writeChar: BluetoothGattCharacteristic? = null
     @Volatile var isBleConnecting = false
     private var writeLatch: CountDownLatch? = null
-    private var bgScannerActive = false
 
-    // Floating 🐼 Bubble Overlay
     private var windowManager: WindowManager? = null
     private var floatingBubble: TextView? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var isBubbleAdded = false
+    @Volatile var isPartnerAppInForeground = false
 
     private val bgReconnectRunnable = object : Runnable {
         override fun run() {
@@ -186,7 +184,7 @@ class BilluBridgeService : Service() {
                 val prefs = getSharedPreferences("billu_native_prefs", MODE_PRIVATE)
                 val cur = prefs.getBoolean("bubble_enabled", true)
                 prefs.edit().putBoolean("bubble_enabled", !cur).apply()
-                updateFloatingBubbleVisibility(true)
+                updateFloatingBubbleVisibility(isPartnerAppInForeground)
                 updateForegroundNotification()
             }
         }
@@ -205,7 +203,7 @@ class BilluBridgeService : Service() {
     }
 
     // ============================================================================
-    // FOREGROUND NOTIFICATION WITH DIRECT "[ 🐼 PRINT ]" ACTION BUTTON
+    // FOREGROUND NOTIFICATION WITH "[ 🐱 PRINT ORDER ]" ACTION BUTTON
     // ============================================================================
 
     private fun createNotificationChannel() {
@@ -256,8 +254,8 @@ class BilluBridgeService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openPending)
-            .addAction(0, "🐼 Print Order", printPending)
-            .addAction(0, if (bubbleOn) "Hide 🐼 Bubble" else "Show 🐼 Bubble", togglePending)
+            .addAction(0, "🐱 Print Order", printPending)
+            .addAction(0, if (bubbleOn) "Hide 🐱 Button" else "Show 🐱 Button", togglePending)
             .build()
     }
 
@@ -288,7 +286,7 @@ class BilluBridgeService : Service() {
     }
 
     // ============================================================================
-    // DRAGGABLE FLOATING "🐼" PRINT BUBBLE (AD-FREE MACRODROID REPLACEMENT)
+    // DRAGGABLE FLOATING "🐱" CAT BUTTON (EXCLUSIVE TO PARTNER APP)
     // ============================================================================
 
     @SuppressLint("ClickableViewAccessibility")
@@ -304,11 +302,12 @@ class BilluBridgeService : Service() {
         }
 
         val bubble = TextView(this).apply {
-            text = "🐼"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            text = "🐱"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 25f)
             gravity = Gravity.CENTER
             background = bgDrawable
             elevation = 12 * dp
+            visibility = View.GONE // Hidden by default until Partner App is in the foreground
         }
 
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -360,10 +359,8 @@ class BilluBridgeService : Service() {
                     val elapsed = System.currentTimeMillis() - downTime
                     if (dx < 18 && dy < 18) {
                         if (elapsed > 650) {
-                            // Long press opens Billu UI
                             bringBilluActivityToFront()
                         } else {
-                            // Single tap scrapes and prints Foodpanda order!
                             triggerOrderScrapeFromService()
                         }
                     }
@@ -375,10 +372,12 @@ class BilluBridgeService : Service() {
 
         floatingBubble = bubble
         bubbleParams = params
-        updateFloatingBubbleVisibility(true)
+        // Start hidden; BilluAccessibilityService will reveal it exclusively inside Partner App
+        updateFloatingBubbleVisibility(false)
     }
 
-    fun updateFloatingBubbleVisibility(shouldShow: Boolean) {
+    fun updateFloatingBubbleVisibility(partnerAppActive: Boolean) {
+        isPartnerAppInForeground = partnerAppActive
         mainHandler.post {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                 return@post
@@ -388,15 +387,14 @@ class BilluBridgeService : Service() {
             val bubble = floatingBubble ?: return@post
             val params = bubbleParams ?: return@post
 
-            if (enabledByUser && shouldShow) {
+            if (enabledByUser && partnerAppActive) {
                 if (!isBubbleAdded) {
                     try {
                         windowManager?.addView(bubble, params)
                         isBubbleAdded = true
                     } catch (_: Exception) {}
-                } else {
-                    bubble.visibility = View.VISIBLE
                 }
+                bubble.visibility = View.VISIBLE
             } else {
                 if (isBubbleAdded) {
                     bubble.visibility = View.GONE
@@ -426,22 +424,31 @@ class BilluBridgeService : Service() {
             startActivity(intent)
             return
         }
-        // Briefly hide bubble during scrape so it never appears in the node dump
+
         floatingBubble?.visibility = View.INVISIBLE
+        Toast.makeText(this, "🐱 Reading order...", Toast.LENGTH_SHORT).show()
+
         mainHandler.postDelayed({
             acc.captureFoodpandaOrderMultiScroll { b64 ->
-                floatingBubble?.visibility = View.VISIBLE
+                if (isPartnerAppInForeground) {
+                    floatingBubble?.visibility = View.VISIBLE
+                }
                 if (b64.isNullOrEmpty()) {
-                    Toast.makeText(this, "⚠️ Could not read screen text", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "⚠️ No order text found on screen", Toast.LENGTH_SHORT).show()
                 } else {
-                    deliverCapturedOrderToJs(b64, bringToFront = false)
+                    val prefs = getSharedPreferences("billu_native_prefs", MODE_PRIVATE)
+                    val silentBg = prefs.getBoolean("js_silent_bg_enabled", false)
+                    val printerReady = (writeChar != null)
+                    // Open Billu on screen whenever Silent Mode is OFF or Printer is Disconnected!
+                    val shouldOpenBilluUi = (!silentBg) || (!printerReady)
+                    deliverCapturedOrderToJs(b64, bringToFront = shouldOpenBilluUi)
                 }
             }
-        }, 80)
+        }, 100)
     }
 
     fun deliverCapturedOrderToJs(b64: String, bringToFront: Boolean) {
-        val safeB64 = b64.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "")
+        val safeB64 = b64.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "").replace("\r", "")
         if (bringToFront) {
             bringBilluActivityToFront()
         }
@@ -449,18 +456,39 @@ class BilluBridgeService : Service() {
     }
 
     fun bringBilluActivityToFront() {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        mainHandler.post {
+            updateFloatingBubbleVisibility(false)
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                )
+            }
+            // Launch from AccessibilityService context first so Android 10-16 never blocks background activity start
+            val acc = BilluAccessibilityService.instance
+            try {
+                if (acc != null) {
+                    acc.startActivity(intent)
+                } else {
+                    startActivity(intent)
+                }
+            } catch (_: Exception) {
+                try { startActivity(intent) } catch (_: Exception) {}
+            }
         }
-        startActivity(intent)
     }
 
     fun notifyUiVisibility(visible: Boolean) {
+        if (visible) {
+            updateFloatingBubbleVisibility(false)
+        }
         evalJsOnMain("window.isNativeUiVisible = $visible;")
     }
 
     // ============================================================================
-    // NATIVE OS-LEVEL BLUETOOTH LE ENGINE (DIRECT MAC RECONNECT IN BACKGROUND)
+    // NATIVE OS-LEVEL BLUETOOTH LE ENGINE
     // ============================================================================
 
     fun getSavedPrinterMac(): String {
@@ -568,7 +596,6 @@ class BilluBridgeService : Service() {
             device.connectGatt(this, false, gattCallback)
         }
 
-        // Safety timeout so `isBleConnecting` never sticks if printer is currently switched off
         mainHandler.postDelayed({
             if (isBleConnecting && writeChar == null) {
                 isBleConnecting = false
@@ -613,7 +640,6 @@ class BilluBridgeService : Service() {
         evalJsOnMain("if(window.onNativeBleState){window.onNativeBleState($connected, \"$mac\", \"$name\");}")
     }
 
-    // Native BLE Scanner Dialog for Pairing New Printers
     fun showNativeBlePrinterPicker() {
         val act = MainActivity.currentInstance ?: return
         val adapter = bluetoothAdapter
@@ -623,7 +649,6 @@ class BilluBridgeService : Service() {
         }
 
         val discovered = LinkedHashMap<String, BluetoothDevice>()
-        // Include already-bonded devices first
         try {
             for (b in adapter.bondedDevices) {
                 discovered[b.address] = b
@@ -692,6 +717,15 @@ class BilluBridgeService : Service() {
         fun getSavedName(): String = instance?.getSavedPrinterName() ?: ""
 
         @JavascriptInterface
+        fun syncSilentModeState(isSilentActive: Boolean, customPartnerPkg: String) {
+            val svc = instance ?: return
+            svc.getSharedPreferences("billu_native_prefs", Context.MODE_PRIVATE).edit()
+                .putBoolean("js_silent_bg_enabled", isSilentActive)
+                .putString("custom_partner_pkg", customPartnerPkg.trim())
+                .apply()
+        }
+
+        @JavascriptInterface
         fun scanAndPickPrinter() {
             Handler(Looper.getMainLooper()).post {
                 instance?.showNativeBlePrinterPicker()
@@ -709,6 +743,19 @@ class BilluBridgeService : Service() {
         }
 
         @JavascriptInterface
+        fun forgetPrinter() {
+            val svc = instance ?: return
+            svc.savePrinterMacAndName("", "")
+            svc.writeChar = null
+            svc.isBleConnecting = false
+            try { svc.activeGatt?.disconnect() } catch (_: Exception) {}
+            try { svc.activeGatt?.close() } catch (_: Exception) {}
+            svc.activeGatt = null
+            svc.updateForegroundNotification()
+            svc.pushBleStateToJs()
+        }
+
+        @JavascriptInterface
         fun writeBleBase64(b64Packet: String): Boolean {
             val svc = instance ?: return false
             val bytes = Base64.decode(b64Packet, Base64.DEFAULT)
@@ -723,7 +770,13 @@ class BilluBridgeService : Service() {
                 val launchIntent = svc.packageManager.getLaunchIntentForPackage(targetPkg)
                 if (launchIntent != null) {
                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    svc.startActivity(launchIntent)
+                    val acc = BilluAccessibilityService.instance
+                    if (acc != null) {
+                        acc.startActivity(launchIntent)
+                    } else {
+                        svc.startActivity(launchIntent)
+                    }
+                    svc.updateFloatingBubbleVisibility(true)
                     true
                 } else {
                     false
@@ -750,21 +803,6 @@ class BilluBridgeService : Service() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             svc.startActivity(intent)
-        }
-
-        @JavascriptInterface
-        fun getAllKnownPrintersJson(): String {
-            val svc = instance ?: return "[]"
-            val arr = JSONArray()
-            val mac = svc.getSavedPrinterMac()
-            if (mac.isNotEmpty()) {
-                val obj = JSONObject()
-                obj.put("id", mac)
-                obj.put("hwName", svc.getSavedPrinterName().ifEmpty { "Thermal Printer" })
-                obj.put("macTag", mac)
-                arr.put(obj)
-            }
-            return arr.toString()
         }
 
         @JavascriptInterface
