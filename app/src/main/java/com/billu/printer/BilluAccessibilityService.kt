@@ -2,16 +2,23 @@ package com.billu.printer
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Path
-import android.graphics.Rect
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.util.Base64
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class BilluAccessibilityService : AccessibilityService() {
 
@@ -25,34 +32,46 @@ class BilluAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        checkActiveWindowAndSyncBubble(rootInActiveWindow?.packageName?.toString())
+        evaluatePartnerAppVisibility(rootInActiveWindow?.packageName?.toString())
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || isScrapingNow) return
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-            event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-            val pkg = event.packageName?.toString() ?: rootInActiveWindow?.packageName?.toString() ?: return
-            checkActiveWindowAndSyncBubble(pkg)
+        // Only react to actual foreground window state changes so our own floating button never triggers a self-hide!
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val pkg = event.packageName?.toString() ?: return
+            evaluatePartnerAppVisibility(pkg)
+            // Re-verify after 350ms in case a Recents/Launcher transition animation was still finishing
+            handler.postDelayed({
+                if (!isScrapingNow) {
+                    evaluatePartnerAppVisibility(rootInActiveWindow?.packageName?.toString())
+                }
+            }, 350L)
         }
     }
 
-    private fun checkActiveWindowAndSyncBubble(pkg: String?) {
+    private fun evaluatePartnerAppVisibility(pkg: String?) {
         if (pkg.isNullOrEmpty()) return
-        // Ignore transient volume/notification shade or keyboard overlays so they don't flicker the button
-        if (pkg == "com.android.systemui" ||
-            pkg.contains("inputmethod") ||
-            pkg.contains("honeyboard") ||
-            pkg.contains("keyboard")) {
+        val lower = pkg.lowercase()
+
+        // Ignore transient overlays, keyboards, WebView sub-windows, and our own overlay window
+        if (lower == "com.billu.printer" ||
+            lower == "com.android.systemui" ||
+            lower.contains("webview") ||
+            lower.contains("inputmethod") ||
+            lower.contains("honeyboard") ||
+            lower.contains("gboard") ||
+            lower.contains("keyboard") ||
+            lower.contains("permissioncontroller")) {
             return
         }
 
         val prefs = getSharedPreferences("billu_native_prefs", Context.MODE_PRIVATE)
         val customPkg = prefs.getString("custom_partner_pkg", "") ?: ""
 
-        val isPartnerApp = pkg.contains("pandaportal", ignoreCase = true) ||
-                pkg.contains("foodpanda", ignoreCase = true) ||
-                (customPkg.isNotEmpty() && pkg.equals(customPkg, ignoreCase = true))
+        val isPartnerApp = lower.contains("pandaportal") ||
+                lower.contains("foodpanda") ||
+                (customPkg.isNotEmpty() && lower == customPkg.lowercase())
 
         BilluBridgeService.instance?.updateFloatingBubbleVisibility(isPartnerApp)
     }
@@ -66,147 +85,197 @@ class BilluAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Multi-scroll screen scraper:
-     * 1. Reads all nodes on the current screen.
-     * 2. Swipes up to scroll down repeatedly (up to 5 scrolls) until either the true bottom footer
-     *    ("Delivery type" / "Need help" / "Contact help") is visible OR two consecutive screens are identical.
+     * Exact MacroDroid "Print Foodpanda" Sequence:
+     * 1. Read Screen Contents -> fp_screen_1
+     * 2. Repeat 3 times: Gesture (250ms: 50%,80% -> 50%,60%) + Wait 400ms
+     * 3. Read Screen Contents -> fp_screen_2
+     * 4. Repeat 3 times: Gesture (250ms: 50%,60% -> 50%,80%) + Wait 350ms
+     * 5. Read Screen Contents -> fp_screen_3
+     * 6. Write to File: FP_Log_YYYY_MM_DD_HH_MM_SS.txt
      */
     fun captureFoodpandaOrderMultiScroll(onComplete: (String?) -> Unit) {
         if (isScrapingNow) return
         isScrapingNow = true
+        var completed = false
 
-        val screens = mutableListOf<String>()
-        var lastSignature = ""
-        var scrollCount = 0
-        val maxScrolls = 5
-
-        fun finishScrape() {
+        fun finishOnce(resultB64: String?) {
+            if (completed) return
+            completed = true
             isScrapingNow = false
-            if (screens.isEmpty()) {
-                onComplete(null)
-            } else {
-                val combined = screens.joinToString("\n===SCREEN_BREAK===\n")
-                val b64 = Base64.encodeToString(combined.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-                onComplete(b64)
-            }
+            onComplete(resultB64)
         }
 
-        fun captureStep() {
-            val root = rootInActiveWindow
-            if (root == null) {
-                finishScrape()
-                return
+        // 6-second safety watchdog so `isScrapingNow` can never get stuck if Android cancels a gesture
+        handler.postDelayed({
+            if (!completed) {
+                val fallbackDump = dumpCurrentScreenNodes()
+                val b64 = if (fallbackDump.length > 4) {
+                    Base64.encodeToString(fallbackDump.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                } else null
+                finishOnce(b64)
             }
+        }, 6500L)
 
-            val jsonObj = JSONObject()
-            var indexCounter = 0
-            val fullScreenText = StringBuilder()
+        // Step 1: Read Screen Contents -> fp_screen_1
+        val fpScreen1 = dumpCurrentScreenNodes()
 
-            fun walk(node: AccessibilityNodeInfo?) {
-                if (node == null) return
-                val txt = node.text?.toString()?.trim() ?: ""
-                val desc = node.contentDescription?.toString()?.trim() ?: ""
-                val combinedVal = when {
-                    txt.isNotEmpty() && desc.isNotEmpty() && txt != desc -> "$txt\n$desc"
-                    txt.isNotEmpty() -> txt
-                    else -> desc
+        // Step 2: Repeat 3 times: Gesture (250ms: 50%,80% -> 50%,60%)
+        performRepeatedVerticalGesture(
+            repeatCount = 3,
+            startYRatio = 0.80f,
+            endYRatio = 0.60f,
+            durationMs = 250L,
+            stepGapMs = 140L
+        ) {
+            // Wait 400 ms
+            handler.postDelayed({
+                // Step 3: Read Screen Contents -> fp_screen_2
+                val fpScreen2 = dumpCurrentScreenNodes()
+
+                // Step 4: Repeat 3 times: Gesture (250ms: 50%,60% -> 50%,80%)
+                performRepeatedVerticalGesture(
+                    repeatCount = 3,
+                    startYRatio = 0.60f,
+                    endYRatio = 0.80f,
+                    durationMs = 250L,
+                    stepGapMs = 140L
+                ) {
+                    // Wait 350 ms
+                    handler.postDelayed({
+                        // Step 5: Read Screen Contents -> fp_screen_3
+                        val fpScreen3 = dumpCurrentScreenNodes()
+
+                        val validScreens = listOf(fpScreen1, fpScreen2, fpScreen3).filter { it.length > 4 }
+                        if (validScreens.isEmpty()) {
+                            finishOnce(null)
+                            return@postDelayed
+                        }
+
+                        val combinedRaw = validScreens.joinToString("\n===SCREEN_BREAK===\n")
+                        saveRawFpLogFile(combinedRaw)
+
+                        val b64 = Base64.encodeToString(combinedRaw.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                        finishOnce(b64)
+                    }, 350L)
                 }
-
-                val viewId = node.viewIdResourceName?.substringAfterLast('/') ?: ""
-                if (combinedVal.isNotEmpty()) {
-                    fullScreenText.append(combinedVal).append("\n")
-                    if (viewId.startsWith("test_id_")) {
-                        jsonObj.put(viewId, combinedVal)
-                    }
-                    jsonObj.put("index:$indexCounter", combinedVal)
-                    indexCounter++
-                }
-
-                for (i in 0 until node.childCount) {
-                    walk(node.getChild(i))
-                }
-            }
-
-            try {
-                walk(root)
-            } catch (_: Exception) {}
-
-            val dumpStr = jsonObj.toString()
-            val currentSig = fullScreenText.toString().trim()
-
-            if (dumpStr.length > 4 && currentSig != lastSignature) {
-                screens.add(dumpStr)
-            }
-
-            // Stop if the scroll view didn't move at all (we physically hit the bottom)
-            val hitPhysicalBottom = (scrollCount > 0 && currentSig == lastSignature)
-            lastSignature = currentSig
-
-            // Only treat the absolute bottom footer labels as bottom-of-receipt (NOT "Total", which can be sticky!)
-            val hasTrueBottomFooter = Regex("(?i)(Delivery type|Need help with this order|Contact help centre)").containsMatchIn(currentSig)
-
-            if (!hitPhysicalBottom && !hasTrueBottomFooter && scrollCount < maxScrolls) {
-                scrollCount++
-                performSwipeUpScroll(root) {
-                    handler.postDelayed({ captureStep() }, 480)
-                }
-            } else {
-                finishScrape()
-            }
+            }, 400L)
         }
-
-        captureStep()
     }
 
-    private fun performSwipeUpScroll(root: AccessibilityNodeInfo, onScrolled: () -> Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val dm = resources.displayMetrics
-            val cx = dm.widthPixels * 0.5f
-            val startY = dm.heightPixels * 0.76f
-            val endY = dm.heightPixels * 0.24f
+    private fun dumpCurrentScreenNodes(): String {
+        val jsonObj = JSONObject()
+        var indexCounter = 0
+
+        fun walk(node: AccessibilityNodeInfo?) {
+            if (node == null) return
+            val txt = node.text?.toString()?.trim() ?: ""
+            val desc = node.contentDescription?.toString()?.trim() ?: ""
+            val combinedVal = when {
+                txt.isNotEmpty() && desc.isNotEmpty() && txt != desc -> "$txt\n$desc"
+                txt.isNotEmpty() -> txt
+                else -> desc
+            }
+
+            val viewId = node.viewIdResourceName?.substringAfterLast('/') ?: ""
+            if (combinedVal.isNotEmpty()) {
+                if (viewId.startsWith("test_id_")) {
+                    jsonObj.put(viewId, combinedVal)
+                }
+                jsonObj.put("index:$indexCounter", combinedVal)
+                indexCounter++
+            }
+
+            for (i in 0 until node.childCount) {
+                walk(node.getChild(i))
+            }
+        }
+
+        try {
+            val root = rootInActiveWindow
+            if (root != null) {
+                walk(root)
+            }
+            if (indexCounter == 0) {
+                for (w in windows) {
+                    val wPkg = w.root?.packageName?.toString()?.lowercase() ?: ""
+                    if (wPkg != "com.billu.printer" && w.root != null) {
+                        walk(w.root)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        return jsonObj.toString()
+    }
+
+    private fun performRepeatedVerticalGesture(
+        repeatCount: Int,
+        startYRatio: Float,
+        endYRatio: Float,
+        durationMs: Long,
+        stepGapMs: Long,
+        onFinishedAll: () -> Unit
+    ) {
+        if (repeatCount <= 0 || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            onFinishedAll()
+            return
+        }
+
+        val dm = resources.displayMetrics
+        val cx = dm.widthPixels * 0.50f
+        val startY = dm.heightPixels * startYRatio
+        val endY = dm.heightPixels * endYRatio
+
+        fun runOne(remaining: Int) {
+            if (remaining <= 0) {
+                onFinishedAll()
+                return
+            }
             val path = Path().apply {
                 moveTo(cx, startY)
                 lineTo(cx, endY)
             }
-            val stroke = GestureDescription.StrokeDescription(path, 0, 260)
+            val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
             val gesture = GestureDescription.Builder().addStroke(stroke).build()
-            val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            val ok = dispatchGesture(gesture, object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
-                    onScrolled()
+                    handler.postDelayed({ runOne(remaining - 1) }, stepGapMs)
                 }
                 override fun onCancelled(gestureDescription: GestureDescription?) {
-                    fallbackNodeScroll(root)
-                    onScrolled()
+                    handler.postDelayed({ runOne(remaining - 1) }, stepGapMs)
                 }
             }, null)
-            if (dispatched) return
+
+            if (!ok) {
+                handler.postDelayed({ runOne(remaining - 1) }, durationMs + stepGapMs)
+            }
         }
 
-        fallbackNodeScroll(root)
-        onScrolled()
+        runOne(repeatCount)
     }
 
-    private fun fallbackNodeScroll(root: AccessibilityNodeInfo): Boolean {
-        var bestNode: AccessibilityNodeInfo? = null
-        var bestArea = 0
+    private fun saveRawFpLogFile(rawContent: String) {
+        try {
+            val stamp = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss", Locale.US).format(Date())
+            val fileName = "FP_Log_$stamp.txt"
+            val bytes = rawContent.toByteArray(Charsets.UTF_8)
 
-        fun findLargestScrollable(node: AccessibilityNodeInfo?) {
-            if (node == null) return
-            if (node.isScrollable && node.actionList.any { it.id == AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD.id }) {
-                val rect = Rect()
-                node.getBoundsInScreen(rect)
-                val area = rect.width() * rect.height()
-                if (area > bestArea) {
-                    bestArea = area
-                    bestNode = node
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Billu")
                 }
+                val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Billu")
+                if (!dir.exists()) dir.mkdirs()
+                FileOutputStream(File(dir, fileName)).use { it.write(bytes) }
             }
-            for (i in 0 until node.childCount) {
-                findLargestScrollable(node.getChild(i))
-            }
-        }
-
-        findLargestScrollable(root)
-        return bestNode?.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD.id) ?: false
+        } catch (_: Exception) {}
     }
 }

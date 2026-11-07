@@ -46,8 +46,6 @@ import android.webkit.WebViewClient
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.CountDownLatch
@@ -202,10 +200,6 @@ class BilluBridgeService : Service() {
         super.onDestroy()
     }
 
-    // ============================================================================
-    // FOREGROUND NOTIFICATION WITH "[ 🐱 PRINT ORDER ]" ACTION BUTTON
-    // ============================================================================
-
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val chan = NotificationChannel(
@@ -285,10 +279,6 @@ class BilluBridgeService : Service() {
         nm.notify(NOTIF_ID, buildNotification(status))
     }
 
-    // ============================================================================
-    // DRAGGABLE FLOATING "🐱" CAT BUTTON (EXCLUSIVE TO PARTNER APP)
-    // ============================================================================
-
     @SuppressLint("ClickableViewAccessibility")
     private fun setupFloatingBubble() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -307,7 +297,7 @@ class BilluBridgeService : Service() {
             gravity = Gravity.CENTER
             background = bgDrawable
             elevation = 12 * dp
-            visibility = View.GONE // Hidden by default until Partner App is in the foreground
+            visibility = View.GONE
         }
 
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -372,7 +362,6 @@ class BilluBridgeService : Service() {
 
         floatingBubble = bubble
         bubbleParams = params
-        // Start hidden; BilluAccessibilityService will reveal it exclusively inside Partner App
         updateFloatingBubbleVisibility(false)
     }
 
@@ -425,13 +414,16 @@ class BilluBridgeService : Service() {
             return
         }
 
-        floatingBubble?.visibility = View.INVISIBLE
-        Toast.makeText(this, "🐱 Reading order...", Toast.LENGTH_SHORT).show()
+        // Keep bubble View.VISIBLE (showing ⏳) so Android 14/15/16 preserves our visible-overlay exemption to launch Billu!
+        mainHandler.post {
+            floatingBubble?.text = "⏳"
+            floatingBubble?.visibility = View.VISIBLE
+        }
 
         mainHandler.postDelayed({
             acc.captureFoodpandaOrderMultiScroll { b64 ->
-                if (isPartnerAppInForeground) {
-                    floatingBubble?.visibility = View.VISIBLE
+                mainHandler.post {
+                    floatingBubble?.text = "🐱"
                 }
                 if (b64.isNullOrEmpty()) {
                     Toast.makeText(this, "⚠️ No order text found on screen", Toast.LENGTH_SHORT).show()
@@ -439,12 +431,11 @@ class BilluBridgeService : Service() {
                     val prefs = getSharedPreferences("billu_native_prefs", MODE_PRIVATE)
                     val silentBg = prefs.getBoolean("js_silent_bg_enabled", false)
                     val printerReady = (writeChar != null)
-                    // Open Billu on screen whenever Silent Mode is OFF or Printer is Disconnected!
                     val shouldOpenBilluUi = (!silentBg) || (!printerReady)
                     deliverCapturedOrderToJs(b64, bringToFront = shouldOpenBilluUi)
                 }
             }
-        }, 100)
+        }, 80)
     }
 
     fun deliverCapturedOrderToJs(b64: String, bringToFront: Boolean) {
@@ -457,7 +448,9 @@ class BilluBridgeService : Service() {
 
     fun bringBilluActivityToFront() {
         mainHandler.post {
-            updateFloatingBubbleVisibility(false)
+            // CRITICAL: Do NOT hide floatingBubble before startActivity(), because Android 14+ requires
+            // a currently visible SYSTEM_ALERT_WINDOW overlay to allow background activity launches!
+            // MainActivity.onResume() -> notifyUiVisibility(true) will hide the bubble once Billu opens.
             val intent = Intent(this, MainActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -466,7 +459,6 @@ class BilluBridgeService : Service() {
                     Intent.FLAG_ACTIVITY_CLEAR_TOP
                 )
             }
-            // Launch from AccessibilityService context first so Android 10-16 never blocks background activity start
             val acc = BilluAccessibilityService.instance
             try {
                 if (acc != null) {
@@ -486,10 +478,6 @@ class BilluBridgeService : Service() {
         }
         evalJsOnMain("window.isNativeUiVisible = $visible;")
     }
-
-    // ============================================================================
-    // NATIVE OS-LEVEL BLUETOOTH LE ENGINE
-    // ============================================================================
 
     fun getSavedPrinterMac(): String {
         val prefs = getSharedPreferences("billu_native_prefs", MODE_PRIVATE)
@@ -698,10 +686,6 @@ class BilluBridgeService : Service() {
                 .show()
         }, 2500)
     }
-
-    // ============================================================================
-    // JAVASCRIPT INTERFACE (`window.BilluNative`)
-    // ============================================================================
 
     class NativeJsBridge {
         @JavascriptInterface

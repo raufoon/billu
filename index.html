@@ -3835,14 +3835,22 @@
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
+  function base64ToArrayBuffer(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+
   async function exportFullBilluBackup() {
     try {
-      showToast('📦 Preparing full backup...', 'info');
+      showToast('📦 Exporting settings, profiles & receipts...', 'info');
       const lsData = {};
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k) lsData[k] = localStorage.getItem(k);
       }
+
       const profilesRaw = (await idbGet('billuStoreProfilesV41')) || [];
       const serializedProfiles = [];
       for (const p of profilesRaw) {
@@ -3852,16 +3860,30 @@
           stampBase64: p.stampBuffer ? await arrayBufferToBase64(p.stampBuffer) : ''
         });
       }
+
+      const vaultRaw = (await idbGet('fpInternalVault')) || [];
+      const serializedVault = [];
+      for (const v of vaultRaw) {
+        serializedVault.push({
+          ...v,
+          pngBuffer: null,
+          pdfBuffer: null,
+          pngBase64: v.pngBuffer ? await arrayBufferToBase64(v.pngBuffer) : '',
+          pdfBase64: v.pdfBuffer ? await arrayBufferToBase64(v.pdfBuffer) : ''
+        });
+      }
+
       const backupObj = {
         version: APP_VERSION,
         exportedAt: new Date().toISOString(),
         localStorage: lsData,
-        storeProfiles: serializedProfiles
+        storeProfiles: serializedProfiles,
+        vaultReceipts: serializedVault
       };
-      const jsonBytes = new TextEncoder().encode(JSON.stringify(backupObj, null, 2));
+      const jsonBytes = new TextEncoder().encode(JSON.stringify(backupObj));
       const dateStr = new Date().toISOString().slice(0, 10);
       await downloadVaultFile(jsonBytes, `Billu_Backup_${dateStr}.json`, 'application/json');
-      showToast('✅ Backup saved!', 'success');
+      showToast(`✅ Exported ${serializedVault.length} receipt(s) & all settings!`, 'success');
     } catch (err) {
       showToast('⚠️ Backup export failed: ' + err.message, 'error');
     }
@@ -3871,6 +3893,7 @@
     const file = e.target.files[0];
     if (!file) return;
     try {
+      showToast('📥 Importing backup...', 'info');
       const text = await file.text();
       const backupObj = JSON.parse(text);
       if (!backupObj || !backupObj.localStorage) throw new Error('Invalid backup file');
@@ -3882,26 +3905,36 @@
       if (Array.isArray(backupObj.storeProfiles)) {
         const restoredProfiles = [];
         for (const p of backupObj.storeProfiles) {
-          let buf = null;
-          if (p.stampBase64) {
-            const bin = atob(p.stampBase64);
-            const bytes = new Uint8Array(bin.length);
-            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-            buf = bytes.buffer;
-          }
           restoredProfiles.push({
             id: p.id,
             storeName: p.storeName || '',
             stampPosition: p.stampPosition || 'after',
             stampFileName: p.stampFileName || '',
             stampFileType: p.stampFileType || '',
-            stampBuffer: buf
+            stampBuffer: p.stampBase64 ? base64ToArrayBuffer(p.stampBase64) : null
           });
         }
         await idbSet('billuStoreProfilesV41', restoredProfiles);
       }
 
-      showToast('✅ Backup restored! Reloading...', 'success');
+      if (Array.isArray(backupObj.vaultReceipts)) {
+        const existingVault = (await idbGet('fpInternalVault')) || [];
+        const existingKeys = new Set(existingVault.map(x => x.dedupeKey || x.baseName));
+        for (const v of backupObj.vaultReceipts) {
+          const key = v.dedupeKey || v.baseName;
+          if (!existingKeys.has(key)) {
+            existingKeys.add(key);
+            existingVault.push({
+              ...v,
+              pngBuffer: v.pngBase64 ? base64ToArrayBuffer(v.pngBase64) : null,
+              pdfBuffer: v.pdfBase64 ? base64ToArrayBuffer(v.pdfBase64) : null
+            });
+          }
+        }
+        await idbSet('fpInternalVault', existingVault.slice(0, 150));
+      }
+
+      showToast('✅ All receipts & settings restored! Reloading...', 'success');
       setTimeout(() => window.location.reload(), 700);
     } catch (err) {
       showToast('⚠️ Import failed: ' + err.message, 'error');

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Dark Charcoal Circular Background -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M54,4A50,50 0,1 1,54 104A50,50 0,1 1,54 4Z" />
+    <!-- Outer White Ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:pathData="M54,9A45,45 0,1 1,54 99A45,45 0,1 1,54 9Z" />
+    <!-- White Cat Head & Pointed Ears -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,44 L28,24 L43,36 L65,36 L80,24 L80,44 C83,50 84,58 81,66 C77,76 66,82 54,82 C42,82 31,76 27,66 C24,58 25,50 28,44 Z" />
+    <!-- Inner Dark Ear Triangles -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M32,40 L32,30 L40,37 Z M76,40 L76,30 L68,37 Z" />
+    <!-- Left & Right Black Cat Eyes -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M42,53A4.5,5.5 0,1 1,42 64A4.5,5.5 0,1 1,42 53Z M66,53A4.5,5.5 0,1 1,66 64A4.5,5.5 0,1 1,66 53Z" />
+    <!-- Nose & Mouth -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M50,64 L58,64 L54,69 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#111827"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,69 Q49,74 44,71 M54,69 Q59,74 64,71" />
+</vector>

@@ -34,8 +34,8 @@
     <application
         android:allowBackup="true"
         android:label="Billu"
-        android:icon="@android:drawable/stat_sys_data_bluetooth"
-        android:roundIcon="@android:drawable/stat_sys_data_bluetooth"
+        android:icon="@drawable/ic_billu_cat"
+        android:roundIcon="@drawable/ic_billu_cat"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
