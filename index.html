@@ -1156,6 +1156,8 @@
       }
       if (!hasNativeBridge()) {
         await fetch(window.location.pathname, { cache: 'reload' });
+        window.location.replace(window.location.pathname + '?v=' + Date.now());
+        return;
       }
     } catch (e) {}
     window.location.reload();
@@ -3842,6 +3844,24 @@
     return bytes.buffer;
   }
 
+  async function anyBufferOrBlobToBase64(val) {
+    if (!val) return '';
+    try {
+      if (typeof val === 'string') return val;
+      if (val instanceof Blob) {
+        const ab = await val.arrayBuffer();
+        return uint8ToBase64(new Uint8Array(ab));
+      }
+      if (val instanceof ArrayBuffer) {
+        return uint8ToBase64(new Uint8Array(val));
+      }
+      if (ArrayBuffer.isView(val)) {
+        return uint8ToBase64(new Uint8Array(val.buffer, val.byteOffset, val.byteLength));
+      }
+    } catch (e) {}
+    return '';
+  }
+
   async function exportFullBilluBackup() {
     try {
       showToast('📦 Exporting settings, profiles & receipts...', 'info');
@@ -3857,19 +3877,27 @@
         serializedProfiles.push({
           ...p,
           stampBuffer: null,
-          stampBase64: p.stampBuffer ? await arrayBufferToBase64(p.stampBuffer) : ''
+          stampBase64: await anyBufferOrBlobToBase64(p.stampBuffer)
         });
       }
 
       const vaultRaw = (await idbGet('fpInternalVault')) || [];
       const serializedVault = [];
-      for (const v of vaultRaw) {
+      for (let idx = 0; idx < vaultRaw.length; idx++) {
+        const v = vaultRaw[idx];
+        if (!v) continue;
+        const pngB64 = await anyBufferOrBlobToBase64(v.pngBuffer || v.pngBlob || v.pngBase64);
+        const pdfB64 = await anyBufferOrBlobToBase64(v.pdfBuffer || v.pdfBlob || v.pdfBase64);
         serializedVault.push({
           ...v,
+          id: v.id || (Date.now() - idx),
+          dedupeKey: v.dedupeKey || v.baseName || (`legacy_rec_${v.id || idx}`),
           pngBuffer: null,
           pdfBuffer: null,
-          pngBase64: v.pngBuffer ? await arrayBufferToBase64(v.pngBuffer) : '',
-          pdfBase64: v.pdfBuffer ? await arrayBufferToBase64(v.pdfBuffer) : ''
+          pngBlob: null,
+          pdfBlob: null,
+          pngBase64: pngB64,
+          pdfBase64: pdfB64
         });
       }
 
@@ -3898,8 +3926,16 @@
       const backupObj = JSON.parse(text);
       if (!backupObj || !backupObj.localStorage) throw new Error('Invalid backup file');
 
+      // Preserve the native APK's hardware MAC address if already paired in the APK
+      const currentNativeMac = hasNativeBridge() ? window.BilluNative.getSavedMac() : '';
+      const currentNativeName = hasNativeBridge() ? window.BilluNative.getSavedName() : '';
+
       for (const [k, v] of Object.entries(backupObj.localStorage)) {
         if (typeof v === 'string') localStorage.setItem(k, v);
+      }
+
+      if (currentNativeMac) {
+        registerOrUpdatePrinter({ id: currentNativeMac, name: currentNativeName || 'Thermal Printer' });
       }
 
       if (Array.isArray(backupObj.storeProfiles)) {
@@ -3917,25 +3953,33 @@
         await idbSet('billuStoreProfilesV41', restoredProfiles);
       }
 
+      let importedCount = 0;
       if (Array.isArray(backupObj.vaultReceipts)) {
         const existingVault = (await idbGet('fpInternalVault')) || [];
-        const existingKeys = new Set(existingVault.map(x => x.dedupeKey || x.baseName));
-        for (const v of backupObj.vaultReceipts) {
-          const key = v.dedupeKey || v.baseName;
+        const existingKeys = new Set(
+          existingVault.map((x, i) => x.dedupeKey || x.baseName || (`existing_${x.id || i}`))
+        );
+        for (let idx = 0; idx < backupObj.vaultReceipts.length; idx++) {
+          const v = backupObj.vaultReceipts[idx];
+          if (!v) continue;
+          const key = v.dedupeKey || v.baseName || (`imported_${v.id || idx}_${v.dhakaTime || ''}`);
           if (!existingKeys.has(key)) {
             existingKeys.add(key);
             existingVault.push({
               ...v,
+              dedupeKey: key,
               pngBuffer: v.pngBase64 ? base64ToArrayBuffer(v.pngBase64) : null,
               pdfBuffer: v.pdfBase64 ? base64ToArrayBuffer(v.pdfBase64) : null
             });
+            importedCount++;
           }
         }
         await idbSet('fpInternalVault', existingVault.slice(0, 150));
+        await refreshVaultCount();
       }
 
-      showToast('✅ All receipts & settings restored! Reloading...', 'success');
-      setTimeout(() => window.location.reload(), 700);
+      showToast(`✅ Restored ${importedCount} receipt(s) & settings! Reloading...`, 'success');
+      setTimeout(() => window.location.reload(), 900);
     } catch (err) {
       showToast('⚠️ Import failed: ' + err.message, 'error');
     }

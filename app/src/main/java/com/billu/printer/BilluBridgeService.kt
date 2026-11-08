@@ -12,8 +12,10 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
@@ -48,9 +50,11 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
+import kotlin.math.min
 
 @SuppressLint("MissingPermission", "SetJavaScriptEnabled")
 class BilluBridgeService : Service() {
@@ -133,7 +137,9 @@ class BilluBridgeService : Service() {
     private var activeGatt: BluetoothGatt? = null
     @Volatile var writeChar: BluetoothGattCharacteristic? = null
     @Volatile var isBleConnecting = false
+    @Volatile var maxBlePayloadSize = 20 // Updated dynamically when requestMtu(512) succeeds
     private var writeLatch: CountDownLatch? = null
+    private val writeLock = Any()
 
     private var windowManager: WindowManager? = null
     private var floatingBubble: TextView? = null
@@ -414,7 +420,6 @@ class BilluBridgeService : Service() {
             return
         }
 
-        // Keep bubble View.VISIBLE (showing ⏳) so Android 14/15/16 preserves our visible-overlay exemption to launch Billu!
         mainHandler.post {
             floatingBubble?.text = "⏳"
             floatingBubble?.visibility = View.VISIBLE
@@ -448,9 +453,6 @@ class BilluBridgeService : Service() {
 
     fun bringBilluActivityToFront() {
         mainHandler.post {
-            // CRITICAL: Do NOT hide floatingBubble before startActivity(), because Android 14+ requires
-            // a currently visible SYSTEM_ALERT_WINDOW overlay to allow background activity launches!
-            // MainActivity.onResume() -> notifyUiVisibility(true) will hide the bubble once Billu opens.
             val intent = Intent(this, MainActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -478,6 +480,10 @@ class BilluBridgeService : Service() {
         }
         evalJsOnMain("window.isNativeUiVisible = $visible;")
     }
+
+    // ============================================================================
+    // NATIVE BLUETOOTH LE ENGINE WITH MTU NEGOTIATION & 20-BYTE CHUNK FALLBACK
+    // ============================================================================
 
     fun getSavedPrinterMac(): String {
         val prefs = getSharedPreferences("billu_native_prefs", MODE_PRIVATE)
@@ -516,22 +522,52 @@ class BilluBridgeService : Service() {
     private fun connectToBluetoothDevice(device: BluetoothDevice) {
         if (isBleConnecting || writeChar != null) return
         isBleConnecting = true
+        maxBlePayloadSize = 20
 
         try { activeGatt?.close() } catch (_: Exception) {}
+
+        var servicesDiscoveryStarted = false
 
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    mainHandler.postDelayed({
-                        try { gatt.discoverServices() } catch (_: Exception) {}
-                    }, 150)
+                    servicesDiscoveryStarted = false
+                    // 1. Request a 512-byte MTU (just like Chrome Web Bluetooth does) so 56-byte row packets fit in 1 write!
+                    val mtuRequested = try { gatt.requestMtu(512) } catch (_: Exception) { false }
+                    if (!mtuRequested) {
+                        servicesDiscoveryStarted = true
+                        mainHandler.postDelayed({
+                            try { gatt.discoverServices() } catch (_: Exception) {}
+                        }, 150)
+                    } else {
+                        // Safety fallback in case the printer ignores requestMtu
+                        mainHandler.postDelayed({
+                            if (!servicesDiscoveryStarted) {
+                                servicesDiscoveryStarted = true
+                                try { gatt.discoverServices() } catch (_: Exception) {}
+                            }
+                        }, 550)
+                    }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     writeChar = null
                     isBleConnecting = false
+                    writeLatch?.countDown()
                     try { gatt.close() } catch (_: Exception) {}
                     if (activeGatt === gatt) activeGatt = null
                     updateForegroundNotification()
                     pushBleStateToJs()
+                }
+            }
+
+            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+                if (status == BluetoothGatt.GATT_SUCCESS && mtu >= 23) {
+                    maxBlePayloadSize = (mtu - 3).coerceIn(20, 240)
+                }
+                if (!servicesDiscoveryStarted) {
+                    servicesDiscoveryStarted = true
+                    mainHandler.postDelayed({
+                        try { gatt.discoverServices() } catch (_: Exception) {}
+                    }, 80)
                 }
             }
 
@@ -541,23 +577,67 @@ class BilluBridgeService : Service() {
                     try { gatt.disconnect() } catch (_: Exception) {}
                     return
                 }
-                var found: BluetoothGattCharacteristic? = null
+
+                // Strictly prioritize known thermal printer characteristics: ae01 > ff02 > af01 > ffe1
+                var bestChar: BluetoothGattCharacteristic? = null
+                var bestRank = 999
+                var notifyChar: BluetoothGattCharacteristic? = null
+
                 for (service in gatt.services) {
+                    val sUuid = service.uuid.toString().lowercase()
+                    // Skip Android Generic Access (1800) & Generic Attribute (1801) system services
+                    if (sUuid.startsWith("00001800") || sUuid.startsWith("00001801")) continue
+
+                    val isKnownPrinterService = sUuid.contains("ae30") ||
+                            sUuid.contains("ae00") ||
+                            sUuid.contains("af30") ||
+                            sUuid.contains("ff00") ||
+                            sUuid.contains("ffe0")
+
                     for (c in service.characteristics) {
-                        val uuidStr = c.uuid.toString().lowercase()
+                        val cUuid = c.uuid.toString().lowercase()
                         val props = c.properties
                         val writable = (props and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0 ||
                                 (props and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
-                        if (uuidStr.contains("ae01") || uuidStr.contains("ff02") || writable) {
-                            found = c
-                            if (uuidStr.contains("ae01")) break
+                        val notifiable = (props and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0
+
+                        if (notifiable && (cUuid.contains("ae02") || cUuid.contains("ff01") || cUuid.contains("af02"))) {
+                            notifyChar = c
+                        }
+
+                        if (!writable) continue
+
+                        val rank = when {
+                            cUuid.contains("ae01") -> 1
+                            cUuid.contains("ff02") -> 2
+                            cUuid.contains("af01") -> 3
+                            cUuid.contains("ffe1") -> 4
+                            isKnownPrinterService -> 5
+                            else -> 10
+                        }
+                        if (rank < bestRank) {
+                            bestRank = rank
+                            bestChar = c
                         }
                     }
-                    if (found != null && found.uuid.toString().lowercase().contains("ae01")) break
                 }
 
-                if (found != null) {
-                    writeChar = found
+                // Enable printer status notifications on ae02 / ff01 if present (wakes up PD01/GB01 flow control)
+                if (notifyChar != null) {
+                    try {
+                        gatt.setCharacteristicNotification(notifyChar, true)
+                        val cccd = notifyChar.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+                        if (cccd != null) {
+                            @Suppress("DEPRECATION")
+                            cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            @Suppress("DEPRECATION")
+                            gatt.writeDescriptor(cccd)
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                if (bestChar != null) {
+                    writeChar = bestChar
                     isBleConnecting = false
                     val devName = try { gatt.device.name ?: "Thermal Printer" } catch (_: Exception) { "Thermal Printer" }
                     savePrinterMacAndName(gatt.device.address, devName)
@@ -590,35 +670,77 @@ class BilluBridgeService : Service() {
                 try { activeGatt?.close() } catch (_: Exception) {}
                 activeGatt = null
             }
-        }, 4200)
+        }, 4800)
     }
 
+    /**
+     * Writes a packet to the printer, automatically chunking into `maxBlePayloadSize` slices
+     * if the printer's negotiated MTU is smaller than the 56-byte thermal row packet.
+     */
     fun writeBlePacketSync(bytes: ByteArray): Boolean {
-        val gatt = activeGatt ?: return false
-        val char = writeChar ?: return false
-        return try {
-            val noResp = (char.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
-            char.writeType = if (noResp) {
-                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            } else {
-                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        synchronized(writeLock) {
+            val gatt = activeGatt ?: return false
+            val char = writeChar ?: return false
+            val stepSize = maxBlePayloadSize.coerceAtLeast(20)
+
+            var offset = 0
+            while (offset < bytes.size) {
+                val end = min(offset + stepSize, bytes.size)
+                val chunk = if (offset == 0 && end == bytes.size) {
+                    bytes
+                } else {
+                    bytes.copyOfRange(offset, end)
+                }
+
+                if (!writeSingleBleChunk(gatt, char, chunk)) {
+                    return false
+                }
+                offset = end
             }
-            @Suppress("DEPRECATION")
-            char.value = bytes
+            return true
+        }
+    }
+
+    private fun writeSingleBleChunk(
+        gatt: BluetoothGatt,
+        char: BluetoothGattCharacteristic,
+        chunk: ByteArray
+    ): Boolean {
+        val noResp = (char.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
+        val writeType = if (noResp) {
+            BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        } else {
+            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        }
+
+        for (attempt in 1..10) {
+            if (writeChar == null || activeGatt == null) return false
             val latch = CountDownLatch(1)
             writeLatch = latch
-            @Suppress("DEPRECATION")
-            val started = gatt.writeCharacteristic(char)
-            if (!started) {
-                Thread.sleep(15)
-                @Suppress("DEPRECATION")
-                gatt.writeCharacteristic(char)
+
+            val dispatched = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val code = gatt.writeCharacteristic(char, chunk, writeType)
+                    code == BluetoothStatusCodes.SUCCESS
+                } else {
+                    char.writeType = writeType
+                    @Suppress("DEPRECATION")
+                    char.value = chunk
+                    @Suppress("DEPRECATION")
+                    gatt.writeCharacteristic(char)
+                }
+            } catch (_: Exception) {
+                false
             }
-            latch.await(180, TimeUnit.MILLISECONDS)
-            true
-        } catch (_: Exception) {
-            false
+
+            if (dispatched) {
+                latch.await(120, TimeUnit.MILLISECONDS)
+                return true
+            }
+
+            try { Thread.sleep(8L * attempt) } catch (_: Exception) {}
         }
+        return false
     }
 
     fun pushBleStateToJs() {
